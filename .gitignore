@@ -167,3 +167,8 @@ notebooks/ckpts*
 logging/
 wandb
 wandb/*
+lightning_logs
+*.tfevents*
+*.ipynb_checkpoints
+*.ipynb
+*.pyc
