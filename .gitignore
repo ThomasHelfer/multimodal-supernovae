@@ -162,6 +162,7 @@ cython_debug/
 .DS_Store
 data/ZTFBTS
 multimodal_ssl/data/ZTFBTS
+multimodal_ssl/lightning_logs
 notebooks/ckpts
 notebooks/ckpts*
 logging/
