@@ -1,7 +1,5 @@
 # IAIFI Astro Hackathon: Self-Supervised and Multimodal Learning
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-red.svg)](https://opensource.org/licenses/MIT)
-
 Notebooks to be used as a starting point for the IAIFI Astro Hackthon. Centers on using data from the [ZTF Bright Transient Survey](https://www.ztf.caltech.edu/ztf-bts.html).
 
 - [Notebook 1](./notebooks/01_exploratory_data.ipynb): Data description and exploration
