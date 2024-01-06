@@ -5,4 +5,3 @@ Tutorials and notebooks for the [IAIFI Astro Hackathon](https://iaifi.org/hackat
 - [Self-supervised and multimodal representation learning](./multimodal_ssl/)
 - [Simulation-based inference](./sbi/)
 
-![IAIFI](./multimodal_ssl/notebooks/assets/banner.png)
