@@ -1,7 +1,8 @@
-# IAIFI Astro Hackathon: Tutorial on Self-Supervised and Multimodal Learning
+# IAIFI Astro Hackathon: Self-Supervised and Multimodal Learning
 
-Placeholder repo for the IAIFI Astro Hackathon tutorial on self-supervised and multimodal learning. Tentative plan:
-- Notebook on self-supervision, examples in astro, basic concepts, and references. 
-- Examples of training self-supervised representation encoders via augmentations and masking
-- Hackathon idea 1: GeoCLIP equivalent similar in function to astrometry.net
-- Hackathon idea 2: SSL with ZTF light curves and images?
+Notebooks to be used as a starting point for the IAIFI Astro Hackthon.
+
+- [Notebook 1](./notebooks/01_exploratory_data.ipynb): Data description and exploration
+- [Notebook 2](./notebooks/02_ssl_lightcurve_encoder.ipynb): Encoder and self-supervised learning for light curves
+- [Notebook 3](./notebooks/03_aligning_representations.ipynb): Aligning image and light curve representations
+- [Notebook 4](./notebooks/04_clip_finetuning.ipynb): Fine-tuning CLIP and working with text (WiP)
