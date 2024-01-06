@@ -112,19 +112,16 @@ class Transformer(nn.Module):
     Transformer for classifying sequences
     """
 
-    def __init__(self, emb, heads, depth, dropout=0.0):
+    def __init__(self, emb, heads, depth, ff_hidden_mult=4, dropout=0.0):
         """
         :param emb: Embedding dimension
         :param heads: nr. of attention heads
         :param depth: Number of transformer blocks
-        :param seq_length: Expected maximum sequence length
-        :param num_classes: Number of classes.
-        :param max_pool: If true, use global max pooling in the last layer. If false, use global
-                         average pooling.
+        :param ff_hidden_mult: Hidden layer dimension in feedforward network, as a fraction of `emb`
         """
         super().__init__()
 
-        self.tblocks = nn.ModuleList([TransformerBlock(emb=emb, heads=heads, dropout=dropout) for _ in range(depth)])
+        self.tblocks = nn.ModuleList([TransformerBlock(emb=emb, heads=heads, ff_hidden_mult=ff_hidden_mult, dropout=dropout) for _ in range(depth)])
         self.do = nn.Dropout(dropout)
 
     def forward(self, x, mask=None):
