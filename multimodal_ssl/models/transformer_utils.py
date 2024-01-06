@@ -62,15 +62,17 @@ class SelfAttention(nn.Module):
         # - get dot product of queries and keys, and scale
         dot = torch.bmm(queries, keys.transpose(1, 2))
 
-        assert dot.size() == (b * h, t, t)
-
         if mask is not None:
-            mask = mask.unsqueeze(1).unsqueeze(2)  # mask is initially (b, t). We need to make it (b, 1, 1, t)
-            mask = mask.expand(b, h, t, t)  # Now expand mask to (b, h, t, t) to cover all heads and sequence length
-            mask = mask.reshape(b * h, t, t)  # Reshape to (b * h, t, t) to match the dot product tensor
-            dot = dot.masked_fill_(~mask, float("-inf"))
+            # expand the mask to match tensor dims
+            mask = mask.unsqueeze(1).unsqueeze(2)
+            mask = mask.expand(b, h, 1, t).reshape(b * h, 1, t)
 
+            # replace the False values with -inf
+            dot = dot.masked_fill(~mask, float("-1e7"))
+
+        # print(dot)
         dot = F.softmax(dot, dim=2)
+
         # - dot now has row-wise self-attention probabilities
 
         # apply the self attention to the values
