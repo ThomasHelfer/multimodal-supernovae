@@ -1,6 +1,6 @@
 # IAIFI Astro Hackathon: Self-Supervised and Multimodal Learning
 
-Notebooks to be used as a starting point for the IAIFI Astro Hackthon. Centers on using data from the [ZTF Bright Transient Survey](https://www.ztf.caltech.edu/ztf-bts.html).
+Notebooks to be used as a starting point for the IAIFI Astro Hackthon. Centers on using data from the [ZTF Bright Transient Survey](https://www.ztf.caltech.edu/ztf-bts.html) (h/t Alex Gagliano).
 
 - [Notebook 1](./notebooks/01_exploratory_data.ipynb): Data description and exploration
 - [Notebook 2](./notebooks/02_ssl_lightcurve_encoder.ipynb): Encoder and self-supervised learning for light curves
