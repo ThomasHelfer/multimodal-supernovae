@@ -9,5 +9,3 @@ In this lecture we will
 - Introduce the concept of statistical coverage testing and calibration.
 
 As examples, we will look at a simple Gaussian-signal-on-power-law-background ("bump hunt"), where the likelihood is tractable, and a more complicated example of inferring a distribution of point sources, where the likelihood is computationally intractable.
-
-![ssl](./notebooks/assets/header.png)
