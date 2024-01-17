@@ -1,9 +1,11 @@
+# HPC Guide for IAIFI Astro ML Hackathon 2024
+
 ## Resources overview
 
 - We have an allocation of GPU resources on the Pittsburgh Supercomputing Center's Bridges-2 cluster for the hackathon.
 - Additionally, we have reserved access to 48 Nvidia V100 GPUs just for participants during the course of the hackathon (Jan 22 - 24), which means no queues etc.
 
-https://deeplearning.cs.cmu.edu/F22/document/recitation/Recitation10/Introduction%20to%20PSC.pdf
+Basic workflows are described below. For more info, see this [presentation](https://deeplearning.cs.cmu.edu/F22/document/recitation/Recitation10/Introduction%20to%20PSC.pdf) [PDF] or the comprehensive Bridges-2 User Guide: https://www.psc.edu/resources/bridges-2/user-guide/.
 
 ## Getting started
 
@@ -37,4 +39,4 @@ In particular, shared datasets will be in `/ocean/projects/phy230064p/shared`.
 
 ## Launching batch jobs
 
-#ODO
+#TODO
