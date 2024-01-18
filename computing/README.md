@@ -39,4 +39,23 @@ In particular, shared datasets will be in `/ocean/projects/phy230064p/shared`.
 
 ## Launching batch jobs
 
-#TODO
+Jobs can be submitted using the SLURM scheduler. Here is a minimal example script (`gpu_job.sh`) that requests 1 GPU and 8h of runtime for the program `gpu_program.py`. You can submit it via `sbatch gpu_job.sh`.
+
+``` bash
+#!/bin/bash
+
+#SBATCH --job-name=train
+#SBATCH --nodes=1
+#SBATCH -p GPU
+#SBATCH -t 8:00:00
+#SBATCH --gpus=v100-32:1  # Request 1 GPU. --gres=gpu:1 is also fine.
+
+set -x  # Echo commands to stdout
+
+cd /ocean/projects/phy230064p/username
+
+# Run code
+python gpu_program.py
+```
+
+`squeue [-u username]` will show you the status of your jobs, and `scancel [jobid]` will cancel a job. For more options, see https://www.psc.edu/resources/bridges-2/user-guide/. 
