@@ -163,6 +163,7 @@ cython_debug/
 data/ZTFBTS
 multimodal_ssl/data/ZTFBTS
 multimodal_ssl/lightning_logs
+sbi/data
 notebooks/ckpts
 notebooks/ckpts*
 logging/
