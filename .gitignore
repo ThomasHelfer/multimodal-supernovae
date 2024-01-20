@@ -175,3 +175,4 @@ lightning_logs
 *.pyc
 lightcurves_bulk
 *.parquet
+__MACOSX
