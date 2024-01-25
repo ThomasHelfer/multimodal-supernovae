@@ -251,18 +251,23 @@ class TransformerWithTimeEmbeddings(nn.Module):
     Transformer for classifying sequences
     """
 
-    def __init__(self, n_out, **kwargs):
+    def __init__(self, n_out, agg='mean', **kwargs):
         """
         :param n_out: Number of output emedding.
         :param kwargs: Arguments for Transformer.
         """
         super().__init__()
 
+        self.agg = agg 
         self.embedding_mag = nn.Linear(in_features=1, out_features=kwargs["emb"])
         self.embedding_t = TimePositionalEncoding(kwargs["emb"])
         self.transformer = Transformer(**kwargs)
 
         self.projection = nn.Linear(kwargs["emb"], n_out)
+        
+        # If using attention, initialize a learnable query vector
+        if self.agg == 'attn':
+            self.query = nn.Parameter(torch.rand(kwargs['emb']))
 
     def forward(self, x, t, mask=None):
         """
@@ -277,8 +282,15 @@ class TransformerWithTimeEmbeddings(nn.Module):
         # Zero out the masked values
         x = x * mask[:, :, None]
 
-        # Max pool
-        x = x.max(dim=1)[0]
+        if self.agg == 'mean':
+            x = x.sum(dim=1) / mask.sum(dim=1)[:, None]
+        elif self.agg == 'max':
+            x = x.max(dim=1)[0]
+        elif self.agg == 'attn':
+            q = self.query.unsqueeze(0).repeat(x.shape[0], 1, 1)  # Duplicate the query across the batch dimension
+            k = v = x
+            x, _ = nn.MultiheadAttention(embed_dim=128, num_heads=2, dropout=0.0, batch_first=True)(q, k, v)
+            x = x.squeeze(1)  # (B, 1, D) -> (B, D)
 
         x = self.projection(x)
         return x
