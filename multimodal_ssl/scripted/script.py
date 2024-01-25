@@ -129,7 +129,7 @@ mask_ary = np.array(mask_list)
 
 
 # Inspect shapes
-time_ary.shape, mag_ary.shape, magerr_ary.shape, mask_ary.shape
+print(f'{time_ary.shape}, {mag_ary.shape}, {magerr_ary.shape}, {mask_ary.shape}', flush=True) 
 
 
 # Plot some corresponding light curves and host images (in two columns)
@@ -435,16 +435,10 @@ def sigmoid_loss(image_embeds, text_embeds, logit_scale=1.0, logit_bias=2.73):
     labels = 2 * torch.eye(bs) - torch.ones((bs, bs))
     labels = labels.to(text_embeds.device)
 
-    logits = text_embeds @ image_embeds.t() * logit_scale + logit_bias
+    logits = -text_embeds @ image_embeds.t() * logit_scale + logit_bias
     logits = logits.to(torch.float64)
-
-    positive_loss = -torch.mean(torch.log(torch.sigmoid(labels * logits)))
-
-    shifted_image_embeds = torch.roll(image_embeds, 1, dims=0)
-    negative_logits = text_embeds @ shifted_image_embeds.t() * logit_scale + logit_bias
-    negative_loss = -torch.mean(torch.log(1 - torch.sigmoid(negative_logits)))
-
-    loss = positive_loss + negative_loss
+    
+    loss = -torch.mean(torch.log(torch.sigmoid(-labels * logits)))
 
     return loss
 
