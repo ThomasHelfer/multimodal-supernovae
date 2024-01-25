@@ -20,15 +20,22 @@ sys.path.append("../")
 
 import numpy as np
 import pandas as pd
+import math
 import matplotlib.pyplot as plt
-from tqdm import tqdm
 
+from tqdm import tqdm
 from PIL import Image
+from einops import rearrange
+from IPython.display import Image as IPImage
 
 import torch
-from einops import rearrange
+import torch.nn as nn
+import torch.nn.functional as F
+import pytorch_lightning as pl
+from torch.utils.data import TensorDataset, DataLoader, random_split
+from convmixer_model import ConvMixer
+from models.transformer_utils import Transformer
 
-from IPython.display import Image as IPImage
 
 # ### Data preprocessing
 
@@ -206,19 +213,6 @@ IPImage(filename="assets/convmixer.png", width=1024)
 
 # In[10]:
 
-
-import torch
-import torch.nn as nn
-from convmixer_model import ConvMixer
-
-
-# ### Lightcurve encode
-
-
-import math
-from models.transformer_utils import Transformer
-
-
 class TimePositionalEncoding(nn.Module):
     def __init__(self, d_emb):
         """
@@ -342,8 +336,6 @@ tiny_mask = mask[:1000]
 # In[18]:
 
 
-from torch.utils.data import TensorDataset, DataLoader, random_split
-
 val_fraction = 0.05
 batch_size = 32
 n_samples_val = int(val_fraction * tiny_mag.shape[0])
@@ -362,10 +354,6 @@ val_loader = DataLoader(
 
 
 # ### Contrastive-style losses
-
-
-import torch.nn.functional as F
-import pytorch_lightning as pl
 
 
 # The standard CLIP architecture uses a bidirection (symmetric between modalities, e.g. image and text) version of the so-called SimCLR loss to compute alignment between image and light curve representations.
