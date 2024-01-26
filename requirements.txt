@@ -1,0 +1,7 @@
+numpy
+torch
+pandas
+matplotlib
+tqdm
+einops
+pytorch_lightning

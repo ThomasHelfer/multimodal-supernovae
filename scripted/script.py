@@ -1,19 +1,3 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# # Self-supervised and multi-modal representation Learning: Notebook 3
-#
-# Here we will align the image and light curve representations with contrastive learning, using CLIP (https://openai.com/research/clip). Optionally, we can use the light curve encoder we trained previously.
-#
-# <img src=./assets/clip.png alt= “” width=1024>
-#
-# - From https://openai.com/research/clip.
-
-# ## Aligning light curves and galaxy images in a common embedding space
-
-# In[1]:
-
-
 import os, sys
 
 sys.path.append("../")
@@ -26,7 +10,6 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 from PIL import Image
 from einops import rearrange
-from IPython.display import Image as IPImage
 
 import torch
 import torch.nn as nn
@@ -35,13 +18,15 @@ import pytorch_lightning as pl
 from torch.utils.data import TensorDataset, DataLoader, random_split
 from convmixer_model import ConvMixer
 from models.transformer_utils import Transformer
-
+import os
+from utils import get_valid_dir
 
 # ### Data preprocessing
 
 
-# data_dir = "../data/ZTFBTS/"  # If unzipped locally
-data_dir = "/ocean/projects/phy230064p/shared/ZTFBTS/"  # If running on Bridges-2
+data_dirs = ["ZTFBTS/" ,"/ocean/projects/phy230064p/shared/ZTFBTS/" ]
+
+data_dir = get_valid_dir(data_dirs)
 
 
 dir_host_imgs = f"{data_dir}/hostImgs/"
@@ -61,9 +46,6 @@ host_imgs = rearrange(host_imgs, "b h w c -> b c h w")
 
 # Normalize
 host_imgs /= 255.0
-
-
-# Load light curves and pre-process them just like in the previous notebook.
 
 
 dir_light_curves = f"{data_dir}/light-curves/"
@@ -198,20 +180,9 @@ for i in range(n_rows):
            
 
 plt.tight_layout()
-plt.savefig("./assets/banner.png")
+plt.savefig("banner.png")
 
 
-# Looks good so far!
-
-# ### Image encoder
-
-# Out host images are pretty simple 60x60 images. Let's try a [ConvMixer](https://arxiv.org/abs/2201.09792) architecture.
-
-# From https://arxiv.org/pdf/2201.09792.pdf
-IPImage(filename="assets/convmixer.png", width=1024)
-
-
-# In[10]:
 
 class TimePositionalEncoding(nn.Module):
     def __init__(self, d_emb):

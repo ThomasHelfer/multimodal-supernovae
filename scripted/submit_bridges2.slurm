@@ -11,7 +11,7 @@ set -x  # Echo commands to stdout
 #cd /jet/home/thelfer/Multimodal-hackathon-2024/multimodal_ssl/notebooks
 
 echo $SLURM_JOB_ID
-source module_load.sh
+source module_load_bridges_2.sh
 module list
 # Run code
 python script.py 
