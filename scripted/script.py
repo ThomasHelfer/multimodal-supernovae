@@ -20,168 +20,24 @@ from convmixer_model import ConvMixer
 from models.transformer_utils import Transformer
 import os
 from utils import get_valid_dir
+from dataloader import load_images, load_lightcurves, plot_lightcurve_and_images
 
 # ### Data preprocessing
 
 
-data_dirs = ["ZTFBTS/" ,"/ocean/projects/phy230064p/shared/ZTFBTS/" ]
+data_dirs = ["ZTFBTS/", "/ocean/projects/phy230064p/shared/ZTFBTS/"]
 
+# Get the first valid directory
 data_dir = get_valid_dir(data_dirs)
 
+# Load images from data_dir
+host_imgs = load_images(data_dir)
 
-dir_host_imgs = f"{data_dir}/hostImgs/"
-host_imgs = []
+# Load light curves from data_dir
+time_ary, mag_ary, magerr_ary, mask_ary, nband = load_lightcurves(data_dir)
 
-for filename in os.listdir(dir_host_imgs):
-    file_path = os.path.join(dir_host_imgs, filename)
-    if file_path.endswith(".png"):
-        host_img = Image.open(file_path).convert("RGB")
-        host_img = np.asarray(host_img)
-        host_imgs.append(host_img)
-
-host_imgs = np.array(host_imgs)
-
-host_imgs = torch.from_numpy(host_imgs).float()
-host_imgs = rearrange(host_imgs, "b h w c -> b c h w")
-
-# Normalize
-host_imgs /= 255.0
-
-
-dir_light_curves = f"{data_dir}/light-curves/"
-
-
-def open_light_curve_csv(filename):
-    file_path = os.path.join(dir_light_curves, filename)
-    df = pd.read_csv(file_path)
-    return df
-
-
-light_curve_df = open_light_curve_csv("ZTF18aailmnv.csv")
-light_curve_df.head()
-
-
-bands = ['R', 'g']
-nband = len(bands)
-n_max_obs = 100
-
-lightcurve_files = os.listdir(dir_light_curves)
-
-# For entries with > n_max_obs observations, randomly sample n_max_obs observations (hmjd, mag, and magerr with same sample) from the light curve
-# Pad the entries to n_max_obs observations with zeros and create a mask array
-mask_list = []
-mag_list = []
-magerr_list = []
-time_list = []
-
-for filename in tqdm(lightcurve_files):
-    if filename.endswith(".csv"):
-        light_curve_df = open_light_curve_csv(filename)
-
-        # Make sure the csv contains 'time', 'mag', 'magerr', and 'band' columns
-        if not all(col in light_curve_df.columns for col in ['time', 'mag', 'magerr', 'band']):
-            continue
-
-        time_concat, mag_concat, magerr_concat, mask_concat = [], [], [], [] 
-        for band in bands: 
-            df_band = light_curve_df[light_curve_df['band'] == band]
-
-            if len(df_band['mag']) > n_max_obs:
-                mask = np.ones(n_max_obs, dtype=bool)
-                indices = np.random.choice(len(df_band['mag']), n_max_obs)
-                time = df_band['time'].values[indices]
-                mag = df_band['mag'].values[indices]
-                magerr = df_band['magerr'].values[indices]
-            else:
-                mask = np.zeros(n_max_obs, dtype=bool)
-                mask[:len(df_band['mag'])] = True
-
-                # Pad the arrays with zeros
-                time = np.pad(df_band['time'], (0, n_max_obs - len(df_band['time'])), 'constant')
-                mag = np.pad(df_band['mag'], (0, n_max_obs - len(df_band['mag'])), 'constant')
-                magerr = np.pad(df_band['magerr'], (0, n_max_obs - len(df_band['magerr'])), 'constant')
-
-            mask_concat += list(mask)
-            time_concat += list(time)
-            mag_concat += list(mag)
-            magerr_concat += list(magerr)
-            
-        mask_list.append(mask_concat)
-        time_list.append(time_concat)
-        mag_list.append(mag_concat)
-        magerr_list.append(magerr_concat)
-
-time_ary = np.array(time_list)
-mag_ary = np.array(mag_list)
-magerr_ary = np.array(magerr_list)
-mask_ary = np.array(mask_list)
-
-
-# Inspect shapes
-print(f'{time_ary.shape}, {mag_ary.shape}, {magerr_ary.shape}, {mask_ary.shape}', flush=True) 
-
-
-# Plot some corresponding light curves and host images (in two columns)
-n_rows = 5
-n_cols = 2
-fig, axs = plt.subplots(n_rows, n_cols, figsize=(10, 20))
-l = len(time_ary[0])//nband
-
-for i in range(n_rows):
-    axs[i, 0].imshow(host_imgs[i].permute(1, 2, 0))
-    axs[i, 0].set_title("Host Image")
-    for j in range(nband): 
-        t, m, mag, e = time_ary[i][j*l:(j+1)*l], mask_ary[i][j*l:(j+1)*l], mag_ary[i][j*l:(j+1)*l], magerr_ary[i][j*l:(j+1)*l]
-        axs[i, 1].errorbar(t[m], mag[m], yerr=e[m], fmt='o')
-    axs[i, 1].set_title("Light Curve")
-
-
-# Banner image
-colors = ['firebrick', 'dodgerblue']
-n_pairs_per_row = 3
-n_rows = 5  # Assuming we still have 5 rows of data
-
-# Adjusting the number of columns
-n_cols = n_pairs_per_row * 2  # Two columns per pair
-
-# Creating a new big grid layout for the plots
-fig, axs = plt.subplots(n_rows, n_cols, figsize=(50, 30))
-
-for i in range(n_rows):
-    for j in range(n_pairs_per_row):
-        # Calculating the index for each unique data pair
-        index = i * n_pairs_per_row + j
-
-        # Plotting unique host images
-        img_col = j * 2  # Column index for image
-        axs[i, img_col].imshow(host_imgs[index].permute(1, 2, 0))
-        # axs[i, img_col].set_title(f"Host Image {index+1}")
-        axs[i, img_col].axis('off')  # Turn off axis for images
-
-        # Plotting unique light curves
-        lc_col = img_col + 1  # Column index for light curve
-        for nb in range(nband): 
-            t, m, mag, e = time_ary[index][nb*l:(nb+1)*l], mask_ary[index][nb*l:(nb+1)*l], mag_ary[index][nb*l:(nb+1)*l], magerr_ary[index][nb*l:(nb+1)*l]
-        
-            axs[i, lc_col].errorbar(t[m], 
-                                    mag[m], 
-                                    yerr=e[m], 
-                                    fmt='o', ms=14, color=colors[nb]) 
-        
-        # Turn off axis labels
-        axs[i, lc_col].set_xticklabels([])
-        axs[i, lc_col].set_yticklabels([]) 
-
-        # Increase thickness of axis spines
-        axs[i, lc_col].spines['top'].set_linewidth(2.5)
-        axs[i, lc_col].spines['right'].set_linewidth(2.5)
-        axs[i, lc_col].spines['bottom'].set_linewidth(2.5)
-        axs[i, lc_col].spines['left'].set_linewidth(2.5)
-           
-
-plt.tight_layout()
-plt.savefig("banner.png")
-
+# Plot a light curve and its corresponding image
+plot_lightcurve_and_images(host_imgs, time_ary, mag_ary, magerr_ary, mask_ary, nband)
 
 
 class TimePositionalEncoding(nn.Module):
@@ -211,27 +67,27 @@ class TransformerWithTimeEmbeddings(nn.Module):
     Transformer for classifying sequences
     """
 
-    def __init__(self, n_out, nband=1, agg='mean', **kwargs):
+    def __init__(self, n_out, nband=1, agg="mean", **kwargs):
         """
         :param n_out: Number of output emedding.
         :param kwargs: Arguments for Transformer.
         """
         super().__init__()
 
-        self.agg = agg 
+        self.agg = agg
         self.nband = nband
         self.embedding_mag = nn.Linear(in_features=1, out_features=kwargs["emb"])
         self.embedding_t = TimePositionalEncoding(kwargs["emb"])
         self.transformer = Transformer(**kwargs)
-        
-        if nband > 1: 
-            self.band_emb = nn.Embedding(nband, kwargs['emb'])
+
+        if nband > 1:
+            self.band_emb = nn.Embedding(nband, kwargs["emb"])
 
         self.projection = nn.Linear(kwargs["emb"], n_out)
-        
+
         # If using attention, initialize a learnable query vector
-        if self.agg == 'attn':
-            self.query = nn.Parameter(torch.rand(kwargs['emb']))
+        if self.agg == "attn":
+            self.query = nn.Parameter(torch.rand(kwargs["emb"]))
 
     def forward(self, x, t, mask=None):
         """
@@ -241,67 +97,46 @@ class TransformerWithTimeEmbeddings(nn.Module):
         t = t - t[:, 0].unsqueeze(1)
         t_emb = self.embedding_t(t)
         x = self.embedding_mag(x) + t_emb
-        
+
         # learned embeddings for multibands
-        if self.nband > 1: 
-            onehot = torch.linspace(0, self.nband-1, self.nband).type(torch.LongTensor).repeat_interleave(x.shape[1]//self.nband)
+        if self.nband > 1:
+            onehot = (
+                torch.linspace(0, self.nband - 1, self.nband)
+                .type(torch.LongTensor)
+                .repeat_interleave(x.shape[1] // self.nband)
+            )
             onehot = onehot.to(t.device)  # (T,)
-            b_emb = self.band_emb(onehot).unsqueeze(0).repeat((x.shape[0], 1, 1)) # (T, D) -> (B, T, D) 
-            x = x + b_emb 
-            
+            b_emb = (
+                self.band_emb(onehot).unsqueeze(0).repeat((x.shape[0], 1, 1))
+            )  # (T, D) -> (B, T, D)
+            x = x + b_emb
+
         x = self.transformer(x, mask)  # (B, T, D)
 
         # Zero out the masked values
         x = x * mask[:, :, None]
 
-        if self.agg == 'mean':
+        if self.agg == "mean":
             x = x.sum(dim=1) / mask.sum(dim=1)[:, None]
-        elif self.agg == 'max':
+        elif self.agg == "max":
             x = x.max(dim=1)[0]
-        elif self.agg == 'attn':
-            q = self.query.unsqueeze(0).repeat(x.shape[0], 1, 1)  # Duplicate the query across the batch dimension
+        elif self.agg == "attn":
+            q = self.query.unsqueeze(0).repeat(
+                x.shape[0], 1, 1
+            )  # Duplicate the query across the batch dimension
             k = v = x
-            x, _ = nn.MultiheadAttention(embed_dim=128, num_heads=2, dropout=0.0, batch_first=True)(q, k, v)
+            x, _ = nn.MultiheadAttention(
+                embed_dim=128, num_heads=2, dropout=0.0, batch_first=True
+            )(q, k, v)
             x = x.squeeze(1)  # (B, 1, D) -> (B, D)
 
         x = self.projection(x)
         return x
 
 
-transformer = TransformerWithTimeEmbeddings(n_out=128, emb=128, nband=nband, heads=1, depth=1)
-
-
-# In[14]:
-
-
-# Time and mag tensors
 time = torch.from_numpy(time_ary).float()
 mag = torch.from_numpy(mag_ary).float()
 mask = torch.from_numpy(mask_ary).bool()
-
-
-# In[15]:
-
-
-# Pass a batch through
-transformer(mag[:4][..., None], time[:4], mask[:4]).shape
-
-
-# ### Create dataset
-
-# In[16]:
-
-
-mag.shape
-
-
-# In[17]:
-
-
-tiny_host_imgs = host_imgs[:1000]
-tiny_mag = mag[:1000]
-tiny_time = time[:1000]
-tiny_mask = mask[:1000]
 
 
 # In[18]:
@@ -309,12 +144,12 @@ tiny_mask = mask[:1000]
 
 val_fraction = 0.05
 batch_size = 32
-n_samples_val = int(val_fraction * tiny_mag.shape[0])
+n_samples_val = int(val_fraction * mag.shape[0])
 
-dataset = TensorDataset(tiny_host_imgs, tiny_mag, tiny_time, tiny_mask)
+dataset = TensorDataset(host_imgs, mag, time, mask)
 
 dataset_train, dataset_val = random_split(
-    dataset, [tiny_mag.shape[0] - n_samples_val, n_samples_val]
+    dataset, [mag.shape[0] - n_samples_val, n_samples_val]
 )
 train_loader = DataLoader(
     dataset_train, batch_size=batch_size, num_workers=1, pin_memory=True, shuffle=True
@@ -381,7 +216,7 @@ def sigmoid_loss(image_embeds, text_embeds, logit_scale=1.0, logit_bias=2.73):
 
     logits = -text_embeds @ image_embeds.t() * logit_scale + logit_bias
     logits = logits.to(torch.float64)
-    
+
     loss = -torch.mean(torch.log(torch.sigmoid(-labels * logits)))
 
     return loss
@@ -395,7 +230,7 @@ class LightCurveImageCLIP(pl.LightningModule):
         self,
         enc_dim=128,
         logit_scale=10.0,
-        nband=1, 
+        nband=1,
         transformer_kwargs={"n_out": 128, "emb": 256, "heads": 2, "depth": 8},
         conv_kwargs={
             "dim": 32,
@@ -423,7 +258,9 @@ class LightCurveImageCLIP(pl.LightningModule):
         self.logit_bias = nn.Parameter(torch.tensor(-10.0), requires_grad=True)
 
         # Encoders
-        self.lightcurve_encoder = TransformerWithTimeEmbeddings(nband=nband, **transformer_kwargs)
+        self.lightcurve_encoder = TransformerWithTimeEmbeddings(
+            nband=nband, **transformer_kwargs
+        )
         self.image_encoder = ConvMixer(**conv_kwargs)
 
         # Projection heads to common embedding space
@@ -526,7 +363,7 @@ conv_kwargs = {
 clip_model = LightCurveImageCLIP(
     logit_scale=20.0,
     lr=1e-4,
-    nband=nband, 
+    nband=nband,
     loss="softmax",
     transformer_kwargs=transformer_kwargs,
     conv_kwargs=conv_kwargs,
@@ -549,4 +386,4 @@ trainer.fit(
 )
 
 
-print('finished training')
+print("finished training")

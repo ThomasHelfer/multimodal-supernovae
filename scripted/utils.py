@@ -1,6 +1,7 @@
 import os
 from typing import List
 
+
 def get_valid_dir(data_dirs: List[str]) -> str:
     """
     Returns the first valid directory in the list of directories.
