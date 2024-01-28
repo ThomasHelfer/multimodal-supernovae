@@ -16,7 +16,9 @@ class SelfAttention(nn.Module):
 
         super().__init__()
 
-        assert emb % heads == 0, f"Embedding dimension ({emb}) should be divisible by nr. of heads ({heads})"
+        assert (
+            emb % heads == 0
+        ), f"Embedding dimension ({emb}) should be divisible by nr. of heads ({heads})"
 
         self.emb = emb
         self.heads = heads
@@ -32,7 +34,9 @@ class SelfAttention(nn.Module):
     def forward(self, x, mask=None):
         b, t, e = x.size()
         h = self.heads
-        assert e == self.emb, f"Input embedding dim ({e}) should match layer embedding dim ({self.emb})"
+        assert (
+            e == self.emb
+        ), f"Input embedding dim ({e}) should match layer embedding dim ({self.emb})"
 
         s = e // h
 
@@ -93,7 +97,11 @@ class TransformerBlock(nn.Module):
         self.norm1 = nn.LayerNorm(emb)
         self.norm2 = nn.LayerNorm(emb)
 
-        self.ff = nn.Sequential(nn.Linear(emb, ff_hidden_mult * emb), nn.ReLU(), nn.Linear(ff_hidden_mult * emb, emb))
+        self.ff = nn.Sequential(
+            nn.Linear(emb, ff_hidden_mult * emb),
+            nn.ReLU(),
+            nn.Linear(ff_hidden_mult * emb, emb),
+        )
 
         self.do = nn.Dropout(dropout)
 
@@ -121,7 +129,14 @@ class Transformer(nn.Module):
         """
         super().__init__()
 
-        self.tblocks = nn.ModuleList([TransformerBlock(emb=emb, heads=heads, ff_hidden_mult=ff_hidden_mult, dropout=dropout) for _ in range(depth)])
+        self.tblocks = nn.ModuleList(
+            [
+                TransformerBlock(
+                    emb=emb, heads=heads, ff_hidden_mult=ff_hidden_mult, dropout=dropout
+                )
+                for _ in range(depth)
+            ]
+        )
         self.do = nn.Dropout(dropout)
 
     def forward(self, x, mask=None):

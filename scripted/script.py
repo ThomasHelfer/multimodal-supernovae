@@ -16,14 +16,13 @@ import torch.nn as nn
 import torch.nn.functional as F
 import pytorch_lightning as pl
 from torch.utils.data import TensorDataset, DataLoader, random_split
-from convmixer_model import ConvMixer
-from models.transformer_utils import Transformer
+from src.models_multimodal import ConvMixer, TransformerWithTimeEmbeddings
 import os
-from utils import get_valid_dir
-from dataloader import load_images, load_lightcurves, plot_lightcurve_and_images
+from src.utils import get_valid_dir
+from src.dataloader import load_images, load_lightcurves, plot_lightcurve_and_images
+from src.loss import sigmoid_loss, clip_loss
 
 # ### Data preprocessing
-
 
 data_dirs = ["ZTFBTS/", "/ocean/projects/phy230064p/shared/ZTFBTS/"]
 
@@ -40,106 +39,9 @@ time_ary, mag_ary, magerr_ary, mask_ary, nband = load_lightcurves(data_dir)
 plot_lightcurve_and_images(host_imgs, time_ary, mag_ary, magerr_ary, mask_ary, nband)
 
 
-class TimePositionalEncoding(nn.Module):
-    def __init__(self, d_emb):
-        """
-        Inputs
-            d_model - Hidden dimensionality.
-        """
-        super().__init__()
-        self.d_emb = d_emb
-
-    def forward(self, t):
-        pe = torch.zeros(t.shape[0], t.shape[1], self.d_emb).to(t.device)  # (B, T, D)
-        div_term = torch.exp(
-            torch.arange(0, self.d_emb, 2).float() * (-math.log(10000.0) / self.d_emb)
-        )[None, None, :].to(
-            t.device
-        )  # (1, 1, D / 2)
-        t = t.unsqueeze(2)  # (B, 1, T)
-        pe[:, :, 0::2] = torch.sin(t * div_term)  # (B, T, D / 2)
-        pe[:, :, 1::2] = torch.cos(t * div_term)  # (B, T, D / 2)
-        return pe  # (B, T, D)
-
-
-class TransformerWithTimeEmbeddings(nn.Module):
-    """
-    Transformer for classifying sequences
-    """
-
-    def __init__(self, n_out, nband=1, agg="mean", **kwargs):
-        """
-        :param n_out: Number of output emedding.
-        :param kwargs: Arguments for Transformer.
-        """
-        super().__init__()
-
-        self.agg = agg
-        self.nband = nband
-        self.embedding_mag = nn.Linear(in_features=1, out_features=kwargs["emb"])
-        self.embedding_t = TimePositionalEncoding(kwargs["emb"])
-        self.transformer = Transformer(**kwargs)
-
-        if nband > 1:
-            self.band_emb = nn.Embedding(nband, kwargs["emb"])
-
-        self.projection = nn.Linear(kwargs["emb"], n_out)
-
-        # If using attention, initialize a learnable query vector
-        if self.agg == "attn":
-            self.query = nn.Parameter(torch.rand(kwargs["emb"]))
-
-    def forward(self, x, t, mask=None):
-        """
-        :param x: A batch by sequence length integer tensor of token indices.
-        :return: predicted log-probability vectors for each token based on the preceding tokens.
-        """
-        t = t - t[:, 0].unsqueeze(1)
-        t_emb = self.embedding_t(t)
-        x = self.embedding_mag(x) + t_emb
-
-        # learned embeddings for multibands
-        if self.nband > 1:
-            onehot = (
-                torch.linspace(0, self.nband - 1, self.nband)
-                .type(torch.LongTensor)
-                .repeat_interleave(x.shape[1] // self.nband)
-            )
-            onehot = onehot.to(t.device)  # (T,)
-            b_emb = (
-                self.band_emb(onehot).unsqueeze(0).repeat((x.shape[0], 1, 1))
-            )  # (T, D) -> (B, T, D)
-            x = x + b_emb
-
-        x = self.transformer(x, mask)  # (B, T, D)
-
-        # Zero out the masked values
-        x = x * mask[:, :, None]
-
-        if self.agg == "mean":
-            x = x.sum(dim=1) / mask.sum(dim=1)[:, None]
-        elif self.agg == "max":
-            x = x.max(dim=1)[0]
-        elif self.agg == "attn":
-            q = self.query.unsqueeze(0).repeat(
-                x.shape[0], 1, 1
-            )  # Duplicate the query across the batch dimension
-            k = v = x
-            x, _ = nn.MultiheadAttention(
-                embed_dim=128, num_heads=2, dropout=0.0, batch_first=True
-            )(q, k, v)
-            x = x.squeeze(1)  # (B, 1, D) -> (B, D)
-
-        x = self.projection(x)
-        return x
-
-
 time = torch.from_numpy(time_ary).float()
 mag = torch.from_numpy(mag_ary).float()
 mask = torch.from_numpy(mask_ary).bool()
-
-
-# In[18]:
 
 
 val_fraction = 0.05
@@ -157,72 +59,6 @@ train_loader = DataLoader(
 val_loader = DataLoader(
     dataset_val, batch_size=batch_size, num_workers=1, pin_memory=True, shuffle=False
 )
-
-
-# ### Contrastive-style losses
-
-
-# The standard CLIP architecture uses a bidirection (symmetric between modalities, e.g. image and text) version of the so-called SimCLR loss to compute alignment between image and light curve representations.
-# $$\mathcal{L}_\mathrm{CLIP}=-\frac{1}{2|\mathcal{B}|} \sum_{i=1}^{|\mathcal{B}|}\left(\log \frac{e^{t\,x_i \cdot y_i}}{\sum_{j=1}^{|\mathcal{B}|} e^{t\,x_i \cdot y_j}}+\log \frac{e^{t\,x_i \cdot y_i}}{\sum_{j=1}^{|\mathcal{B}|} e^{t\,x_j \cdot y_i}}\right)$$
-#
-# The standard CLIP loss can be quite unstable due to the small number of positive pairs and large number of negative pairs in a batch. It can also often require very large batch sizes to work well. There are many proposed ways of overcoming this, e.g. see https://lilianweng.github.io/posts/2021-05-31-contrastive/ for some approaches.
-#
-# In addition to theh softmax-based loss, we'll also try a sigmoid loss, from https://arxiv.org/abs/2303.15343:
-# $$\mathcal{L}_\mathrm{SigLIP}=-\frac{1}{|\mathcal{B}|} \sum_{i=1}^{|\mathcal{B}|} \sum_{j=1}^{|\mathcal{B}|} \log \frac{1}{1+e^{z_{i j}\left(-t\, {x}_i \cdot {y}_j+b\right)}}$$
-# where $x_i$ and $y_j$ are the normalized image and light curve representations, respectively, and $z_{ij}$ is a binary indicator of whether the image and light curve are a match or not.
-#
-# Let's implement these two.
-
-# In[55]:
-
-
-def clip_loss(
-    image_embeddings,
-    text_embeddings,
-    logit_scale=1.0,
-    logit_bias=0.0,
-    image_encoder=None,
-    lightcurve_encoder=None,
-    printing=False,
-):
-    logit_scale = logit_scale.exp()
-
-    logits = (text_embeddings @ image_embeddings.T) * logit_scale + logit_bias
-
-    images_loss = nn.LogSoftmax(dim=1)(logits)
-    texts_loss = nn.LogSoftmax(dim=0)(logits)
-
-    images_loss = -images_loss.diag()
-    texts_loss = -texts_loss.diag()
-
-    n = min(len(image_embeddings), len(text_embeddings))
-
-    images_loss = images_loss.sum() / n
-    texts_loss = texts_loss.sum() / n
-
-    loss = (images_loss + texts_loss) / 2
-    return loss
-
-
-def sigmoid_loss(image_embeds, text_embeds, logit_scale=1.0, logit_bias=2.73):
-    """Sigmoid-based CLIP loss, from https://arxiv.org/abs/2303.15343"""
-
-    logit_scale = logit_scale.exp()
-
-    bs = text_embeds.shape[0]
-
-    labels = 2 * torch.eye(bs) - torch.ones((bs, bs))
-    labels = labels.to(text_embeds.device)
-
-    logits = -text_embeds @ image_embeds.t() * logit_scale + logit_bias
-    logits = logits.to(torch.float64)
-
-    loss = -torch.mean(torch.log(torch.sigmoid(-labels * logits)))
-
-    return loss
-
-
-# In[56]:
 
 
 class LightCurveImageCLIP(pl.LightningModule):
