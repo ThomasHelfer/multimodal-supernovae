@@ -1,10 +1,10 @@
 import os, sys
 
-sys.path.append("../")
 
 import numpy as np
 import pandas as pd
 import math
+from typing import Dict, Optional
 import matplotlib.pyplot as plt
 
 from tqdm import tqdm
@@ -64,11 +64,16 @@ val_loader = DataLoader(
 class LightCurveImageCLIP(pl.LightningModule):
     def __init__(
         self,
-        enc_dim=128,
-        logit_scale=10.0,
-        nband=1,
-        transformer_kwargs={"n_out": 128, "emb": 256, "heads": 2, "depth": 8},
-        conv_kwargs={
+        enc_dim: int = 128,
+        logit_scale: float = 10.0,
+        nband: int = 1,
+        transformer_kwargs: Dict[str, int] = {
+            "n_out": 128,
+            "emb": 256,
+            "heads": 2,
+            "depth": 8,
+        },
+        conv_kwargs: Dict[str, int] = {
             "dim": 32,
             "depth": 8,
             "channels": 3,
@@ -76,18 +81,29 @@ class LightCurveImageCLIP(pl.LightningModule):
             "patch_size": 10,
             "n_out": 128,
         },
-        optimizer_kwargs={},
-        lr=1e-4,
-        loss="sigmoid",
+        optimizer_kwargs: Dict = {},
+        lr: float = 1e-4,
+        loss: str = "sigmoid",
     ):
-        super().__init__()
+        """
+        Initialize the LightCurveImageCLIP module.
 
+        Args:
+        enc_dim (int): Dimension of the encoder.
+        logit_scale (float): Initial scale for the logits.
+        nband (int): Number of bands.
+        transformer_kwargs (Dict[str, int]): Keyword arguments for the transformer encoder.
+        conv_kwargs (Dict[str, int]): Keyword arguments for the convolutional encoder.
+        optimizer_kwargs (Dict): Keyword arguments for the optimizer.
+        lr (float): Learning rate.
+        loss (str): Loss function type, either "sigmoid" or "softmax".
+        """
+        super().__init__()
         self.lr = lr
         self.optimizer_kwargs = optimizer_kwargs
         self.enc_dim = enc_dim
 
-        # Make temperature and logit bias a learnable parameter
-        # Init values log(10) and -10 from https://arxiv.org/abs/2303.15343
+        # Parameters
         self.logit_scale = nn.Parameter(
             torch.tensor(math.log(logit_scale)), requires_grad=True
         )
@@ -99,20 +115,33 @@ class LightCurveImageCLIP(pl.LightningModule):
         )
         self.image_encoder = ConvMixer(**conv_kwargs)
 
-        # Projection heads to common embedding space
+        # Projection heads
         self.lightcurve_projection = nn.Linear(transformer_kwargs["n_out"], enc_dim)
         self.image_projection = nn.Linear(conv_kwargs["n_out"], enc_dim)
 
         self.loss = loss
 
-    def forward(self, x_img, x_lc, t_lc, mask_lc=None):
-        # Light curve encoder
+    def forward(
+        self,
+        x_img: torch.Tensor,
+        x_lc: torch.Tensor,
+        t_lc: torch.Tensor,
+        mask_lc: Optional[torch.Tensor] = None,
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        Forward pass through the network.
+
+        Args:
+        x_img (torch.Tensor): Input tensor for images.
+        x_lc (torch.Tensor): Input tensor for light curves.
+        t_lc (torch.Tensor): Time tensor for light curves.
+        mask_lc (Optional[torch.Tensor]): Mask tensor for light curves.
+
+        Returns:
+        Tuple[torch.Tensor, torch.Tensor]: Tuple of image and light curve embeddings.
+        """
         x_lc = self.lightcurve_embeddings_with_projection(x_lc, t_lc, mask_lc)
-
-        # Image encoder
         x_img = self.image_embeddings_with_projection(x_img)
-
-        # Normalized embeddings
         return x_img, x_lc
 
     def image_embeddings_with_projection(self, x_img):
@@ -205,21 +234,10 @@ clip_model = LightCurveImageCLIP(
     conv_kwargs=conv_kwargs,
 )
 
-x_img, x_lc, t_lc, mask_lc = next(iter(train_loader))
-x_img, x_lc = clip_model(x_img, x_lc, t_lc, mask_lc)
-
-sigmoid_loss(x_img, x_lc, clip_model.logit_scale).mean(), clip_loss(
-    x_img, x_lc, clip_model.logit_scale
-).mean()
+device = "gpu" if torch.cuda.is_available() else "cpu"
 
 
-# In[58]:
-
-
-trainer = pl.Trainer(max_epochs=5, accelerator="gpu")
+trainer = pl.Trainer(max_epochs=5, accelerator=device)
 trainer.fit(
     model=clip_model, train_dataloaders=train_loader, val_dataloaders=val_loader
 )
-
-
-print("finished training")
