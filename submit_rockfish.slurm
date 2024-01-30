@@ -7,5 +7,5 @@
 ##SBATCH -n 14
 #SBATCH -A tedwar41_gpu
 #SBATCH -o Multimodal-%J.log
-source dev/bin/activate
+source /home/thelfer1/dev/bin/activate
 python script.py

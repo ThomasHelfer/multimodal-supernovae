@@ -20,7 +20,7 @@ from torchvision.transforms import RandomRotation
 from torch.utils.data import TensorDataset, DataLoader, random_split
 
 from src.models_multimodal import ConvMixer, TransformerWithTimeEmbeddings
-from src.utils import get_valid_dir, LossTrackingCallback, plot_loss_history, cosine_similarity,get_embs
+from src.utils import get_valid_dir, LossTrackingCallback, plot_loss_history, cosine_similarity,get_embs,plot_ROC_curves
 from src.dataloader import load_images, load_lightcurves, plot_lightcurve_and_images
 from src.loss import sigmoid_loss, clip_loss
 from typing import Tuple
@@ -300,5 +300,7 @@ trainer.fit(
 plot_loss_history(loss_tracking_callback.train_loss_history, loss_tracking_callback.val_loss_history)
 
 # Get embeddings for all images and light curves
-embs_curves,embs_images = get_embs(clip_model,train_loader_no_aug)
+embs_curves_train,embs_images_train = get_embs(clip_model,train_loader_no_aug)
+embs_curves_val,embs_images_val = get_embs(clip_model,val_loader_no_aug)
 
+plot_ROC_curves(embs_curves_train,embs_images_train,embs_curves_val,embs_images_val)
