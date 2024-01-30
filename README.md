@@ -3,8 +3,6 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-red.svg)](https://opensource.org/licenses/MIT)
 
 
-# TorchGRTL
-
 ## Overview
 This is a small codebase to explore multimodal learning
 
@@ -16,7 +14,7 @@ Before installing, ensure you have the following prerequisites:
 - pip package manager
 
 ### Steps
-1. Clone the TorchGRTL repository:
+1. Clone the repository:
 
    ```bash
    git clone git@github.com:ThomasHelfer/Multimodal-hackathon-2024.git
