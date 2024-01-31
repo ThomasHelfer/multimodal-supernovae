@@ -74,7 +74,6 @@ class SelfAttention(nn.Module):
             # replace the False values with -inf
             dot = dot.masked_fill(~mask, float("-1e7"))
 
-        # print(dot)
         dot = F.softmax(dot, dim=2)
 
         # - dot now has row-wise self-attention probabilities

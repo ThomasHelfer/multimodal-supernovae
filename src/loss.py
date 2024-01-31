@@ -18,7 +18,6 @@ def clip_loss(
     logit_bias=0.0,
     image_encoder=None,
     lightcurve_encoder=None,
-    printing=False,
 ):
     logit_scale = logit_scale.exp()
 
