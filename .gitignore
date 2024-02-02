@@ -163,6 +163,7 @@ cython_debug/
 ZTFBTS/
 analysis/
 slurm_out/
+multimodal/
 data/ZTFBTS
 multimodal_ssl/data/ZTFBTS
 multimodal_ssl/lightning_logs
