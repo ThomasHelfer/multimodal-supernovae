@@ -160,6 +160,8 @@ cython_debug/
 #.idea/
 
 .DS_Store
+ZTFBTS/
+analysis/
 data/ZTFBTS
 multimodal_ssl/data/ZTFBTS
 multimodal_ssl/lightning_logs
