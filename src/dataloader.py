@@ -7,7 +7,48 @@ from einops import rearrange
 from tqdm import tqdm
 import pandas as pd
 from typing import Tuple
+from torchvision.transforms import RandomRotation
+from torch.utils.data import DataLoader
+import matplotlib.pyplot as plt
 
+
+# Custom data loader with noise augmentation using magerr
+class NoisyDataLoader(DataLoader):
+    def __init__(self, dataset, batch_size, noise_level_img, noise_level_mag, shuffle=True, **kwargs):
+        super().__init__(dataset, batch_size=batch_size, shuffle=shuffle, **kwargs)
+        self.max_noise_intensity = noise_level_img
+        self.noise_level_mag = noise_level_mag
+
+    def __iter__(self):
+        for batch in super().__iter__():
+            # Add random noise to images and time-magnitude tensors
+            host_imgs, mag, time, mask, magerr = batch
+
+            # Calculate the range for the random noise based on the max_noise_intensity
+            noise_range = self.max_noise_intensity * torch.std(host_imgs)
+
+            # Generate random noise within the specified range
+            noisy_imgs = host_imgs + (2 * torch.rand_like(host_imgs) - 1) * noise_range
+
+            # Add Gaussian noise to mag using magerr
+            noisy_mag = mag + torch.randn_like(mag) * magerr * self.noise_level_mag
+
+            # Randomly apply rotation by multiples of 90 degrees
+            rotation_angle = torch.randint(0, 4, (noisy_imgs.size(0),)) * 90
+            rotated_imgs = []
+
+            # Apply rotation to each image
+            for i in range(noisy_imgs.size(0)):
+                rotated_img = RandomRotation([rotation_angle[i], rotation_angle[i]])(noisy_imgs[i])
+                rotated_imgs.append(rotated_img)
+
+            # Stack the rotated images back into a tensor
+            rotated_imgs = torch.stack(rotated_imgs)
+            
+            # Return the noisy batch
+            yield noisy_imgs, noisy_mag, time, mask
+            
+            
 
 def load_images(data_dir: str) -> torch.Tensor:
     """
@@ -137,11 +178,6 @@ def load_lightcurves(
     return time_ary, mag_ary, magerr_ary, mask_ary, nband
 
 
-import torch
-import numpy as np
-import matplotlib.pyplot as plt
-from typing import Tuple
-
 
 def plot_lightcurve_and_images(
     host_imgs: torch.Tensor,
@@ -150,6 +186,7 @@ def plot_lightcurve_and_images(
     magerr_ary: np.ndarray,
     mask_ary: np.ndarray,
     nband: int,
+    path_base : str = './', 
 ) -> None:
     """
     Plots host images and corresponding light curves.
@@ -217,4 +254,4 @@ def plot_lightcurve_and_images(
                 spine.set_linewidth(2.5)
 
     plt.tight_layout()
-    plt.savefig("banner.png")
+    plt.savefig(path_base + "banner.png")

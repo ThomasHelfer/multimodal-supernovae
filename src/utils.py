@@ -52,10 +52,7 @@ class LossTrackingCallback(Callback):
             self.val_loss_history.append(val_loss.detach().item())
 
 
-import matplotlib.pyplot as plt
-
-
-def plot_loss_history(train_loss_history, val_loss_history):
+def plot_loss_history(train_loss_history, val_loss_history, path_base='./'):
     """
     Plots the training and validation loss histories.
 
@@ -96,7 +93,7 @@ def plot_loss_history(train_loss_history, val_loss_history):
     plt.grid(True)
 
     # Show the plot
-    plt.savefig("loss_history.png")
+    plt.savefig(path_base + "loss_history.png")
 
 
 def cosine_similarity(a, b, temperature=1):
@@ -219,6 +216,7 @@ def plot_ROC_curves(
     embs_images_train: torch.Tensor,
     embs_curves_val: torch.Tensor,
     embs_images_val: torch.Tensor,
+    path_base : str = './',
 ) -> None:
     """
     Plots ROC-like curves for training and validation datasets based on embeddings.
@@ -260,4 +258,4 @@ def plot_ROC_curves(
 
     # Adjust layout to prevent overlapping
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
-    plt.savefig("ROC_curves.png")
+    plt.savefig(path_base + "ROC_curves.png")

@@ -1,7 +1,11 @@
 import torch.nn as nn
 from src.transformer_utils import Transformer
+import pytorch_lightning as pl
+from typing import Dict, Optional, Tuple
 import torch
 import math
+import sys 
+from src.loss import sigmoid_loss, clip_loss
 
 
 class Residual(nn.Module):
@@ -170,3 +174,155 @@ class TransformerWithTimeEmbeddings(nn.Module):
 
         x = self.projection(x)
         return x
+
+    
+
+class LightCurveImageCLIP(pl.LightningModule):
+    def __init__(
+        self,
+        enc_dim: int = 128,
+        logit_scale: float = 10.0,
+        nband: int = 1,
+        transformer_kwargs: Dict[str, int] = {
+            "n_out": 128,
+            "emb": 256,
+            "heads": 2,
+            "depth": 8,
+        },
+        conv_kwargs: Dict[str, int] = {
+            "dim": 32,
+            "depth": 8,
+            "channels": 3,
+            "kernel_size": 5,
+            "patch_size": 10,
+            "n_out": 128,
+        },
+        optimizer_kwargs: Dict = {},
+        lr: float = 1e-4,
+        loss: str = "sigmoid",
+    ):
+        """
+        Initialize the LightCurveImageCLIP module.
+
+        Args:
+        enc_dim (int): Dimension of the encoder.
+        logit_scale (float): Initial scale for the logits.
+        nband (int): Number of bands.
+        transformer_kwargs (Dict[str, int]): Keyword arguments for the transformer encoder.
+        conv_kwargs (Dict[str, int]): Keyword arguments for the convolutional encoder.
+        optimizer_kwargs (Dict): Keyword arguments for the optimizer.
+        lr (float): Learning rate.
+        loss (str): Loss function type, either "sigmoid" or "softmax".
+        """
+        super().__init__()
+        self.lr = lr
+        self.optimizer_kwargs = optimizer_kwargs
+        self.enc_dim = enc_dim
+
+        # Parameters
+        self.logit_scale = nn.Parameter(
+            torch.tensor(math.log(logit_scale)), requires_grad=True
+        )
+        self.logit_bias = nn.Parameter(torch.tensor(-10.0), requires_grad=True)
+
+        # Encoders
+        self.lightcurve_encoder = TransformerWithTimeEmbeddings(
+            nband=nband, **transformer_kwargs
+        )
+        self.image_encoder = ConvMixer(**conv_kwargs)
+
+        # Projection heads
+        self.lightcurve_projection = nn.Linear(transformer_kwargs["n_out"], enc_dim)
+        self.image_projection = nn.Linear(conv_kwargs["n_out"], enc_dim)
+
+        self.loss = loss
+
+    def forward(
+        self,
+        x_img: torch.Tensor,
+        x_lc: torch.Tensor,
+        t_lc: torch.Tensor,
+        mask_lc: Optional[torch.Tensor] = None,
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        Forward pass through the network.
+
+        Args:
+        x_img (torch.Tensor): Input tensor for images.
+        x_lc (torch.Tensor): Input tensor for light curves.
+        t_lc (torch.Tensor): Time tensor for light curves.
+        mask_lc (Optional[torch.Tensor]): Mask tensor for light curves.
+
+        Returns:
+        Tuple[torch.Tensor, torch.Tensor]: Tuple of image and light curve embeddings.
+        """
+        x_lc = self.lightcurve_embeddings_with_projection(x_lc, t_lc, mask_lc)
+        x_img = self.image_embeddings_with_projection(x_img)
+        return x_img, x_lc
+
+    def image_embeddings_with_projection(self, x_img):
+        """Convenience function to get image embeddings with projection"""
+        x_img = self.image_encoder(x_img)
+        x_img = self.image_projection(x_img)
+        return x_img / x_img.norm(dim=-1, keepdim=True)
+
+    def lightcurve_embeddings_with_projection(self, x_lc, t_lc, mask_lc=None):
+        """Convenience function to get light curve embeddings with projection"""
+        x_lc = x_lc[..., None]  # Add channel dimension
+        x_lc = self.lightcurve_encoder(x_lc, t_lc, mask_lc)
+        x_lc = self.lightcurve_projection(x_lc)
+        return x_lc / x_lc.norm(dim=-1, keepdim=True)
+
+    def configure_optimizers(self):
+        optimizer = torch.optim.RAdam(
+            self.parameters(), lr=self.lr, **self.optimizer_kwargs
+        )
+        return {"optimizer": optimizer}
+
+    def training_step(self, batch, batch_idx):
+        x_img, x_lc, t_lc, mask_lc = batch
+        x_img, x_lc = self(x_img, x_lc, t_lc, mask_lc)
+        if self.loss == "sigmoid":
+            loss = sigmoid_loss(x_img, x_lc, self.logit_scale, self.logit_bias).mean()
+        elif self.loss == "softmax":
+            loss = clip_loss(
+                x_img,
+                x_lc,
+                self.logit_scale,
+                self.logit_bias,
+                self.image_encoder,
+                self.lightcurve_encoder,
+            ).mean()
+        self.log(
+            "train_loss",
+            loss,
+            on_epoch=True,
+            on_step=False,
+            prog_bar=True,
+            logger=True
+        )
+        return loss
+
+    def validation_step(self, batch, batch_idx):
+        x_img, x_lc, t_lc, mask_lc = batch
+        x_img, x_lc = self(x_img, x_lc, t_lc, mask_lc)
+        if self.loss == "sigmoid":
+            loss = sigmoid_loss(x_img, x_lc, self.logit_scale, self.logit_bias).mean()
+        elif self.loss == "softmax":
+            loss = clip_loss(
+                x_img,
+                x_lc,
+                self.logit_scale,
+                self.logit_bias,
+                self.image_encoder,
+                self.lightcurve_encoder,
+            ).mean()
+        self.log(
+            "val_loss",
+            loss,
+            on_epoch=True,
+            on_step=False,
+            prog_bar=True,
+            logger=True
+        )
+        return loss
