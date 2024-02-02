@@ -162,6 +162,7 @@ cython_debug/
 .DS_Store
 ZTFBTS/
 analysis/
+slurm_out/
 data/ZTFBTS
 multimodal_ssl/data/ZTFBTS
 multimodal_ssl/lightning_logs
