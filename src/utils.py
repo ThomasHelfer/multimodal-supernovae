@@ -93,7 +93,7 @@ def plot_loss_history(train_loss_history, val_loss_history, path_base='./'):
     plt.grid(True)
 
     # Show the plot
-    plt.savefig(path_base + "loss_history.png")
+    plt.savefig(os.path.join(path_base, "loss_history.png")) 
 
 
 def cosine_similarity(a, b, temperature=1):
@@ -177,38 +177,6 @@ def get_ROC_data(
 
     return thresholds, fraction_correct
 
-    def get_ROC_data(
-        embs_curves: torch.Tensor, embs_images: torch.Tensor
-    ) -> Tuple[np.ndarray, np.ndarray]:
-        """
-        Calculate ROC-like data by evaluating the cosine similarity between two sets of embeddings.
-
-        Args:
-        embs_curves (torch.Tensor): Tensor of embeddings for light curves.
-        embs_images (torch.Tensor): Tensor of embeddings for images.
-
-        Returns:
-        Tuple[np.ndarray, np.ndarray]: A tuple containing an array of thresholds and an array of the fraction of correct predictions at each threshold.
-        """
-        thresholds = np.linspace(0, 1, 100)
-        imgs = []
-
-        # Iterate through image embeddings and calculate cosine similarity with curve embeddings
-        for idx, emb_src in enumerate(embs_images):
-            cos_sim = cosine_similarity(embs_curves, emb_src)
-            idx_sorted = torch.argsort(cos_sim, descending=True)
-
-            # Calculate the number of correct predictions for each threshold
-            num_right = [
-                idx in idx_sorted[: int(threshold * len(idx_sorted))]
-                for threshold in thresholds
-            ]
-            imgs.append(num_right)
-
-        # Calculate the fraction of correct predictions at each threshold
-        fraction_correct = np.sum(imgs, axis=0) / len(embs_images)
-
-        return thresholds, fraction_correct
 
 
 def plot_ROC_curves(
@@ -258,4 +226,4 @@ def plot_ROC_curves(
 
     # Adjust layout to prevent overlapping
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
-    plt.savefig(path_base + "ROC_curves.png")
+    plt.savefig(os.path.join(path_base, "ROC_curves.png")) 

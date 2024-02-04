@@ -1,6 +1,6 @@
 import os, sys
 import wandb
-from ruamel import yaml
+from ruamel.yaml import YAML
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.callbacks import ModelCheckpoint
 
@@ -112,12 +112,12 @@ def train_sweep(config=None):
         device = "gpu" if torch.cuda.is_available() else "cpu"
 
         wandb_logger = WandbLogger(project="multimodal")
-        #checkpoint_callback = ModelCheckpoint(dirpath="", save_top_k=5, monitor="val_loss")
+        checkpoint_callback = ModelCheckpoint(dirpath=path_run, save_top_k=2, monitor="val_loss")
 
         trainer = pl.Trainer(
             max_epochs=100, 
             accelerator=device, 
-            callbacks=[loss_tracking_callback], 
+            callbacks=[loss_tracking_callback, checkpoint_callback], 
             logger=wandb_logger, 
             enable_progress_bar=False
         )
@@ -135,7 +135,7 @@ def train_sweep(config=None):
         plot_ROC_curves(embs_curves_train,embs_images_train,embs_curves_val,embs_images_val, path_base=path_run)
 
         with open(os.path.join(path_run, 'config.yaml'), 'w') as f:
-            yaml.dump(cfg, f, default_flow_style=False)
+            YAML().dump(cfg)
 
 
 if __name__ == '__main__':

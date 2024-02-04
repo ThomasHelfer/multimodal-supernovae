@@ -220,7 +220,7 @@ def plot_lightcurve_and_images(
         axs[i, 1].set_title("Light Curve")
 
     # Save the first plot as a separate file
-    plt.savefig("lightcurves_and_host_images.png")
+    plt.savefig(os.path.join(path_base, "lightcurves_and_host_images.png")) 
 
     # Plot banner images
     colors = ["firebrick", "dodgerblue"]
@@ -254,4 +254,4 @@ def plot_lightcurve_and_images(
                 spine.set_linewidth(2.5)
 
     plt.tight_layout()
-    plt.savefig(path_base + "banner.png")
+    plt.savefig(os.path.join(path_base, "banner.png"))

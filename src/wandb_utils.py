@@ -7,7 +7,6 @@ def schedule_sweep(config, analysis_path):
     print("config file : ", config, flush=True)
     yaml = YAML(typ='rt')
     cfg = yaml.load(open(f'{config}'))
-    #cfg = yaml.load(open(f'{config}'), Loader=yaml.RoundTripLoader)
 
     sweep_id = wandb.sweep(sweep=YAML(typ='safe').load(open(f'{config}')), \
                             project='multimodal', entity='gzhang')
