@@ -6,3 +6,4 @@ tqdm
 einops
 pytorch_lightning
 torchvision
+black
