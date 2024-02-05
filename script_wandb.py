@@ -134,8 +134,9 @@ def train_sweep(config=None):
 
         plot_ROC_curves(embs_curves_train,embs_images_train,embs_curves_val,embs_images_val, path_base=path_run)
 
+        config_dict = {k: v for k, v in cfg.items()}
         with open(os.path.join(path_run, 'config.yaml'), 'w') as f:
-            YAML().dump(cfg, f)
+            YAML().dump(config_dict, f)
 
 
 if __name__ == '__main__':
