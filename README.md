@@ -43,10 +43,10 @@ Before installing, ensure you have the following prerequisites:
 2. Define name of project within [config file](https://github.com/ThomasHelfer/Multimodal-hackathon-2024/blob/bc8b55767276fd6c08af08fd668e5dbf1ad646de/sweep_configs/config_grid.yaml#L5) and create project with same name in [wand.ai](https://wandb.a) and choose parameter for sweep.
 3. Run
    ```bash
-   python script.py
+   python script_wandb.py sweep_configs/config_grid.yaml 
    ```
-4. Running for the first time will require you to give API key available [here]([https://wandb.ai](https://wandb.ai/authorize)https://wandb.ai/authorize) or define your API key in your enviorment
+4. Running for the first time will require you to give API key available [here]([https://wandb.ai](https://wandb.ai/authorize)https://wandb.ai/authorize) or define your API key in your enviorment beforehand (best option if submitted to compute node)
       ```bash
    export WANDB_API_KEY=...
    ```
-6. python script_wandb.py sweep_configs/config_grid.yaml 
+5. Get results on [wand.ai](https://wandb.ai)
