@@ -152,7 +152,7 @@ def train_sweep(config=None):
         )
 
         trainer = pl.Trainer(
-            max_epochs=100,
+            max_epochs=1000,
             accelerator=device,
             callbacks=[loss_tracking_callback, checkpoint_callback],
             logger=wandb_logger,
