@@ -13,19 +13,32 @@ from torch.utils.data import TensorDataset, DataLoader, random_split
 from torch.utils.data import TensorDataset, DataLoader, random_split
 
 from src.models_multimodal import LightCurveImageCLIP
-from src.utils import get_valid_dir, LossTrackingCallback, plot_ROC_curves, plot_loss_history, get_embs
-from src.dataloader import load_images, load_lightcurves, plot_lightcurve_and_images, NoisyDataLoader
+from src.utils import (
+    get_valid_dir,
+    LossTrackingCallback,
+    plot_ROC_curves,
+    plot_loss_history,
+    get_embs,
+)
+from src.dataloader import (
+    load_images,
+    load_lightcurves,
+    plot_lightcurve_and_images,
+    NoisyDataLoader,
+)
 from src.wandb_utils import schedule_sweep
 
 wandb.login()
 
-config = sys.argv[1] # '/n/home02/gemzhang/repos/Multimodal-hackathon-2024/sweep_configs/config_grid.yaml'
-analysis_path = './analysis/'
+config = sys.argv[
+    1
+]  # '/n/home02/gemzhang/repos/Multimodal-hackathon-2024/sweep_configs/config_grid.yaml'
+analysis_path = "./analysis/"
 
 sweep_id, model_path = schedule_sweep(config, analysis_path)
-print('model path: ' + model_path, flush=True)
+print("model path: " + model_path, flush=True)
 
-# define constants 
+# define constants
 val_fraction = 0.05
 # Define the noise levels for images and magnitude (multiplied by magerr)
 noise_level_img = 1  # Adjust as needed
@@ -35,10 +48,12 @@ val_noise = 0
 
 # Data preprocessing
 
-data_dirs = ["/home/thelfer1/scr4_tedwar42/thelfer1/ZTFBTS/",
-             "ZTFBTS/",
-             "/ocean/projects/phy230064p/shared/ZTFBTS/", 
-             "/n/home02/gemzhang/repos/Multimodal-hackathon-2024/ZTFBTS/"]
+data_dirs = [
+    "/home/thelfer1/scr4_tedwar42/thelfer1/ZTFBTS/",
+    "ZTFBTS/",
+    "/ocean/projects/phy230064p/shared/ZTFBTS/",
+    "/n/home02/gemzhang/repos/Multimodal-hackathon-2024/ZTFBTS/",
+]
 
 # Get the first valid directory
 data_dir = get_valid_dir(data_dirs)
@@ -50,7 +65,7 @@ host_imgs = load_images(data_dir)
 time_ary, mag_ary, magerr_ary, mask_ary, nband = load_lightcurves(data_dir)
 
 # Plot a light curve and its corresponding image
-#plot_lightcurve_and_images(host_imgs, time_ary, mag_ary, magerr_ary, mask_ary, nband)
+# plot_lightcurve_and_images(host_imgs, time_ary, mag_ary, magerr_ary, mask_ary, nband)
 
 time = torch.from_numpy(time_ary).float()
 mag = torch.from_numpy(mag_ary).float()
@@ -59,7 +74,7 @@ magerr = torch.from_numpy(magerr_ary).float()
 
 n_samples_val = int(val_fraction * mag.shape[0])
 
-dataset = TensorDataset(host_imgs, mag, time, mask, magerr)  
+dataset = TensorDataset(host_imgs, mag, time, mask, magerr)
 
 dataset_train, dataset_val = random_split(
     dataset, [mag.shape[0] - n_samples_val, n_samples_val]
@@ -74,17 +89,39 @@ val_loader_no_aug = DataLoader(
 
 def train_sweep(config=None):
     with wandb.init(config=config) as run:
-        print(f'run name: {run.name}', flush=True)
-        path_run = os.path.join(model_path, run.name) 
+        print(f"run name: {run.name}", flush=True)
+        path_run = os.path.join(model_path, run.name)
         os.makedirs(path_run, exist_ok=True)
 
         cfg = wandb.config
-        
+
         # Create custom noisy data loaders
-        train_loader = NoisyDataLoader(dataset_train, batch_size=cfg.batchsize, noise_level_img=noise_level_img, noise_level_mag=noise_level_mag, shuffle=True, num_workers=1, pin_memory=True)
-        val_loader = NoisyDataLoader(dataset_val, batch_size=cfg.batchsize, noise_level_img=val_noise, noise_level_mag=val_noise, shuffle=False, num_workers=1, pin_memory=True)
-        
-        transformer_kwargs = {"n_out": 32, "emb": cfg.emb, "heads": 2, "depth": cfg.transformer_depth, "dropout": cfg.dropout}
+        train_loader = NoisyDataLoader(
+            dataset_train,
+            batch_size=cfg.batchsize,
+            noise_level_img=noise_level_img,
+            noise_level_mag=noise_level_mag,
+            shuffle=True,
+            num_workers=1,
+            pin_memory=True,
+        )
+        val_loader = NoisyDataLoader(
+            dataset_val,
+            batch_size=cfg.batchsize,
+            noise_level_img=val_noise,
+            noise_level_mag=val_noise,
+            shuffle=False,
+            num_workers=1,
+            pin_memory=True,
+        )
+
+        transformer_kwargs = {
+            "n_out": 32,
+            "emb": cfg.emb,
+            "heads": 2,
+            "depth": cfg.transformer_depth,
+            "dropout": cfg.dropout,
+        }
         conv_kwargs = {
             "dim": 32,
             "depth": 2,
@@ -95,7 +132,6 @@ def train_sweep(config=None):
             "dropout_prob": cfg.dropout,
         }
 
-
         clip_model = LightCurveImageCLIP(
             logit_scale=20.0,
             lr=cfg.lr,
@@ -105,41 +141,52 @@ def train_sweep(config=None):
             conv_kwargs=conv_kwargs,
         )
 
-
         # Custom call back for tracking loss
         loss_tracking_callback = LossTrackingCallback()
 
         device = "gpu" if torch.cuda.is_available() else "cpu"
 
-        wandb_logger = WandbLogger(project="multimodal")
-        checkpoint_callback = ModelCheckpoint(dirpath=path_run, save_top_k=2, monitor="val_loss")
+        wandb_logger = WandbLogger()
+        checkpoint_callback = ModelCheckpoint(
+            dirpath=path_run, save_top_k=2, monitor="val_loss"
+        )
 
         trainer = pl.Trainer(
-            max_epochs=100, 
-            accelerator=device, 
-            callbacks=[loss_tracking_callback, checkpoint_callback], 
-            logger=wandb_logger, 
-            enable_progress_bar=False
+            max_epochs=100,
+            accelerator=device,
+            callbacks=[loss_tracking_callback, checkpoint_callback],
+            logger=wandb_logger,
+            enable_progress_bar=False,
         )
         trainer.fit(
             model=clip_model, train_dataloaders=train_loader, val_dataloaders=val_loader
         )
 
-        wandb.run.summary['best_val_loss'] = np.min(loss_tracking_callback.val_loss_history)
-        plot_loss_history(loss_tracking_callback.train_loss_history, loss_tracking_callback.val_loss_history, path_base=path_run)
+        wandb.run.summary["best_val_loss"] = np.min(
+            loss_tracking_callback.val_loss_history
+        )
+        plot_loss_history(
+            loss_tracking_callback.train_loss_history,
+            loss_tracking_callback.val_loss_history,
+            path_base=path_run,
+        )
 
         # Get embeddings for all images and light curves
-        embs_curves_train,embs_images_train = get_embs(clip_model,train_loader_no_aug)
-        embs_curves_val,embs_images_val = get_embs(clip_model,val_loader_no_aug)
+        embs_curves_train, embs_images_train = get_embs(clip_model, train_loader_no_aug)
+        embs_curves_val, embs_images_val = get_embs(clip_model, val_loader_no_aug)
 
-        plot_ROC_curves(embs_curves_train,embs_images_train,embs_curves_val,embs_images_val, path_base=path_run)
+        plot_ROC_curves(
+            embs_curves_train,
+            embs_images_train,
+            embs_curves_val,
+            embs_images_val,
+            path_base=path_run,
+        )
 
         config_dict = {k: v for k, v in cfg.items()}
-        with open(os.path.join(path_run, 'config.yaml'), 'w') as f:
+        with open(os.path.join(path_run, "config.yaml"), "w") as f:
             YAML().dump(config_dict, f)
 
 
-if __name__ == '__main__':
-
-    wandb.agent(sweep_id=sweep_id, function=train_sweep, project='multimodal')
-
+if __name__ == "__main__":
+    wandb.agent(sweep_id=sweep_id, function=train_sweep)

@@ -2,6 +2,7 @@ method: grid
 metric:
   goal: minimize
   name: best_val_loss
+project: multimodal
 parameters:
   dropout:
     values: [0.05, 0.1]
@@ -11,5 +12,5 @@ parameters:
     values: [32]
   transformer_depth:
     values: [1, 2]
-  emb: 
+  emb:
     values: [32]
