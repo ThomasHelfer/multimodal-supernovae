@@ -7,3 +7,5 @@ einops
 pytorch_lightning
 torchvision
 black
+wandb
+ruamel.yaml
