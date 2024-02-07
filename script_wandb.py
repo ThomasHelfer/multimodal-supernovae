@@ -36,6 +36,28 @@ def train_sweep(config=None):
 
         cfg = wandb.config
 
+        # Default to 1 if the environment variable is not set
+        cpus_per_task = int(os.getenv("SLURM_CPUS_PER_TASK", 1))
+
+        # Assuming you want to leave one CPU for overhead
+        num_workers = max(1, cpus_per_task - 1)
+        print(f"Using {num_workers} workers for data loading", flush=True)
+
+        train_loader_no_aug = DataLoader(
+            dataset_train,
+            batch_size=cfg.batchsize,
+            num_workers=num_workers,
+            pin_memory=True,
+            shuffle=True,
+        )
+        val_loader_no_aug = DataLoader(
+            dataset_val,
+            batch_size=cfg.batchsize,
+            num_workers=num_workers,
+            pin_memory=True,
+            shuffle=False,
+        )
+
         # Create custom noisy data loaders
         train_loader = NoisyDataLoader(
             dataset_train,
@@ -43,7 +65,7 @@ def train_sweep(config=None):
             noise_level_img=noise_level_img,
             noise_level_mag=noise_level_mag,
             shuffle=True,
-            num_workers=7,
+            num_workers=num_workers,
             pin_memory=True,
         )
         val_loader = NoisyDataLoader(
@@ -52,7 +74,7 @@ def train_sweep(config=None):
             noise_level_img=val_noise,
             noise_level_mag=val_noise,
             shuffle=False,
-            num_workers=7,
+            num_workers=num_workers,
             pin_memory=True,
         )
 
@@ -168,9 +190,6 @@ if __name__ == "__main__":
     # Load light curves from data_dir
     time_ary, mag_ary, magerr_ary, mask_ary, nband = load_lightcurves(data_dir)
 
-    # Plot a light curve and its corresponding image
-    # plot_lightcurve_and_images(host_imgs, time_ary, mag_ary, magerr_ary, mask_ary, nband)
-
     time = torch.from_numpy(time_ary).float()
     mag = torch.from_numpy(mag_ary).float()
     mask = torch.from_numpy(mask_ary).bool()
@@ -182,12 +201,6 @@ if __name__ == "__main__":
 
     dataset_train, dataset_val = random_split(
         dataset, [mag.shape[0] - n_samples_val, n_samples_val]
-    )
-    train_loader_no_aug = DataLoader(
-        dataset_train, batch_size=32, num_workers=1, pin_memory=True, shuffle=True
-    )
-    val_loader_no_aug = DataLoader(
-        dataset_val, batch_size=32, num_workers=1, pin_memory=True, shuffle=False
     )
 
     wandb.agent(sweep_id=sweep_id, function=train_sweep)
