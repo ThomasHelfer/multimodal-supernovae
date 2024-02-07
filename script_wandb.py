@@ -97,7 +97,7 @@ def train_sweep(config=None):
             accelerator=device,
             callbacks=[loss_tracking_callback, checkpoint_callback],
             logger=wandb_logger,
-            enable_progress_bar=True,
+            enable_progress_bar=False,
         )
         trainer.fit(
             model=clip_model, train_dataloaders=train_loader, val_dataloaders=val_loader
@@ -128,9 +128,10 @@ def train_sweep(config=None):
         with open(os.path.join(path_run, "config.yaml"), "w") as f:
             YAML().dump(config_dict, f)
 
+        wandb.finish()
+
 
 if __name__ == "__main__":
-
     wandb.login()
 
     config = sys.argv[
