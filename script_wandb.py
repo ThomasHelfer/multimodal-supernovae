@@ -10,7 +10,6 @@ import torch
 import pytorch_lightning as pl
 
 from torch.utils.data import TensorDataset, DataLoader, random_split
-from torch.utils.data import TensorDataset, DataLoader, random_split
 
 from src.models_multimodal import LightCurveImageCLIP
 from src.utils import (
@@ -28,64 +27,6 @@ from src.dataloader import (
 )
 from src.wandb_utils import schedule_sweep
 
-wandb.login()
-
-config = sys.argv[
-    1
-]  # '/n/home02/gemzhang/repos/Multimodal-hackathon-2024/sweep_configs/config_grid.yaml'
-analysis_path = "./analysis/"
-
-sweep_id, model_path = schedule_sweep(config, analysis_path)
-print("model path: " + model_path, flush=True)
-
-# define constants
-val_fraction = 0.05
-# Define the noise levels for images and magnitude (multiplied by magerr)
-noise_level_img = 1  # Adjust as needed
-noise_level_mag = 1  # Adjust as needed
-
-val_noise = 0
-
-# Data preprocessing
-
-data_dirs = [
-    "/home/thelfer1/scr4_tedwar42/thelfer1/ZTFBTS/",
-    "ZTFBTS/",
-    "/ocean/projects/phy230064p/shared/ZTFBTS/",
-    "/n/home02/gemzhang/repos/Multimodal-hackathon-2024/ZTFBTS/",
-]
-
-# Get the first valid directory
-data_dir = get_valid_dir(data_dirs)
-
-# Load images from data_dir
-host_imgs = load_images(data_dir)
-
-# Load light curves from data_dir
-time_ary, mag_ary, magerr_ary, mask_ary, nband = load_lightcurves(data_dir)
-
-# Plot a light curve and its corresponding image
-# plot_lightcurve_and_images(host_imgs, time_ary, mag_ary, magerr_ary, mask_ary, nband)
-
-time = torch.from_numpy(time_ary).float()
-mag = torch.from_numpy(mag_ary).float()
-mask = torch.from_numpy(mask_ary).bool()
-magerr = torch.from_numpy(magerr_ary).float()
-
-n_samples_val = int(val_fraction * mag.shape[0])
-
-dataset = TensorDataset(host_imgs, mag, time, mask, magerr)
-
-dataset_train, dataset_val = random_split(
-    dataset, [mag.shape[0] - n_samples_val, n_samples_val]
-)
-train_loader_no_aug = DataLoader(
-    dataset_train, batch_size=32, num_workers=1, pin_memory=True, shuffle=True
-)
-val_loader_no_aug = DataLoader(
-    dataset_val, batch_size=32, num_workers=1, pin_memory=True, shuffle=False
-)
-
 
 def train_sweep(config=None):
     with wandb.init(config=config) as run:
@@ -102,7 +43,7 @@ def train_sweep(config=None):
             noise_level_img=noise_level_img,
             noise_level_mag=noise_level_mag,
             shuffle=True,
-            num_workers=1,
+            num_workers=7,
             pin_memory=True,
         )
         val_loader = NoisyDataLoader(
@@ -111,7 +52,7 @@ def train_sweep(config=None):
             noise_level_img=val_noise,
             noise_level_mag=val_noise,
             shuffle=False,
-            num_workers=1,
+            num_workers=7,
             pin_memory=True,
         )
 
@@ -152,11 +93,11 @@ def train_sweep(config=None):
         )
 
         trainer = pl.Trainer(
-            max_epochs=1000,
+            max_epochs=cfg.epochs,
             accelerator=device,
             callbacks=[loss_tracking_callback, checkpoint_callback],
             logger=wandb_logger,
-            enable_progress_bar=False,
+            enable_progress_bar=True,
         )
         trainer.fit(
             model=clip_model, train_dataloaders=train_loader, val_dataloaders=val_loader
@@ -189,4 +130,63 @@ def train_sweep(config=None):
 
 
 if __name__ == "__main__":
+
+    wandb.login()
+
+    config = sys.argv[
+        1
+    ]  # '/n/home02/gemzhang/repos/Multimodal-hackathon-2024/sweep_configs/config_grid.yaml'
+    analysis_path = "./analysis/"
+
+    sweep_id, model_path = schedule_sweep(config, analysis_path)
+    print("model path: " + model_path, flush=True)
+
+    # define constants
+    val_fraction = 0.05
+    # Define the noise levels for images and magnitude (multiplied by magerr)
+    noise_level_img = 1  # Adjust as needed
+    noise_level_mag = 1  # Adjust as needed
+
+    val_noise = 0
+
+    # Data preprocessing
+
+    data_dirs = [
+        "/home/thelfer1/scr4_tedwar42/thelfer1/ZTFBTS/",
+        "ZTFBTS/",
+        "/ocean/projects/phy230064p/shared/ZTFBTS/",
+        "/n/home02/gemzhang/repos/Multimodal-hackathon-2024/ZTFBTS/",
+    ]
+
+    # Get the first valid directory
+    data_dir = get_valid_dir(data_dirs)
+
+    # Load images from data_dir
+    host_imgs = load_images(data_dir)
+
+    # Load light curves from data_dir
+    time_ary, mag_ary, magerr_ary, mask_ary, nband = load_lightcurves(data_dir)
+
+    # Plot a light curve and its corresponding image
+    # plot_lightcurve_and_images(host_imgs, time_ary, mag_ary, magerr_ary, mask_ary, nband)
+
+    time = torch.from_numpy(time_ary).float()
+    mag = torch.from_numpy(mag_ary).float()
+    mask = torch.from_numpy(mask_ary).bool()
+    magerr = torch.from_numpy(magerr_ary).float()
+
+    n_samples_val = int(val_fraction * mag.shape[0])
+
+    dataset = TensorDataset(host_imgs, mag, time, mask, magerr)
+
+    dataset_train, dataset_val = random_split(
+        dataset, [mag.shape[0] - n_samples_val, n_samples_val]
+    )
+    train_loader_no_aug = DataLoader(
+        dataset_train, batch_size=32, num_workers=1, pin_memory=True, shuffle=True
+    )
+    val_loader_no_aug = DataLoader(
+        dataset_val, batch_size=32, num_workers=1, pin_memory=True, shuffle=False
+    )
+
     wandb.agent(sweep_id=sweep_id, function=train_sweep)
