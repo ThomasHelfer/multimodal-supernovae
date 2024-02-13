@@ -7,6 +7,20 @@ from torch.utils.data import DataLoader
 from typing import Tuple, List
 from matplotlib import pyplot as plt
 
+def set_seed(seed: int = 0) -> None:
+    '''
+    set seed so that results are fully reproducible 
+    '''
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False 
+    
+    os.environ["PYTHONHASHSEED"] = str(seed)
+    print(f"Random seed: {seed}") 
+    
 
 def get_valid_dir(data_dirs: List[str]) -> str:
     """

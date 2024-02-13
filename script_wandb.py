@@ -13,6 +13,7 @@ from torch.utils.data import TensorDataset, DataLoader, random_split
 
 from src.models_multimodal import LightCurveImageCLIP
 from src.utils import (
+    set_seed,
     get_valid_dir,
     LossTrackingCallback,
     plot_ROC_curves,
@@ -155,6 +156,8 @@ def train_sweep(config=None):
 
 if __name__ == "__main__":
     wandb.login()
+
+    set_seed(0)
 
     config = sys.argv[
         1
