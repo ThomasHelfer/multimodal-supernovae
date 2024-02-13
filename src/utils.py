@@ -6,6 +6,38 @@ import numpy as np
 from torch.utils.data import DataLoader
 from typing import Tuple, List
 from matplotlib import pyplot as plt
+from ruamel.yaml import YAML
+
+
+def get_savedir(args) -> str:
+    '''
+    Return config dict and path to save new plots and models based on 
+    whether to continue from checkpoint or not
+
+    Args:
+    args: argparse.ArgumentParser object
+
+    Returns:
+    str: path to save new plots and models
+    cfg: dict: configuration dictionary 
+    '''
+
+    if args.ckpt_path:
+        cfg = YAML(typ="safe").load(open(os.path.join(os.path.dirname(args.ckpt_path), "config.yaml")))
+        save_dir = os.path.join(os.path.dirname(args.ckpt_path), 'resume/') 
+        os.makedirs(save_dir, exist_ok=True)
+    else: 
+        cfg = YAML(typ="safe").load(open(args.config_path))
+        if args.runname:
+            save_dir = f'./analysis/runs/{args.runname}/'
+        else: 
+            dirlist = [int(item) for item in os.listdir('./analysis/runs/') if os.path.isdir(os.path.join('./analysis/runs/', item)) and item.isnumeric()]
+            filename = str(max(dirlist)+1) if len(dirlist) > 0 else '0'
+            save_dir = os.path.join('./analysis/runs/', filename)
+        os.makedirs(save_dir, exist_ok=True)
+
+    return save_dir, cfg
+
 
 def set_seed(seed: int = 0) -> None:
     '''

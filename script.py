@@ -1,13 +1,25 @@
 import torch
 import pytorch_lightning as pl
+import argparse 
+import os
+from ruamel.yaml import YAML
 
 from torch.utils.data import TensorDataset, DataLoader, random_split
 from torch.utils.data import TensorDataset, DataLoader, random_split
+from pytorch_lightning.callbacks import ModelCheckpoint
 
 from src.models_multimodal import LightCurveImageCLIP
-from src.utils import get_valid_dir, LossTrackingCallback, plot_loss_history, get_embs,plot_ROC_curves
+from src.utils import get_valid_dir, LossTrackingCallback, plot_loss_history, get_embs,plot_ROC_curves, get_savedir
 from src.dataloader import load_images, load_lightcurves, plot_lightcurve_and_images, NoisyDataLoader
 
+parser = argparse.ArgumentParser(description='Process arguments')
+parser.add_argument('--ckpt_path', type=str, default=None, help='Path to the checkpoint directory')
+parser.add_argument('--runname', type=str, default=None, help='Name of the run')
+parser.add_argument('--config_path', type=str, default=None, help='Path for config if not resuming from checkpoint')
+args = parser.parse_args() 
+
+
+save_dir, cfg = get_savedir(args)
 
 # Data preprocessing
 
@@ -26,7 +38,7 @@ host_imgs = load_images(data_dir)
 time_ary, mag_ary, magerr_ary, mask_ary, nband = load_lightcurves(data_dir)
 
 # Plot a light curve and its corresponding image
-plot_lightcurve_and_images(host_imgs, time_ary, mag_ary, magerr_ary, mask_ary, nband)
+#plot_lightcurve_and_images(host_imgs, time_ary, mag_ary, magerr_ary, mask_ary, nband)
 
 
 time = torch.from_numpy(time_ary).float()
@@ -35,7 +47,7 @@ mask = torch.from_numpy(mask_ary).bool()
 magerr = torch.from_numpy(magerr_ary).float()
 
 val_fraction = 0.05
-batch_size = 32
+batch_size = cfg["batchsize"]
 n_samples_val = int(val_fraction * mag.shape[0])
 
 dataset = TensorDataset(host_imgs, mag, time, mask, magerr)  
@@ -61,7 +73,11 @@ train_loader = NoisyDataLoader(dataset_train, batch_size=batch_size, noise_level
 val_loader = NoisyDataLoader(dataset_val, batch_size=batch_size, noise_level_img=val_noise, noise_level_mag=val_noise, shuffle=False, num_workers=1, pin_memory=True)
 
 
-transformer_kwargs = {"n_out": 32, "emb": 32, "heads": 2, "depth": 1, "dropout": 0.0}
+transformer_kwargs = {"n_out": 32, 
+                      "emb": cfg['emb'], 
+                      "heads": 2, 
+                      "depth": cfg['transformer_depth'], 
+                      "dropout": cfg['dropout']}
 conv_kwargs = {
     "dim": 32,
     "depth": 2,
@@ -69,13 +85,13 @@ conv_kwargs = {
     "kernel_size": 5,
     "patch_size": 10,
     "n_out": 32,
-    "dropout_prob": 0.0,
+    "dropout_prob": cfg["dropout"],
 }
 
 
 clip_model = LightCurveImageCLIP(
     logit_scale=20.0,
-    lr=1e-4,
+    lr=cfg['lr'],
     nband=nband,
     loss="softmax",
     transformer_kwargs=transformer_kwargs,
@@ -89,16 +105,20 @@ loss_tracking_callback = LossTrackingCallback()
 
 device = "gpu" if torch.cuda.is_available() else "cpu"
 
-trainer = pl.Trainer(max_epochs=10, accelerator=device, callbacks=[loss_tracking_callback]
+checkpoint_callback = ModelCheckpoint(
+            dirpath=save_dir, save_top_k=2, monitor="val_loss"
+        )
+
+trainer = pl.Trainer(max_epochs=150, accelerator=device, callbacks=[loss_tracking_callback, checkpoint_callback]
 )
 trainer.fit(
-    model=clip_model, train_dataloaders=train_loader, val_dataloaders=val_loader
+    model=clip_model, train_dataloaders=train_loader, val_dataloaders=val_loader, ckpt_path=args.ckpt_path
 )
 
-plot_loss_history(loss_tracking_callback.train_loss_history, loss_tracking_callback.val_loss_history)
+plot_loss_history(loss_tracking_callback.train_loss_history, loss_tracking_callback.val_loss_history, path_base=save_dir)
 
 # Get embeddings for all images and light curves
 embs_curves_train,embs_images_train = get_embs(clip_model,train_loader_no_aug)
 embs_curves_val,embs_images_val = get_embs(clip_model,val_loader_no_aug)
 
-plot_ROC_curves(embs_curves_train,embs_images_train,embs_curves_val,embs_images_val)
+plot_ROC_curves(embs_curves_train,embs_images_train,embs_curves_val,embs_images_val, path_base=save_dir)
