@@ -27,14 +27,18 @@ def get_savedir(args) -> str:
         save_dir = os.path.join(os.path.dirname(args.ckpt_path), 'resume/') 
         os.makedirs(save_dir, exist_ok=True)
     else: 
-        cfg = YAML(typ="safe").load(open(args.config_path))
+        yaml = YAML(typ="rt")
+        cfg = yaml.load(open(args.config_path))
         if args.runname:
             save_dir = f'./analysis/runs/{args.runname}/'
         else: 
             dirlist = [int(item) for item in os.listdir('./analysis/runs/') if os.path.isdir(os.path.join('./analysis/runs/', item)) and item.isnumeric()]
-            filename = str(max(dirlist)+1) if len(dirlist) > 0 else '0'
-            save_dir = os.path.join('./analysis/runs/', filename)
+            dirname = str(max(dirlist)+1) if len(dirlist) > 0 else '0'
+            save_dir = os.path.join('./analysis/runs/', dirname)
+
         os.makedirs(save_dir, exist_ok=True)
+        with open(os.path.join(save_dir, 'config.yaml'), "w") as outfile:
+            yaml.dump(cfg, outfile)
 
     return save_dir, cfg
 

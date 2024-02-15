@@ -109,7 +109,7 @@ checkpoint_callback = ModelCheckpoint(
             dirpath=save_dir, save_top_k=2, monitor="val_loss"
         )
 
-trainer = pl.Trainer(max_epochs=150, accelerator=device, callbacks=[loss_tracking_callback, checkpoint_callback]
+trainer = pl.Trainer(max_epochs=cfg['epochs'], accelerator=device, callbacks=[loss_tracking_callback, checkpoint_callback]
 )
 trainer.fit(
     model=clip_model, train_dataloaders=train_loader, val_dataloaders=val_loader, ckpt_path=args.ckpt_path
