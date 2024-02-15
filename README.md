@@ -36,7 +36,7 @@ Before installing, ensure you have the following prerequisites:
 4. #### Run the Script
    Execute the main script to start your analysis:
    ```bash
-   python script.py configs/config.yaml
+   python script.py --config_path configs/config.yaml
    ```
    
 ### Setting Up a Hyperparameter Scan with Weights & Biases
