@@ -36,7 +36,7 @@ Before installing, ensure you have the following prerequisites:
 4. #### Run the Script
    Execute the main script to start your analysis:
    ```bash
-   python script.py
+   python script.py --config_path configs/config.yaml
    ```
    
 ### Setting Up a Hyperparameter Scan with Weights & Biases
@@ -44,11 +44,11 @@ Before installing, ensure you have the following prerequisites:
 1. #### Create a Weights & Biases Account
    Sign up for an account at [Weights & Biases]((https://wandb.ai)) if you haven't already.
 2. #### Configure Your Project
-   Edit the configuration file to specify your project name. Ensure the name matches the project you create on [wand.ai](https://wandb.a). You can define sweep parameters within the [config file](https://github.com/ThomasHelfer/Multimodal-hackathon-2024/blob/main/sweep_configs/config_grid.yaml) .
+   Edit the configuration file to specify your project name. Ensure the name matches the project you create on [wand.ai](https://wandb.a). You can define sweep parameters within the [config file](https://github.com/ThomasHelfer/Multimodal-hackathon-2024/blob/main/configs/config_grid.yaml) .
 3. #### Run the Sweep Script
    Start the hyperparameter sweep with the following command:
    ```bash
-   python script_wandb.py sweep_configs/config_grid.yaml 
+   python script_wandb.py configs/config_grid.yaml 
    ```
 4. #### API Key Configuration
    The first execution will prompt you for your Weights & Biases API key, which can be found [here]([https://wandb.ai](https://wandb.ai/authorize)https://wandb.ai/authorize). 
