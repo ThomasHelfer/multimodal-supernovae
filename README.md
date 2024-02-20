@@ -38,6 +38,12 @@ Before installing, ensure you have the following prerequisites:
    ```bash
    python script.py --config_path configs/config.yaml
    ```
+5. #### Restart script
+   To start off from a checkpoint use 
+   ```bash
+   python script.py --ckpt_path analysis/batch_sweep/worldly-sweep-4/model.ckpt
+   ```
+   where there should be a config.yaml corresponing to this run in the same folder
    
 ### Setting Up a Hyperparameter Scan with Weights & Biases
 
