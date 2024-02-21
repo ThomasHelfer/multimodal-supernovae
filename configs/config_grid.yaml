@@ -5,7 +5,7 @@ metric:
 project: multimodal
 parameters:
   dropout:
-    values: [0.001,0.005]
+    values: [0.001]
   lr:
     values: [1e-4]
   batchsize:
@@ -15,4 +15,6 @@ parameters:
   emb:
     values: [32]
   epochs:
-    values: [600]
+    values: [5]
+  weight_decay:
+    values: [0,1e-4]

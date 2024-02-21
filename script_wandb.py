@@ -31,6 +31,7 @@ from src.wandb_utils import schedule_sweep
 
 def train_sweep(config=None):
     with wandb.init(config=config) as run:
+        set_seed(0)
         print(f"run name: {run.name}", flush=True)
         path_run = os.path.join(model_path, run.name)
         os.makedirs(path_run, exist_ok=True)
@@ -95,6 +96,8 @@ def train_sweep(config=None):
             "n_out": 32,
             "dropout_prob": cfg.dropout,
         }
+        optimizer_kwargs = {"weight_decay":cfg.weight_decay}
+
 
         clip_model = LightCurveImageCLIP(
             logit_scale=20.0,
@@ -103,6 +106,7 @@ def train_sweep(config=None):
             loss="softmax",
             transformer_kwargs=transformer_kwargs,
             conv_kwargs=conv_kwargs,
+            optimizer_kwargs = optimizer_kwargs
         )
 
         # Custom call back for tracking loss

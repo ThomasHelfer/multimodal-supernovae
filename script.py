@@ -5,7 +5,6 @@ import os
 from ruamel.yaml import YAML
 
 from torch.utils.data import TensorDataset, DataLoader, random_split
-from torch.utils.data import TensorDataset, DataLoader, random_split
 from pytorch_lightning.callbacks import ModelCheckpoint
 
 from src.models_multimodal import LightCurveImageCLIP
@@ -88,6 +87,7 @@ conv_kwargs = {
     "dropout_prob": cfg["dropout"],
 }
 
+optimizer_kwargs = {"weight_decay":cfg.weight_decay}
 
 clip_model = LightCurveImageCLIP(
     logit_scale=20.0,
@@ -96,6 +96,7 @@ clip_model = LightCurveImageCLIP(
     loss="softmax",
     transformer_kwargs=transformer_kwargs,
     conv_kwargs=conv_kwargs,
+    optimizer_kwargs = optimizer_kwargs
 )
 
 
