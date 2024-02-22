@@ -31,12 +31,12 @@ from src.wandb_utils import schedule_sweep
 
 def train_sweep(config=None):
     with wandb.init(config=config) as run:
-        set_seed(cfg.seed)
         print(f"run name: {run.name}", flush=True)
         path_run = os.path.join(model_path, run.name)
         os.makedirs(path_run, exist_ok=True)
 
         cfg = wandb.config
+        set_seed(cfg.seed)
 
         # Default to 1 if the environment variable is not set
         cpus_per_task = int(os.getenv("SLURM_CPUS_PER_TASK", 1))
@@ -160,8 +160,6 @@ def train_sweep(config=None):
 
 if __name__ == "__main__":
     wandb.login()
-
-    set_seed(cfg.seed)
 
     config = sys.argv[
         1
