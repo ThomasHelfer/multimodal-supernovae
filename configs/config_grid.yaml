@@ -18,3 +18,5 @@ parameters:
     values: [5]
   weight_decay:
     values: [0,1e-4]
+  seed:
+    values: [0]

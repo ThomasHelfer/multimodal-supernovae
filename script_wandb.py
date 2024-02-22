@@ -31,7 +31,7 @@ from src.wandb_utils import schedule_sweep
 
 def train_sweep(config=None):
     with wandb.init(config=config) as run:
-        set_seed(0)
+        set_seed(cfg.seed)
         print(f"run name: {run.name}", flush=True)
         path_run = os.path.join(model_path, run.name)
         os.makedirs(path_run, exist_ok=True)
@@ -161,7 +161,7 @@ def train_sweep(config=None):
 if __name__ == "__main__":
     wandb.login()
 
-    set_seed(0)
+    set_seed(cfg.seed)
 
     config = sys.argv[
         1
