@@ -220,7 +220,7 @@ def load_spectras(
     # Choosing maximum lenght (5000 is roughly 95 % percentile length for data in repo)
     n_max_obs = 5000
     # Getting filenames
-    lightcurve_files = os.listdir(dir_light_curves)
+    lightcurve_files = sorted(os.listdir(dir_light_curves))
     mask_list, spec_list, specerr_list, freq_list, filenames = [], [], [], [], []
 
     for filename in tqdm(lightcurve_files):
