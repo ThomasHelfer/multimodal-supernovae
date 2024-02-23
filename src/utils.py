@@ -10,8 +10,8 @@ from ruamel.yaml import YAML
 
 
 def get_savedir(args) -> str:
-    '''
-    Return config dict and path to save new plots and models based on 
+    """
+    Return config dict and path to save new plots and models based on
     whether to continue from checkpoint or not
 
     Args:
@@ -19,44 +19,51 @@ def get_savedir(args) -> str:
 
     Returns:
     str: path to save new plots and models
-    cfg: dict: configuration dictionary 
-    '''
+    cfg: dict: configuration dictionary
+    """
 
     if args.ckpt_path:
-        cfg = YAML(typ="safe").load(open(os.path.join(os.path.dirname(args.ckpt_path), "config.yaml")))
-        save_dir = os.path.join(os.path.dirname(args.ckpt_path), 'resume/') 
+        cfg = YAML(typ="safe").load(
+            open(os.path.join(os.path.dirname(args.ckpt_path), "config.yaml"))
+        )
+        save_dir = os.path.join(os.path.dirname(args.ckpt_path), "resume/")
         os.makedirs(save_dir, exist_ok=True)
-    else: 
+    else:
         yaml = YAML(typ="rt")
         cfg = yaml.load(open(args.config_path))
         if args.runname:
-            save_dir = f'./analysis/runs/{args.runname}/'
-        else: 
-            dirlist = [int(item) for item in os.listdir('./analysis/runs/') if os.path.isdir(os.path.join('./analysis/runs/', item)) and item.isnumeric()]
-            dirname = str(max(dirlist)+1) if len(dirlist) > 0 else '0'
-            save_dir = os.path.join('./analysis/runs/', dirname)
+            save_dir = f"./analysis/runs/{args.runname}/"
+        else:
+            dirlist = [
+                int(item)
+                for item in os.listdir("./analysis/runs/")
+                if os.path.isdir(os.path.join("./analysis/runs/", item))
+                and item.isnumeric()
+            ]
+            dirname = str(max(dirlist) + 1) if len(dirlist) > 0 else "0"
+            save_dir = os.path.join("./analysis/runs/", dirname)
 
         os.makedirs(save_dir, exist_ok=True)
-        with open(os.path.join(save_dir, 'config.yaml'), "w") as outfile:
+        with open(os.path.join(save_dir, "config.yaml"), "w") as outfile:
             yaml.dump(cfg, outfile)
 
     return save_dir, cfg
 
 
 def set_seed(seed: int = 0) -> None:
-    '''
-    set seed so that results are fully reproducible 
-    '''
+    """
+    set seed so that results are fully reproducible
+    """
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
-    
+
     torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False 
-    
+    torch.backends.cudnn.benchmark = False
+
     os.environ["PYTHONHASHSEED"] = str(seed)
-    print(f"Random seed: {seed}") 
-    
+    print(f"Random seed: {seed}")
+
 
 def get_valid_dir(data_dirs: List[str]) -> str:
     """
@@ -102,7 +109,7 @@ class LossTrackingCallback(Callback):
             self.val_loss_history.append(val_loss.detach().item())
 
 
-def plot_loss_history(train_loss_history, val_loss_history, path_base='./'):
+def plot_loss_history(train_loss_history, val_loss_history, path_base="./"):
     """
     Plots the training and validation loss histories.
 
@@ -143,7 +150,7 @@ def plot_loss_history(train_loss_history, val_loss_history, path_base='./'):
     plt.grid(True)
 
     # Show the plot
-    plt.savefig(os.path.join(path_base, "loss_history.png")) 
+    plt.savefig(os.path.join(path_base, "loss_history.png"))
 
 
 def cosine_similarity(a, b, temperature=1):
@@ -228,13 +235,27 @@ def get_ROC_data(
     return thresholds, fraction_correct
 
 
+def get_AUC(
+    embs_curves: torch.Tensor,
+    embs_images: torch.Tensor,
+) -> Tuple[float, float]:
+    """
+    Calculate the area under the ROC curve for training and validation datasets.
+    Args:
+    embs_curves (torch.Tensor): Embeddings for light curves in the training set.
+    embs_images (torch.Tensor): Embeddings for images in the training set.
+    """
+    thresholds, fraction_correct = get_ROC_data(embs_curves, embs_images)
+    auc = np.trapz(fraction_correct, thresholds)
+    return auc
+
 
 def plot_ROC_curves(
     embs_curves_train: torch.Tensor,
     embs_images_train: torch.Tensor,
     embs_curves_val: torch.Tensor,
     embs_images_val: torch.Tensor,
-    path_base : str = './',
+    path_base: str = "./",
 ) -> None:
     """
     Plots ROC-like curves for training and validation datasets based on embeddings.
@@ -244,6 +265,7 @@ def plot_ROC_curves(
     embs_images_train (torch.Tensor): Embeddings for images in the training set.
     embs_curves_val (torch.Tensor): Embeddings for light curves in the validation set.
     embs_images_val (torch.Tensor): Embeddings for images in the validation set.
+    path_base (str) : path to save the plot
     """
     thresholds, fraction_correct_train = get_ROC_data(
         embs_curves_train, embs_images_train
@@ -276,4 +298,4 @@ def plot_ROC_curves(
 
     # Adjust layout to prevent overlapping
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
-    plt.savefig(os.path.join(path_base, "ROC_curves.png")) 
+    plt.savefig(os.path.join(path_base, "ROC_curves.png"))

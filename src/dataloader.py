@@ -14,7 +14,15 @@ import matplotlib.pyplot as plt
 
 # Custom data loader with noise augmentation using magerr
 class NoisyDataLoader(DataLoader):
-    def __init__(self, dataset, batch_size, noise_level_img, noise_level_mag, shuffle=True, **kwargs):
+    def __init__(
+        self,
+        dataset,
+        batch_size,
+        noise_level_img,
+        noise_level_mag,
+        shuffle=True,
+        **kwargs,
+    ):
         super().__init__(dataset, batch_size=batch_size, shuffle=shuffle, **kwargs)
         self.max_noise_intensity = noise_level_img
         self.noise_level_mag = noise_level_mag
@@ -39,16 +47,17 @@ class NoisyDataLoader(DataLoader):
 
             # Apply rotation to each image
             for i in range(noisy_imgs.size(0)):
-                rotated_img = RandomRotation([rotation_angle[i], rotation_angle[i]])(noisy_imgs[i])
+                rotated_img = RandomRotation([rotation_angle[i], rotation_angle[i]])(
+                    noisy_imgs[i]
+                )
                 rotated_imgs.append(rotated_img)
 
             # Stack the rotated images back into a tensor
             rotated_imgs = torch.stack(rotated_imgs)
-            
+
             # Return the noisy batch
             yield noisy_imgs, noisy_mag, time, mask
-            
-            
+
 
 def load_images(data_dir: str) -> torch.Tensor:
     """
@@ -178,7 +187,6 @@ def load_lightcurves(
     return time_ary, mag_ary, magerr_ary, mask_ary, nband
 
 
-
 def plot_lightcurve_and_images(
     host_imgs: torch.Tensor,
     time_ary: np.ndarray,
@@ -186,7 +194,7 @@ def plot_lightcurve_and_images(
     magerr_ary: np.ndarray,
     mask_ary: np.ndarray,
     nband: int,
-    path_base : str = './', 
+    path_base: str = "./",
 ) -> None:
     """
     Plots host images and corresponding light curves.
@@ -220,7 +228,7 @@ def plot_lightcurve_and_images(
         axs[i, 1].set_title("Light Curve")
 
     # Save the first plot as a separate file
-    plt.savefig(os.path.join(path_base, "lightcurves_and_host_images.png")) 
+    plt.savefig(os.path.join(path_base, "lightcurves_and_host_images.png"))
 
     # Plot banner images
     colors = ["firebrick", "dodgerblue"]

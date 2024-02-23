@@ -4,8 +4,9 @@ import pytorch_lightning as pl
 from typing import Dict, Optional, Tuple
 import torch
 import math
-import sys 
+import sys
 from src.loss import sigmoid_loss, clip_loss
+from src.utils import get_AUC
 
 
 class Residual(nn.Module):
@@ -175,7 +176,6 @@ class TransformerWithTimeEmbeddings(nn.Module):
         x = self.projection(x)
         return x
 
-    
 
 class LightCurveImageCLIP(pl.LightningModule):
     def __init__(
@@ -294,18 +294,23 @@ class LightCurveImageCLIP(pl.LightningModule):
                 self.lightcurve_encoder,
             ).mean()
         self.log(
-            "train_loss",
-            loss,
-            on_epoch=True,
-            on_step=False,
-            prog_bar=True,
-            logger=True
+            "train_loss", loss, on_epoch=True, on_step=False, prog_bar=True, logger=True
         )
         return loss
+
+    def on_validation_start(self) -> None:
+        """
+        Called at the beginning of the validation loop.
+        """
+        # Initialize an empty list to store embeddings for lightcurve and galaxy images
+        self.embs_curves = []
+        self.embs_images = []
 
     def validation_step(self, batch, batch_idx):
         x_img, x_lc, t_lc, mask_lc = batch
         x_img, x_lc = self(x_img, x_lc, t_lc, mask_lc)
+        self.embs_curves.append(x_lc)
+        self.embs_images.append(x_img)
         if self.loss == "sigmoid":
             loss = sigmoid_loss(x_img, x_lc, self.logit_scale, self.logit_bias).mean()
         elif self.loss == "softmax":
@@ -318,11 +323,23 @@ class LightCurveImageCLIP(pl.LightningModule):
                 self.lightcurve_encoder,
             ).mean()
         self.log(
-            "val_loss",
-            loss,
-            on_epoch=True,
-            on_step=False,
-            prog_bar=True,
-            logger=True
+            "val_loss", loss, on_epoch=True, on_step=False, prog_bar=True, logger=True
         )
         return loss
+
+    def on_validation_epoch_end(self) -> None:
+        """
+        Called at the end of the validation epoch.
+        """
+        # Concatenate all embeddings into single tensors
+        self.embs_curves = torch.cat(self.embs_curves, dim=0)
+        self.embs_images = torch.cat(self.embs_images, dim=0)
+
+        AUC = get_AUC(self.embs_curves, self.embs_images)
+        self.log(
+            "AUC_val", AUC, on_epoch=True, on_step=False, prog_bar=True, logger=True
+        )
+
+        # Delete the embeddings to free up memory
+        self.embs_curves = None
+        self.embs_images = None
