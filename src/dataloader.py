@@ -74,8 +74,9 @@ def load_images(data_dir: str) -> torch.Tensor:
     dir_host_imgs = f"{data_dir}/hostImgs/"
     host_imgs = []
 
+    filenames = sorted(os.listdir(dir_host_imgs))
     # Iterate through the directory and load images
-    for filename in tqdm(os.listdir(dir_host_imgs)):
+    for filename in tqdm(filenames):
         file_path = os.path.join(dir_host_imgs, filename)
         if file_path.endswith(".png"):
             # Load image, convert to RGB, and then to a NumPy array
@@ -125,7 +126,7 @@ def load_lightcurves(
     bands = ["R", "g"]
     nband = len(bands)
     n_max_obs = 100
-    lightcurve_files = os.listdir(dir_light_curves)
+    lightcurve_files = sorted(os.listdir(dir_light_curves)) # Sort file names 
 
     mask_list, mag_list, magerr_list, time_list = [], [], [], []
 
