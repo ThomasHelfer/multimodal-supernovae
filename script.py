@@ -87,7 +87,7 @@ conv_kwargs = {
     "dropout_prob": cfg["dropout"],
 }
 
-optimizer_kwargs = {"weight_decay":cfg.weight_decay}
+optimizer_kwargs = {"weight_decay":cfg['weight_decay']}
 
 clip_model = LightCurveImageCLIP(
     logit_scale=20.0,
