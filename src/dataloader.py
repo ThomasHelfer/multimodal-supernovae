@@ -72,7 +72,7 @@ def load_images(data_dir: str) -> torch.Tensor:
     print("Loading images...")
 
     dir_host_imgs = f"{data_dir}/hostImgs/"
-    host_imgs = []
+    host_imgs, filenames_valid = [], []
 
     filenames = sorted(os.listdir(dir_host_imgs))
     # Iterate through the directory and load images
@@ -83,6 +83,7 @@ def load_images(data_dir: str) -> torch.Tensor:
             host_img = Image.open(file_path).convert("RGB")
             host_img = np.asarray(host_img)
             host_imgs.append(host_img)
+            filenames_valid.append(filename.replace(".host.png", ""))
 
     # Convert the list of images to a NumPy array
     host_imgs = np.array(host_imgs)
@@ -94,7 +95,7 @@ def load_images(data_dir: str) -> torch.Tensor:
     # Normalize the images
     host_imgs /= 255.0
 
-    return host_imgs
+    return host_imgs, filenames_valid
 
 
 def load_lightcurves(
@@ -126,9 +127,9 @@ def load_lightcurves(
     bands = ["R", "g"]
     nband = len(bands)
     n_max_obs = 100
-    lightcurve_files = sorted(os.listdir(dir_light_curves)) # Sort file names 
+    lightcurve_files = sorted(os.listdir(dir_light_curves))  # Sort file names
 
-    mask_list, mag_list, magerr_list, time_list = [], [], [], []
+    mask_list, mag_list, magerr_list, time_list, filenames = [], [], [], [], []
 
     for filename in tqdm(lightcurve_files):
         if filename.endswith(".csv"):
@@ -179,13 +180,14 @@ def load_lightcurves(
             time_list.append(time_concat)
             mag_list.append(mag_concat)
             magerr_list.append(magerr_concat)
+            filenames.append(filename.replace(".csv", ""))
 
     time_ary = np.array(time_list)
     mag_ary = np.array(mag_list)
     magerr_ary = np.array(magerr_list)
     mask_ary = np.array(mask_list)
 
-    return time_ary, mag_ary, magerr_ary, mask_ary, nband
+    return time_ary, mag_ary, magerr_ary, mask_ary, nband, filenames
 
 
 def plot_lightcurve_and_images(

@@ -96,8 +96,7 @@ def train_sweep(config=None):
             "n_out": 32,
             "dropout_prob": cfg.dropout,
         }
-        optimizer_kwargs = {"weight_decay":cfg.weight_decay}
-
+        optimizer_kwargs = {"weight_decay": cfg.weight_decay}
 
         clip_model = LightCurveImageCLIP(
             logit_scale=20.0,
@@ -106,7 +105,7 @@ def train_sweep(config=None):
             loss="softmax",
             transformer_kwargs=transformer_kwargs,
             conv_kwargs=conv_kwargs,
-            optimizer_kwargs = optimizer_kwargs
+            optimizer_kwargs=optimizer_kwargs,
         )
 
         # Custom call back for tracking loss
@@ -190,10 +189,15 @@ if __name__ == "__main__":
     data_dir = get_valid_dir(data_dirs)
 
     # Load images from data_dir
-    host_imgs = load_images(data_dir)
+    host_imgs, filenames_host = load_images(data_dir)
 
     # Load light curves from data_dir
-    time_ary, mag_ary, magerr_ary, mask_ary, nband = load_lightcurves(data_dir)
+    time_ary, mag_ary, magerr_ary, mask_ary, nband, filenames_lightcurves = (
+        load_lightcurves(data_dir)
+    )
+
+    # Making sure that filenames are indeed matched
+    assert filenames_host == filenames_lightcurves
 
     time = torch.from_numpy(time_ary).float()
     mag = torch.from_numpy(mag_ary).float()
