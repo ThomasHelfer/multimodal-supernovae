@@ -9,6 +9,32 @@ from matplotlib import pyplot as plt
 from ruamel.yaml import YAML
 
 
+def find_indices_in_arrays(st1, st2):
+    """
+    Find indices of where elements of st1 appear in st2 and indices in st1 of those elements.
+
+    Parameters:
+    - st1 (list or array): The list of strings to find in st2.
+    - st2 (list or array): The list of strings to search within.
+
+    Returns:
+    - tuple of two lists:
+        - The first list contains indices indicating where each element of st1 is found in st2.
+        - The second list contains the indices in st1 for elements that were found in st2.
+    """
+    indices_in_st2 = []
+    indices_in_st1 = []
+    for idx, item in enumerate(st1):
+        try:
+            index_in_st2 = st2.index(item)  # Find the index of item in st2
+            indices_in_st2.append(index_in_st2)
+            indices_in_st1.append(idx)
+        except ValueError:
+            # Item not found in st2, optionally handle it
+            continue  # Simply skip if not found
+    return indices_in_st2, indices_in_st1
+
+
 def get_savedir(args) -> str:
     """
     Return config dict and path to save new plots and models based on
