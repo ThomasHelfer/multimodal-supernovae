@@ -146,8 +146,8 @@ def load_lightcurves(
                 df_band = light_curve_df[light_curve_df["band"] == band]
 
                 if len(df_band["mag"]) > n_max_obs:
-                    # Sample n_max_obs observations randomly
-                    indices = np.random.choice(len(df_band["mag"]), n_max_obs)
+                    # Sample n_max_obs observations randomly (note order doesn't matter and the replace flag guarantees no double datapoints)
+                    indices = np.random.choice(len(df_band["mag"]), n_max_obs, replace=False)
                     mask = np.ones(n_max_obs, dtype=bool)
                 else:
                     # Pad the arrays with zeros and create a mask
@@ -188,6 +188,102 @@ def load_lightcurves(
     mask_ary = np.array(mask_list)
 
     return time_ary, mag_ary, magerr_ary, mask_ary, nband, filenames
+
+
+def load_spectras(
+    data_dir: str,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, int]:
+    """
+    Load spectra data from CSV files in the specified directory.
+
+    Args:
+        data_dir (str): Path to the directory containing the CSV files.
+
+    Returns:
+        Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, List[str]]: A tuple containing
+        arrays of time, magnitude, magnitude error, mask, and filenames.
+        - time (np.ndarray): Array of frequency values for each observation.
+        - spec (np.ndarray): Array of spectrum values for each observation.
+        - specerr (np.ndarray): Array of spectrum error values for each observation.
+        - mask (np.ndarray): Array indicating which observations are not padding.
+        - filenames (List[str]): List of filenames corresponding to the loaded data.
+    """
+
+    print("Loading spectra ...")
+    dir_light_curves = f"{data_dir}"
+
+    def open_spectra_csv(filename: str) -> pd.DataFrame:
+        """Helper function to open a light curve CSV file."""
+        file_path = os.path.join(dir_light_curves, filename)
+        return pd.read_csv(file_path, header=None)
+
+    # Choosing maximum lenght (5000 is roughly 95 % percentile length for data in repo)
+    n_max_obs = 5000
+    # Getting filenames
+    lightcurve_files = os.listdir(dir_light_curves)
+    mask_list, spec_list, specerr_list, freq_list, filenames = [], [], [], [], []
+
+    for filename in tqdm(lightcurve_files):
+        if filename.endswith(".csv"):
+            spectra_df = open_spectra_csv(filename)
+            max_columns = spectra_df.shape[1]
+
+            # Checking size and naming dependent on that
+            # Note: not all spectra have errors
+            if max_columns == 2:
+                spectra_df.columns = ["freq", "spec"]
+            elif max_columns == 3:
+                spectra_df.columns = ["freq", "spec", "specerr"]
+            else:
+                ValueError("spectra csv should have 2 or three columns only")
+
+            # Checking if the file is too long
+            if len(spectra_df["spec"]) > n_max_obs:
+                # Sample n_max_obs observations randomly (note order doesn't matter and the replace flag guarantees no double datapoints)
+                indices = np.random.choice(
+                    len(spectra_df["spec"]), n_max_obs, replace=False
+                )
+                mask = np.ones(n_max_obs, dtype=bool)
+            else:
+                # Pad the arrays with zeros and create a mask
+                indices = np.arange(len(spectra_df["spec"]))
+                mask = np.zeros(n_max_obs, dtype=bool)
+                mask[: len(indices)] = True
+
+            # Pad time and mag
+            time = np.pad(
+                spectra_df["freq"].iloc[indices],
+                (0, n_max_obs - len(indices)),
+                "constant",
+            )
+            spec = np.pad(
+                spectra_df["spec"].iloc[indices],
+                (0, n_max_obs - len(indices)),
+                "constant",
+            )
+
+            # If there is no error, then just give an empty array with zeros
+            if max_columns == 3:
+                specerr = np.pad(
+                    spectra_df["specerr"].iloc[indices],
+                    (0, n_max_obs - len(indices)),
+                    "constant",
+                )
+            else:
+                specerr = np.zeros_like(spec)
+
+            mask_list.append(mask)
+            freq_list.append(time)
+            spec_list.append(spec)
+            specerr_list.append(specerr)
+            filenames.append(filename.replace(".csv", ""))
+
+    freq_ary = np.array(freq_list)
+    spec_ary = np.array(spec_list)
+    specerr_ary = np.array(specerr_list)
+    mask_ary = np.array(mask_list)
+
+    return freq_ary, spec_ary, specerr_ary, mask_ary, filenames
 
 
 def plot_lightcurve_and_images(
