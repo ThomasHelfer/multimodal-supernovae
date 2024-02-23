@@ -22,9 +22,10 @@ Before installing, ensure you have the following prerequisites:
    ```
 
 2. #### Unzip the Data
-   Unpack the dataset containing supernovae light curves and host galaxy images:
+   Unpack the dataset containing supernovae spectra, light curves and host galaxy images:
    ```bash
-   unzip data/ZTFBTS.zip  
+   unzip data/ZTFBTS.zip
+   unzip data/ZTFBTS_spectra.zip   
    ```
 
 3. #### Install Required Python Packages
