@@ -11,6 +11,9 @@ from torchvision.transforms import RandomRotation
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 from astropy.cosmology import Planck15 as cosmo  # Using Planck15 cosmology by default
+from typing import Tuple
+from torch.utils.data import TensorDataset
+from src.utils import find_indices_in_arrays
 
 
 # Custom data loader with noise augmentation using magerr
@@ -61,7 +64,7 @@ class NoisyDataLoader(DataLoader):
 
 
 def filter_files(filenames_avail, filenames_to_filter, data_to_filter):
-    '''
+    """
     Function to filter filenames and data based on the filenames_avail
 
     Args:
@@ -72,9 +75,9 @@ def filter_files(filenames_avail, filenames_to_filter, data_to_filter):
     Returns:
     filenames_to_filter (list): List of filtered filenames
     data_to_filter (np.ndarray): Filtered data
-    '''
+    """
     # Check which each filenames_to_filter are available in filenames_avail
-    inds_filt = np.in1d(filenames_to_filter, filenames_avail)   
+    inds_filt = np.in1d(filenames_to_filter, filenames_avail)
     data_to_filter = data_to_filter[inds_filt]
     filenames_to_filter = np.array(filenames_to_filter)[inds_filt]
 
@@ -137,7 +140,9 @@ def load_redshifts(data_dir: str, filenames: List[str]) -> np.ndarray:
     df = pd.read_csv(f"{data_dir}/ZTFBTS_TransientTable.csv")
 
     # Filter redshifts based on the filenames
-    redshifts = pd.to_numeric(df[df["ZTFID"].isin(filenames)]['redshift'], errors='coerce').values
+    redshifts = pd.to_numeric(
+        df[df["ZTFID"].isin(filenames)]["redshift"], errors="coerce"
+    ).values
 
     return redshifts
 
@@ -438,3 +443,97 @@ def plot_lightcurve_and_images(
 
     plt.tight_layout()
     plt.savefig(os.path.join(path_base, "banner.png"))
+
+
+def load_data(
+    data_dir: str, spectra_dir: str = None, max_data_len: int = 1000
+) -> Tuple[TensorDataset, int]:
+    """
+    Load data from specified directories, handling both images and light curves or spectra.
+
+    Parameters:
+    - data_dir (str): Directory containing images and possibly light curves.
+    - spectra_dir (str, optional): Directory containing spectra data. If None, loads light curves instead.
+    - max_data_len (int, optional): Maximum length of the data arrays to load. Default is 1000.
+
+    Returns:
+    - dataset (TensorDataset): A TensorDataset containing the loaded data.
+    - nband (int): Number of bands in the light curve data, or 1 if spectra are loaded.
+
+    The function loads images and either light curves or spectra from the specified directories.
+    It ensures that the filenames between images and light curves or spectra match,
+    filtering out unmatched data. The resulting dataset is suitable for machine learning models.
+    """
+
+    # Load images from data_dir
+    host_imgs, filenames_host = load_images(data_dir)
+
+    # Decision based on whether spectra data is available
+    if spectra_dir is None:
+        # Load light curves from data_dir if no spectra directory is provided
+        (
+            time_ary,
+            mag_ary,
+            magerr_ary,
+            mask_ary,
+            nband,
+            filenames_lightcurves,
+        ) = load_lightcurves(data_dir)
+
+        # Ensuring that filenames between images and light curves match
+        assert (
+            filenames_host == filenames_lightcurves
+        ), "Filenames between host images and light curves must match."
+    else:
+        # Load spectra from spectra_dir if provided
+        (
+            freq_ary,
+            spec_ary,
+            specerr_ary,
+            maskspec_ary,
+            filenames_spectra,
+        ) = load_spectras(spectra_dir, max_data_len)
+
+        # Finding overlapping filenames between spectra and images
+        inds_spec, inds_light = find_indices_in_arrays(
+            filenames_spectra, filenames_host
+        )
+
+        # Filter data to ensure each spectrum has a corresponding image
+        freq_ary, spec_ary, specerr_ary, maskspec_ary, filenames_spectra = [
+            arr[inds_light]
+            for arr in [
+                freq_ary,
+                spec_ary,
+                specerr_ary,
+                maskspec_ary,
+                np.array(filenames_spectra),
+            ]
+        ]
+        host_imgs, filenames_host = [
+            arr[inds_spec] for arr in [host_imgs, np.array(filenames_host)]
+        ]
+
+        # Ensuring that filtered filenames match between host images and spectra
+        assert (
+            filenames_host.tolist() == filenames_spectra.tolist()
+        ), "Filtered filenames between host images and spectra must match."
+
+    # Preparing dataset based on whether spectra or light curves were loaded
+    if spectra_dir is None:
+        # Prepare dataset with light curve data
+        time = torch.from_numpy(time_ary).float()
+        mag = torch.from_numpy(mag_ary).float()
+        mask = torch.from_numpy(mask_ary).bool()
+        magerr = torch.from_numpy(magerr_ary).float()
+        dataset = TensorDataset(host_imgs, mag, time, mask, magerr)
+    else:
+        # Prepare dataset with spectra data
+        freq = torch.from_numpy(freq_ary).float()
+        spec = torch.from_numpy(spec_ary).float()
+        maskspec = torch.from_numpy(maskspec_ary).bool()
+        specerr = torch.from_numpy(specerr_ary).float()
+        dataset = TensorDataset(host_imgs, freq, spec, maskspec, specerr)
+        nband = 1  # Number of bands is set to 1 for spectra
+
+    return dataset, nband

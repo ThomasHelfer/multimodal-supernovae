@@ -8,4 +8,4 @@
 #SBATCH -A tedwar41_gpu
 #SBATCH -o Multimodal-%J.log
 source /home/thelfer1/dev/bin/activate
-python script.py
+srun python script.py --config_path configs/config.yaml

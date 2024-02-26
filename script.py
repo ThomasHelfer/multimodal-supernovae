@@ -4,12 +4,14 @@ import argparse
 import os
 from ruamel.yaml import YAML
 
+import numpy as np
 from torch.utils.data import TensorDataset, DataLoader, random_split
 from pytorch_lightning.callbacks import ModelCheckpoint
 
 from src.models_multimodal import LightCurveImageCLIP
 from src.utils import (
     get_valid_dir,
+    find_indices_in_arrays,
     LossTrackingCallback,
     plot_loss_history,
     get_embs,
@@ -17,9 +19,10 @@ from src.utils import (
     get_savedir,
 )
 from src.dataloader import (
-    filter_files, 
     load_images,
     load_lightcurves,
+    load_spectras,
+    load_data,
     plot_lightcurve_and_images,
     NoisyDataLoader,
 )
@@ -37,11 +40,9 @@ parser.add_argument(
 )
 args = parser.parse_args()
 
-
 save_dir, cfg = get_savedir(args)
 
 # Data preprocessing
-
 data_dirs = [
     "/home/thelfer1/scr4_tedwar42/thelfer1/ZTFBTS/",
     "ZTFBTS/",
@@ -52,39 +53,27 @@ data_dirs = [
 # Get the first valid directory
 data_dir = get_valid_dir(data_dirs)
 
-# Load images from data_dir
-host_imgs, filenames_host = load_images(data_dir)
-
-# Load light curves from data_dir
-time_ary, mag_ary, magerr_ary, mask_ary, nband, filenames_lightcurves = (
-    load_lightcurves(data_dir)
-)
-
-# if abs mag conversion is enabled, some files with no redshifts will be removed from the lightcurves 
-if len(filenames_host) != len(filenames_lightcurves):
-    filenames_host, host_imgs = filter_files(filenames_lightcurves, filenames_host, host_imgs)
-
-# Making sure that filenames are indeed matched
-assert list(filenames_host) == list(filenames_lightcurves) 
-
-# Plot a light curve and its corresponding image
-# plot_lightcurve_and_images(host_imgs, time_ary, mag_ary, magerr_ary, mask_ary, nband)
+# Check if the config file has a spectra key
+if "data" in cfg.keys() and "spectra" in cfg["data"]:
+    data_dirs = ["ZTFBTS_spectra/"]
+    spectra_dir = get_valid_dir(data_dirs)
+else:
+    spectra_dir = None
 
 
-time = torch.from_numpy(time_ary).float()
-mag = torch.from_numpy(mag_ary).float()
-mask = torch.from_numpy(mask_ary).bool()
-magerr = torch.from_numpy(magerr_ary).float()
+max_data_len = 1000  # Spectral data is cut to this length
+dataset, nband = load_data(data_dir, spectra_dir, max_data_len)
+
+number_of_samples = len(dataset)
 
 val_fraction = 0.05
 batch_size = cfg["batchsize"]
-n_samples_val = int(val_fraction * mag.shape[0])
-
-dataset = TensorDataset(host_imgs, mag, time, mask, magerr)
+n_samples_val = int(val_fraction * number_of_samples)
 
 dataset_train, dataset_val = random_split(
-    dataset, [mag.shape[0] - n_samples_val, n_samples_val]
+    dataset, [number_of_samples - n_samples_val, n_samples_val]
 )
+
 train_loader_no_aug = DataLoader(
     dataset_train, batch_size=batch_size, num_workers=1, pin_memory=True, shuffle=True
 )
