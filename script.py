@@ -17,6 +17,7 @@ from src.utils import (
     get_savedir,
 )
 from src.dataloader import (
+    filter_files, 
     load_images,
     load_lightcurves,
     plot_lightcurve_and_images,
@@ -59,8 +60,12 @@ time_ary, mag_ary, magerr_ary, mask_ary, nband, filenames_lightcurves = (
     load_lightcurves(data_dir)
 )
 
+# if abs mag conversion is enabled, some files with no redshifts will be removed from the lightcurves 
+if len(filenames_host) != len(filenames_lightcurves):
+    filenames_host, host_imgs = filter_files(filenames_lightcurves, filenames_host, host_imgs)
+
 # Making sure that filenames are indeed matched
-assert filenames_host == filenames_lightcurves
+assert list(filenames_host) == list(filenames_lightcurves) 
 
 # Plot a light curve and its corresponding image
 # plot_lightcurve_and_images(host_imgs, time_ary, mag_ary, magerr_ary, mask_ary, nband)

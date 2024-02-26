@@ -10,6 +10,7 @@ from typing import Tuple
 from torchvision.transforms import RandomRotation
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
+from astropy.cosmology import Planck15 as cosmo  # Using Planck15 cosmology by default
 
 
 # Custom data loader with noise augmentation using magerr
@@ -59,6 +60,27 @@ class NoisyDataLoader(DataLoader):
             yield noisy_imgs, noisy_mag, time, mask
 
 
+def filter_files(filenames_avail, filenames_to_filter, data_to_filter):
+    '''
+    Function to filter filenames and data based on the filenames_avail
+
+    Args:
+    filenames_avail (list): List of filenames available
+    filenames_to_filter (list): List of filenames to filter
+    data_to_filter (np.ndarray): Data to filter based on filenames_to_filter
+
+    Returns:
+    filenames_to_filter (list): List of filtered filenames
+    data_to_filter (np.ndarray): Filtered data
+    '''
+    # Check which each filenames_to_filter are available in filenames_avail
+    inds_filt = np.in1d(filenames_to_filter, filenames_avail)   
+    data_to_filter = data_to_filter[inds_filt]
+    filenames_to_filter = np.array(filenames_to_filter)[inds_filt]
+
+    return filenames_to_filter, data_to_filter
+
+
 def load_images(data_dir: str) -> torch.Tensor:
     """
     Load and preprocess images from a specified directory.
@@ -98,14 +120,38 @@ def load_images(data_dir: str) -> torch.Tensor:
     return host_imgs, filenames_valid
 
 
+def load_redshifts(data_dir: str, filenames: List[str]) -> np.ndarray:
+    """
+    Load redshift values from a CSV file in the specified directory.
+
+    Args:
+    data_dir (str): Directory path containing the redshift CSV file.
+    filenames (List[str]): List of filenames corresponding to the loaded data.
+
+    Returns:
+    np.ndarray: Array of redshift values.
+    """
+    print("Loading redshifts...")
+
+    # Load values from the CSV file
+    df = pd.read_csv(f"{data_dir}/ZTFBTS_TransientTable.csv")
+
+    # Filter redshifts based on the filenames
+    redshifts = pd.to_numeric(df[df["ZTFID"].isin(filenames)]['redshift'], errors='coerce').values
+
+    return redshifts
+
+
 def load_lightcurves(
     data_dir: str,
+    abs_mag: bool = False,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, int]:
     """
     Load light curves from CSV files in the specified directory.
 
     Args:
     data_dir (str): Directory path containing light curve CSV files.
+    abs_mag (bool): If True, convert apparent magnitude to absolute magnitude.
 
     Returns:
     Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, int]: A tuple containing:
@@ -186,6 +232,22 @@ def load_lightcurves(
     mag_ary = np.array(mag_list)
     magerr_ary = np.array(magerr_list)
     mask_ary = np.array(mask_list)
+
+    if abs_mag:
+        print("Converting to absolute magnitude...", flush=True)
+
+        zs = load_redshifts(data_dir, filenames)
+        inds = ~np.isnan(zs)
+
+        # Convert from apparent magnitude to absolute magnitude
+        mag_ary -= cosmo.distmod(zs).value[:, None]
+
+        time_ary = time_ary[inds]
+        mag_ary = mag_ary[inds]
+        magerr_ary = magerr_ary[inds]
+        mask_ary = mask_ary[inds]
+
+        filenames = np.array(filenames)[inds]
 
     return time_ary, mag_ary, magerr_ary, mask_ary, nband, filenames
 
