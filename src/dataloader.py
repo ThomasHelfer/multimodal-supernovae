@@ -193,7 +193,9 @@ def load_lightcurves(
 
                 if len(df_band["mag"]) > n_max_obs:
                     # Sample n_max_obs observations randomly (note order doesn't matter and the replace flag guarantees no double datapoints)
-                    indices = np.random.choice(len(df_band["mag"]), n_max_obs, replace=False)
+                    indices = np.random.choice(
+                        len(df_band["mag"]), n_max_obs, replace=False
+                    )
                     mask = np.ones(n_max_obs, dtype=bool)
                 else:
                     # Pad the arrays with zeros and create a mask
@@ -254,12 +256,16 @@ def load_lightcurves(
 
 def load_spectras(
     data_dir: str,
+    n_max_obs: int = 5000,
+    zero_pad_missing_error: bool = True,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, int]:
     """
     Load spectra data from CSV files in the specified directory.
 
     Args:
         data_dir (str): Path to the directory containing the CSV files.
+        n_max_obs (int) default 5000: maximum length of data, shorter data is padded and masked and longer data is shorted by randomly choosing points
+        zero_pad_missing_error (bool) default True: if there is missing error in a file, pad the error with zero, otherwise it will be removed
 
     Returns:
         Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, List[str]]: A tuple containing
@@ -279,8 +285,6 @@ def load_spectras(
         file_path = os.path.join(dir_light_curves, filename)
         return pd.read_csv(file_path, header=None)
 
-    # Choosing maximum lenght (5000 is roughly 95 % percentile length for data in repo)
-    n_max_obs = 5000
     # Getting filenames
     lightcurve_files = sorted(os.listdir(dir_light_curves))
     mask_list, spec_list, specerr_list, freq_list, filenames = [], [], [], [], []
@@ -296,8 +300,18 @@ def load_spectras(
                 spectra_df.columns = ["freq", "spec"]
             elif max_columns == 3:
                 spectra_df.columns = ["freq", "spec", "specerr"]
+                # Fill missing data with zeros
+                if zero_pad_missing_error:
+                    spectra_df["specerr"].fillna(0, inplace=True)
+                # If no zero-pad remove whole colums with missing data
+                else:
+                    spectra_df.dropna(subset=["specerr"], inplace=True)
             else:
                 ValueError("spectra csv should have 2 or three columns only")
+
+            if max_columns == 3 and np.sum(np.isnan(spectra_df["specerr"])):
+                print(filename)
+                print(np.where(np.isnan(spectra_df["specerr"].to_numpy()) == True))
 
             # Checking if the file is too long
             if len(spectra_df["spec"]) > n_max_obs:
