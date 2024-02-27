@@ -15,8 +15,9 @@ parameters:
   emb:
     values: [32]
   epochs:
-    values: [5]
+    values: [50]
   weight_decay:
     values: [0,1e-4]
   seed:
     values: [0]
+data: "not_spectral"  # Set to "spectral" for spectral data

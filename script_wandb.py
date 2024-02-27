@@ -23,11 +23,11 @@ from src.utils import (
 from src.dataloader import (
     load_images,
     load_lightcurves,
+    load_data,
     plot_lightcurve_and_images,
     NoisyDataLoader,
 )
 from src.wandb_utils import schedule_sweep
-
 
 def train_sweep(config=None):
     with wandb.init(config=config) as run:
@@ -163,9 +163,10 @@ if __name__ == "__main__":
     config = sys.argv[
         1
     ]  # '/n/home02/gemzhang/repos/Multimodal-hackathon-2024/sweep_configs/config_grid.yaml'
+    
     analysis_path = "./analysis/"
 
-    sweep_id, model_path = schedule_sweep(config, analysis_path)
+    sweep_id, model_path, cfg = schedule_sweep(config, analysis_path)
     print("model path: " + model_path, flush=True)
 
     # define constants
@@ -187,29 +188,24 @@ if __name__ == "__main__":
 
     # Get the first valid directory
     data_dir = get_valid_dir(data_dirs)
+    # Check if the config file has a spectra key
+    if "spectral" == cfg["data"]:
+        data_dirs = ["ZTFBTS_spectra/"]
+        spectra_dir = get_valid_dir(data_dirs)
+    else:
+        spectra_dir = None
 
-    # Load images from data_dir
-    host_imgs, filenames_host = load_images(data_dir)
 
-    # Load light curves from data_dir
-    time_ary, mag_ary, magerr_ary, mask_ary, nband, filenames_lightcurves = (
-        load_lightcurves(data_dir)
-    )
+    max_data_len = 1000  # Spectral data is cut to this length
+    dataset, nband = load_data(data_dir, spectra_dir, max_data_len)
 
-    # Making sure that filenames are indeed matched
-    assert filenames_host == filenames_lightcurves
+    number_of_samples = len(dataset)
 
-    time = torch.from_numpy(time_ary).float()
-    mag = torch.from_numpy(mag_ary).float()
-    mask = torch.from_numpy(mask_ary).bool()
-    magerr = torch.from_numpy(magerr_ary).float()
-
-    n_samples_val = int(val_fraction * mag.shape[0])
-
-    dataset = TensorDataset(host_imgs, mag, time, mask, magerr)
+    val_fraction = 0.05
+    n_samples_val = int(val_fraction * number_of_samples)
 
     dataset_train, dataset_val = random_split(
-        dataset, [mag.shape[0] - n_samples_val, n_samples_val]
+        dataset, [number_of_samples - n_samples_val, n_samples_val]
     )
 
     wandb.agent(sweep_id=sweep_id, function=train_sweep)

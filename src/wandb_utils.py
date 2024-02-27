@@ -33,4 +33,4 @@ def schedule_sweep(config: str, analysis_path: str) -> Tuple[str, str]:
 
     print(f"config path saved at:\n{config_path}\n", flush=True)
 
-    return sweep_id, model_path
+    return sweep_id, model_path, cfg
