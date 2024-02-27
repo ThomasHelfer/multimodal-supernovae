@@ -50,7 +50,7 @@ class NoisyDataLoader(DataLoader):
         # If there are eight outputs we are using the spectral/light_curve modaility
         if len(next(iter(dataset))) == 8:
             self.host_galaxy = False
-        elif len(next(iter(dataset))) == 4:
+        elif len(next(iter(dataset))) == 5:
             self.host_galaxy = True
         else:
             raise ValueError("Input dataloader has the wrong dimensions")
@@ -578,7 +578,7 @@ def load_data(
             spec = torch.from_numpy(spec_ary).float()
             maskspec = torch.from_numpy(maskspec_ary).bool()
             specerr = torch.from_numpy(specerr_ary).float()
-            dataset = TensorDataset(host_imgs, freq, spec, maskspec, specerr)
+            dataset = TensorDataset(host_imgs, spec, freq, maskspec, specerr)
             nband = 1  # Number of bands is set to 1 for spectra
             return dataset, nband
 
