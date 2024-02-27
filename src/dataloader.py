@@ -18,6 +18,23 @@ from src.utils import find_indices_in_arrays
 
 # Custom data loader with noise augmentation using magerr
 class NoisyDataLoader(DataLoader):
+    """
+    A custom DataLoader that adds noise to images, magnitudes, and spectra in a dataset.
+
+    Attributes:
+    - dataset (Dataset): The dataset to load data from.
+    - batch_size (int): The size of the batch to load.
+    - noise_level_img (float): The level of noise to add to the images.
+    - noise_level_mag (float): The level of noise to add to the magnitudes and spectra.
+    - shuffle (bool): Whether to shuffle the dataset at every epoch. Defaults to True.
+    - **kwargs: Additional keyword arguments for the DataLoader.
+
+    This DataLoader is designed to work with datasets that have different modalities,
+    specifically targeting host galaxy images and spectral/light_curve data.
+    Noise is added to the data based on specified noise levels, and random rotations
+    are applied to the images.
+    """
+
     def __init__(
         self,
         dataset,
@@ -30,37 +47,61 @@ class NoisyDataLoader(DataLoader):
         super().__init__(dataset, batch_size=batch_size, shuffle=shuffle, **kwargs)
         self.max_noise_intensity = noise_level_img
         self.noise_level_mag = noise_level_mag
+        # If there are eight outputs we are using the spectral/light_curve modaility
+        if len(next(iter(dataset))) == 8:
+            self.host_galaxy = False
+        elif len(next(iter(dataset))) == 4:
+            self.host_galaxy = True
+        else:
+            raise ValueError("Input dataloader has the wrong dimensions")
 
     def __iter__(self):
         for batch in super().__iter__():
-            # Add random noise to images and time-magnitude tensors
-            host_imgs, mag, time, mask, magerr = batch
+            if self.host_galaxy:
+                # Add random noise to images and time-magnitude tensors
+                host_imgs, mag, time, mask, magerr = batch
 
-            # Calculate the range for the random noise based on the max_noise_intensity
-            noise_range = self.max_noise_intensity * torch.std(host_imgs)
+                # Calculate the range for the random noise based on the max_noise_intensity
+                noise_range = self.max_noise_intensity * torch.std(host_imgs)
 
-            # Generate random noise within the specified range
-            noisy_imgs = host_imgs + (2 * torch.rand_like(host_imgs) - 1) * noise_range
-
-            # Add Gaussian noise to mag using magerr
-            noisy_mag = mag + torch.randn_like(mag) * magerr * self.noise_level_mag
-
-            # Randomly apply rotation by multiples of 90 degrees
-            rotation_angle = torch.randint(0, 4, (noisy_imgs.size(0),)) * 90
-            rotated_imgs = []
-
-            # Apply rotation to each image
-            for i in range(noisy_imgs.size(0)):
-                rotated_img = RandomRotation([rotation_angle[i], rotation_angle[i]])(
-                    noisy_imgs[i]
+                # Generate random noise within the specified range
+                noisy_imgs = (
+                    host_imgs + (2 * torch.rand_like(host_imgs) - 1) * noise_range
                 )
-                rotated_imgs.append(rotated_img)
 
-            # Stack the rotated images back into a tensor
-            rotated_imgs = torch.stack(rotated_imgs)
+                # Add Gaussian noise to mag using magerr
+                noisy_mag = mag + torch.randn_like(mag) * magerr * self.noise_level_mag
 
-            # Return the noisy batch
-            yield noisy_imgs, noisy_mag, time, mask
+                # Randomly apply rotation by multiples of 90 degrees
+                rotation_angle = torch.randint(0, 4, (noisy_imgs.size(0),)) * 90
+                rotated_imgs = []
+
+                # Apply rotation to each image
+                for i in range(noisy_imgs.size(0)):
+                    rotated_img = RandomRotation(
+                        [rotation_angle[i], rotation_angle[i]]
+                    )(noisy_imgs[i])
+                    rotated_imgs.append(rotated_img)
+
+                # Stack the rotated images back into a tensor
+                rotated_imgs = torch.stack(rotated_imgs)
+
+                # Return the noisy batch
+                yield noisy_imgs, noisy_mag, time, mask
+            else:
+                # Add random noise to images and time-magnitude tensors
+                mag, time, mask, magerr, spec, freq, maskspec, specerr = batch
+
+                # Add Gaussian noise to mag using magerr
+                noisy_mag = mag + torch.randn_like(mag) * magerr * self.noise_level_mag
+
+                # Add Gaussian noise to spec using specerr
+                noisy_spec = (
+                    spec + torch.randn_like(spec) * specerr * self.noise_level_mag
+                )
+
+                # Return the noisy batch
+                yield noisy_mag, time, mask, spec, freq, maskspec
 
 
 def filter_files(filenames_avail, filenames_to_filter, data_to_filter):
@@ -446,7 +487,10 @@ def plot_lightcurve_and_images(
 
 
 def load_data(
-    data_dir: str, spectra_dir: str = None, max_data_len: int = 1000
+    data_dir: str,
+    spectra_dir: str = None,
+    max_data_len: int = 1000,
+    host_galaxy: bool = True,
 ) -> Tuple[TensorDataset, int]:
     """
     Load data from specified directories, handling both images and light curves or spectra.
@@ -455,6 +499,7 @@ def load_data(
     - data_dir (str): Directory containing images and possibly light curves.
     - spectra_dir (str, optional): Directory containing spectra data. If None, loads light curves instead.
     - max_data_len (int, optional): Maximum length of the data arrays to load. Default is 1000.
+    - host_galaxy (bool,optional): If True choose host galaxy as first modality otherwise It will return lightcurve data
 
     Returns:
     - dataset (TensorDataset): A TensorDataset containing the loaded data.
@@ -465,11 +510,11 @@ def load_data(
     filtering out unmatched data. The resulting dataset is suitable for machine learning models.
     """
 
-    # Load images from data_dir
-    host_imgs, filenames_host = load_images(data_dir)
-
     # Decision based on whether spectra data is available
     if spectra_dir is None:
+        print("light curve and host galaxy")
+        # Load images from data_dir
+        host_imgs, filenames_host = load_images(data_dir)
         # Load light curves from data_dir if no spectra directory is provided
         (
             time_ary,
@@ -484,56 +529,128 @@ def load_data(
         assert (
             filenames_host == filenames_lightcurves
         ), "Filenames between host images and light curves must match."
-    else:
-        # Load spectra from spectra_dir if provided
-        (
-            freq_ary,
-            spec_ary,
-            specerr_ary,
-            maskspec_ary,
-            filenames_spectra,
-        ) = load_spectras(spectra_dir, max_data_len)
 
-        # Finding overlapping filenames between spectra and images
-        inds_spec, inds_light = find_indices_in_arrays(
-            filenames_spectra, filenames_host
-        )
-
-        # Filter data to ensure each spectrum has a corresponding image
-        freq_ary, spec_ary, specerr_ary, maskspec_ary, filenames_spectra = [
-            arr[inds_light]
-            for arr in [
-                freq_ary,
-                spec_ary,
-                specerr_ary,
-                maskspec_ary,
-                np.array(filenames_spectra),
-            ]
-        ]
-        host_imgs, filenames_host = [
-            arr[inds_spec] for arr in [host_imgs, np.array(filenames_host)]
-        ]
-
-        # Ensuring that filtered filenames match between host images and spectra
-        assert (
-            filenames_host.tolist() == filenames_spectra.tolist()
-        ), "Filtered filenames between host images and spectra must match."
-
-    # Preparing dataset based on whether spectra or light curves were loaded
-    if spectra_dir is None:
         # Prepare dataset with light curve data
         time = torch.from_numpy(time_ary).float()
         mag = torch.from_numpy(mag_ary).float()
         mask = torch.from_numpy(mask_ary).bool()
         magerr = torch.from_numpy(magerr_ary).float()
         dataset = TensorDataset(host_imgs, mag, time, mask, magerr)
+        return dataset, nband
     else:
-        # Prepare dataset with spectra data
-        freq = torch.from_numpy(freq_ary).float()
-        spec = torch.from_numpy(spec_ary).float()
-        maskspec = torch.from_numpy(maskspec_ary).bool()
-        specerr = torch.from_numpy(specerr_ary).float()
-        dataset = TensorDataset(host_imgs, freq, spec, maskspec, specerr)
-        nband = 1  # Number of bands is set to 1 for spectra
+        # Decision if you want to combine spectral data with host galaxy or light curve
+        if host_galaxy:
+            print("spectral and host galaxy")
+            # Load images from data_dir
+            host_imgs, filenames_host = load_images(data_dir)
+            # Load spectra from spectra_dir if provided
+            (
+                freq_ary,
+                spec_ary,
+                specerr_ary,
+                maskspec_ary,
+                filenames_spectra,
+            ) = load_spectras(spectra_dir, max_data_len)
 
-    return dataset, nband
+            # Finding overlapping filenames between spectra and images
+            inds_spec, inds_light = find_indices_in_arrays(
+                filenames_spectra, filenames_host
+            )
+
+            # Filter data to ensure each spectrum has a corresponding image
+            freq_ary, spec_ary, specerr_ary, maskspec_ary, filenames_spectra = [
+                arr[inds_light]
+                for arr in [
+                    freq_ary,
+                    spec_ary,
+                    specerr_ary,
+                    maskspec_ary,
+                    np.array(filenames_spectra),
+                ]
+            ]
+            host_imgs, filenames_host = [
+                arr[inds_spec] for arr in [host_imgs, np.array(filenames_host)]
+            ]
+
+            # Ensuring that filtered filenames match between host images and spectra
+            assert (
+                filenames_host.tolist() == filenames_spectra.tolist()
+            ), "Filtered filenames between host images and spectra must match."
+
+            # Prepare dataset with spectra data
+            freq = torch.from_numpy(freq_ary).float()
+            spec = torch.from_numpy(spec_ary).float()
+            maskspec = torch.from_numpy(maskspec_ary).bool()
+            specerr = torch.from_numpy(specerr_ary).float()
+            dataset = TensorDataset(host_imgs, freq, spec, maskspec, specerr)
+            nband = 1  # Number of bands is set to 1 for spectra
+            return dataset, nband
+
+        else:
+            print("spectral and light curve")
+            # Load light curves from data_dir if no spectra directory is provided
+            (
+                time_ary,
+                mag_ary,
+                magerr_ary,
+                mask_ary,
+                nband,
+                filenames_lightcurves,
+            ) = load_lightcurves(data_dir)
+
+            # Load spectra from spectra_dir if provided
+            (
+                freq_ary,
+                spec_ary,
+                specerr_ary,
+                maskspec_ary,
+                filenames_spectra,
+            ) = load_spectras(spectra_dir, max_data_len)
+
+            # Finding overlapping filenames between spectra and images
+            inds_spec, inds_light = find_indices_in_arrays(
+                filenames_spectra, filenames_lightcurves
+            )
+
+            # Filter data to ensure each spectrum has a corresponding image
+            freq_ary, spec_ary, specerr_ary, maskspec_ary, filenames_spectra = [
+                arr[inds_light]
+                for arr in [
+                    freq_ary,
+                    spec_ary,
+                    specerr_ary,
+                    maskspec_ary,
+                    np.array(filenames_spectra),
+                ]
+            ]
+            time_ary, mag_ary, magerr_ary, mask_ary, filenames_lightcurves = [
+                arr[inds_spec]
+                for arr in [
+                    time_ary,
+                    mag_ary,
+                    magerr_ary,
+                    mask_ary,
+                    np.array(filenames_lightcurves),
+                ]
+            ]
+
+            # Ensuring that filtered filenames match between host images and spectra
+            assert (
+                filenames_lightcurves.tolist() == filenames_spectra.tolist()
+            ), "Filtered filenames between host images and spectra must match."
+
+            # Prepare dataset with spectra data
+            time = torch.from_numpy(time_ary).float()
+            mag = torch.from_numpy(mag_ary).float()
+            mask = torch.from_numpy(mask_ary).bool()
+            magerr = torch.from_numpy(magerr_ary).float()
+
+            freq = torch.from_numpy(freq_ary).float()
+            spec = torch.from_numpy(spec_ary).float()
+            maskspec = torch.from_numpy(maskspec_ary).bool()
+            specerr = torch.from_numpy(specerr_ary).float()
+            dataset = TensorDataset(
+                mag, time, mask, magerr, spec, freq, maskspec, specerr
+            )
+
+            return dataset, nband
