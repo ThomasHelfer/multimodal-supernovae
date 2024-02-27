@@ -101,7 +101,7 @@ class NoisyDataLoader(DataLoader):
                 )
 
                 # Return the noisy batch
-                yield noisy_mag, time, mask, spec, freq, maskspec
+                yield noisy_mag, time, mask, noisy_spec, freq, maskspec
 
 
 def filter_files(filenames_avail, filenames_to_filter, data_to_filter):
@@ -355,10 +355,6 @@ def load_spectras(
             else:
                 ValueError("spectra csv should have 2 or three columns only")
 
-            if max_columns == 3 and np.sum(np.isnan(spectra_df["specerr"])):
-                print(filename)
-                print(np.where(np.isnan(spectra_df["specerr"].to_numpy()) == True))
-
             # Checking if the file is too long
             if len(spectra_df["spec"]) > n_max_obs:
                 # Sample n_max_obs observations randomly (note order doesn't matter and the replace flag guarantees no double datapoints)
@@ -373,7 +369,7 @@ def load_spectras(
                 mask[: len(indices)] = True
 
             # Pad time and mag
-            time = np.pad(
+            freq = np.pad(
                 spectra_df["freq"].iloc[indices],
                 (0, n_max_obs - len(indices)),
                 "constant",
@@ -395,7 +391,7 @@ def load_spectras(
                 specerr = np.zeros_like(spec)
 
             mask_list.append(mask)
-            freq_list.append(time)
+            freq_list.append(freq)
             spec_list.append(spec)
             specerr_list.append(specerr)
             filenames.append(filename.replace(".csv", ""))
