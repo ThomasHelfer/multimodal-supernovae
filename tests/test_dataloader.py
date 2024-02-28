@@ -29,7 +29,5 @@ def test_dataloader():
         print(torch.min(t[mask]))
         assert(torch.min(t[mask]) ==0)
 
-
-
 if __name__ == "__main__":
     test_dataloader()
