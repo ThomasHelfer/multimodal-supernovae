@@ -137,12 +137,14 @@ class TransformerWithTimeEmbeddings(nn.Module):
         :param x: A batch by sequence length integer tensor of token indices.
         :return: predicted log-probability vectors for each token based on the preceding tokens.
         """
-        t = t - t[:, 0].unsqueeze(1)
+        # Add time embeddings
         t_emb = self.embedding_t(t)
         x = self.embedding_mag(x) + t_emb
 
         # learned embeddings for multibands
         if self.nband > 1:
+            # first half of the array is band 0, second half is band 1, etc.
+            # creats one-hot encoding for bands
             onehot = (
                 torch.linspace(0, self.nband - 1, self.nband)
                 .type(torch.LongTensor)
