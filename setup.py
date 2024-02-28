@@ -12,20 +12,20 @@ def read_requirements():
 
 
 setup(
-    name="GeneralRelativity",
+    name="multimodal-supernovae",
     version="0.1",
-    description="A translation of crucial parts of GRTL in torch for accelerated learning",
+    description="",
     long_description=readme(),
     classifiers=[
         "Development Status :: 3 - Alpha",
         "License :: OSI Approved :: MIT License",
         "Programming Language :: Python :: 3.8",
-        "Topic :: Machine learning :: Physics :: Simulation :: General Relativity",
+        "Topic :: Machine learning :: Supernovea :: Multimodal",
     ],
-    keywords="Machine learning, Physics, Simulation, General Relativity",
-    author="ThomasHelfer",
+    keywords="Machine learning, Supernovea, Multimodal",
+    author="Thomas Helfer, Gemma Zhang",
     author_email="thomashelfer@live.de",
-    license="MIT",  # Updated to MIT License
+    license="MIT",  
     packages=find_packages(exclude=["tests"]),
     install_requires=read_requirements(),
     python_requires=">=3.8",
