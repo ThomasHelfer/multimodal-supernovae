@@ -1,7 +1,7 @@
 # Multimodality with supernovae 
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-red.svg)](https://opensource.org/licenses/MIT)
-
+![Unittest](https://github.com/ThomasHelfer/multimodal-supernovae/actions/workflows/actions.yml/badge.svg)
 
 ## Overview
 This codebase is dedicated to exploring multimodal learning approaches by integrating data from supernovae light curves with images of their host galaxies. Our goal is to leverage diverse data types to improve the prediction and understanding of astronomical phenomena.
