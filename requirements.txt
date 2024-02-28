@@ -9,3 +9,4 @@ torchvision
 black
 wandb
 ruamel.yaml
+pytest
