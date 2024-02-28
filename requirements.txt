@@ -10,3 +10,4 @@ black
 wandb
 ruamel.yaml
 pytest
+astropy
