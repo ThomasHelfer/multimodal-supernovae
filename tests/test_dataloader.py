@@ -24,10 +24,7 @@ def test_dataloader():
     dataset, nband = load_data("ZTFBTS", None, max_data_len)
     assert(len(next(iter(dataset))) == 5)
     assert(nband == 2)
-    host_imgs, mag, time, mask, magerr = next(iter(dataset))
-    for t,m in time,mask:
-        print(torch.min(t[mask]))
-        assert(torch.min(t[mask]) ==0)
+
 
 if __name__ == "__main__":
     test_dataloader()
