@@ -47,6 +47,14 @@ def get_savedir(args) -> str:
     str: path to save new plots and models
     cfg: dict: configuration dictionary
     """
+    # Create directory to save new plots and checkpoints
+    import os
+
+    if not os.path.exists("analysis"):
+        os.makedirs("analysis")
+        os.makedirs("analysis/runs")
+    if not os.path.exists("analysis/runs"):
+        os.makedirs("analysis/runs")
 
     if args.ckpt_path:
         cfg = YAML(typ="safe").load(
