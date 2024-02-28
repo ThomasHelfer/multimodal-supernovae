@@ -265,6 +265,10 @@ def load_lightcurves(
                     "constant",
                 )
 
+                # Normalise time if there is anything to normalise
+                if sum(mask) != 0:
+                    time[mask] = time[mask] - np.min(time[mask])
+
                 time_concat += list(time)
                 mag_concat += list(mag)
                 magerr_concat += list(magerr)
