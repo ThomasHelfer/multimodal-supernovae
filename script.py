@@ -17,6 +17,7 @@ from src.utils import (
     get_embs,
     plot_ROC_curves,
     get_savedir,
+    set_seed
 )
 from src.dataloader import (
     load_images,
@@ -41,6 +42,8 @@ parser.add_argument(
 args = parser.parse_args()
 
 save_dir, cfg = get_savedir(args)
+
+set_seed(cfg["seed"])
 
 # Data preprocessing
 data_dirs = [
