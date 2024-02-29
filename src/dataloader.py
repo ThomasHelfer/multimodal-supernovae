@@ -387,7 +387,7 @@ def load_spectras(
 
             # If there is no error, then just give an empty array with zeros
             if max_columns == 3:
-                specerr = np.pad(
+                specerr = rescalefactor*np.pad(
                     spectra_df["specerr"].iloc[indices],
                     (0, n_max_obs - len(indices)),
                     "constant",
