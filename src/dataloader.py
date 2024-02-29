@@ -308,6 +308,7 @@ def load_spectras(
     data_dir: str,
     n_max_obs: int = 5000,
     zero_pad_missing_error: bool = True,
+    rescalefactor: int = 1e14,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, int]:
     """
     Load spectra data from CSV files in the specified directory.
@@ -378,7 +379,7 @@ def load_spectras(
                 (0, n_max_obs - len(indices)),
                 "constant",
             )
-            spec = np.pad(
+            spec = rescalefactor * np.pad(
                 spectra_df["spec"].iloc[indices],
                 (0, n_max_obs - len(indices)),
                 "constant",
