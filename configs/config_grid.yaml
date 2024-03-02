@@ -20,4 +20,5 @@ parameters:
     values: [0,1e-4]
   seed:
     values: [0]
-data: "not_spectral"  # Set to "spectral" for spectral data
+# Options are 'lightcurve' 'spectral' and 'host_galaxy'
+combinations: ['lightcurve','spectral']
