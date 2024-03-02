@@ -69,6 +69,7 @@ def train_sweep(config=None):
             shuffle=True,
             num_workers=num_workers,
             pin_memory=True,
+            combinations = combinations,
         )
         val_loader = NoisyDataLoader(
             dataset_val,
@@ -78,6 +79,7 @@ def train_sweep(config=None):
             shuffle=False,
             num_workers=num_workers,
             pin_memory=True,
+            combinations = combinations,
         )
 
         transformer_kwargs = {
@@ -106,6 +108,7 @@ def train_sweep(config=None):
             transformer_kwargs=transformer_kwargs,
             conv_kwargs=conv_kwargs,
             optimizer_kwargs=optimizer_kwargs,
+            combinations = combinations,
         )
 
         # Custom call back for tracking loss
@@ -188,8 +191,12 @@ if __name__ == "__main__":
 
     # Get the first valid directory
     data_dir = get_valid_dir(data_dirs)
+
+    # Get what data combinations are used
+    combinations = cfg["combinations"]
+
     # Check if the config file has a spectra key
-    if "spectral" == cfg["data"]:
+    if "spectral" in combinations:
         data_dirs = ["ZTFBTS_spectra/"]
         spectra_dir = get_valid_dir(data_dirs)
     else:
@@ -197,7 +204,7 @@ if __name__ == "__main__":
 
 
     max_data_len = 1000  # Spectral data is cut to this length
-    dataset, nband = load_data(data_dir, spectra_dir, max_data_len)
+    dataset, nband = load_data(data_dir, spectra_dir, max_data_len, host_galaxy=("host_galaxy" in combinations))
 
     number_of_samples = len(dataset)
 
