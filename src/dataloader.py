@@ -62,16 +62,14 @@ class NoisyDataLoader(DataLoader):
             assert "host_galaxy" in self.combinations
             assert "spectral" in self.combinations
         elif len(next(iter(dataset))) == 5:
-            assert "lightcurve" in self.combinations or "spectral" in self.conbinations
+            assert "lightcurve" in self.combinations or "spectral" in self.combinations
             assert "host_galaxy" in self.combinations
         else:
             raise ValueError("Input dataloader has the wrong dimensions")
 
     def __iter__(self):
         for batch in super().__iter__():
-            if self.combinations == set(
-                ["host_galaxy", "lightcurve"]
-            ) or self.combinations == set(["host_galaxy", "spectral"]):
+            if self.combinations == set(["host_galaxy", "lightcurve"]):
                 # Add random noise to images and time-magnitude tensors
                 host_imgs, mag, time, mask, magerr = batch
 
@@ -101,9 +99,75 @@ class NoisyDataLoader(DataLoader):
                 rotated_imgs = torch.stack(rotated_imgs)
 
                 # Return the noisy batch (and Nones to keep outputlength the same)
-                yield noisy_imgs, noisy_mag, time, mask, None, None, None
+                yield rotated_imgs, noisy_mag, time, mask, None, None, None
+
+            elif self.combinations == set(["host_galaxy", "spectral"]):
+                # Add random noise to images and time-magnitude tensors
+                host_imgs, spec, freq, maskspec, specerr = batch
+
+                # Calculate the range for the random noise based on the max_noise_intensity
+                noise_range = self.max_noise_intensity * torch.std(host_imgs)
+
+                # Generate random noise within the specified range
+                noisy_imgs = (
+                    host_imgs + (2 * torch.rand_like(host_imgs) - 1) * noise_range
+                )
+
+                # Add Gaussian noise to spec using specerr
+                noisy_spec = (
+                    spec + torch.randn_like(spec) * specerr * self.noise_level_mag
+                )
+
+                # Randomly apply rotation by multiples of 90 degrees
+                rotation_angle = torch.randint(0, 4, (noisy_imgs.size(0),)) * 90
+                rotated_imgs = []
+
+                # Apply rotation to each image
+                for i in range(noisy_imgs.size(0)):
+                    rotated_img = RandomRotation(
+                        [rotation_angle[i], rotation_angle[i]]
+                    )(noisy_imgs[i])
+                    rotated_imgs.append(rotated_img)
+
+                # Stack the rotated images back into a tensor
+                rotated_imgs = torch.stack(rotated_imgs)
+
+                # Return the noisy batch (and Nones to keep outputlength the same)
+                yield rotated_imgs, None, None, None, noisy_spec, freq, maskspec
 
             elif self.combinations == set(["spectral", "lightcurve"]):
+                # Add random noise to images and time-magnitude tensors
+                (
+                    host_imgs,
+                    mag,
+                    time,
+                    mask,
+                    magerr,
+                    spec,
+                    freq,
+                    maskspec,
+                    specerr,
+                ) = batch
+
+                # Add Gaussian noise to mag using magerr
+                noisy_mag = mag + torch.randn_like(mag) * magerr * self.noise_level_mag
+
+                # Add Gaussian noise to spec using specerr
+                noisy_spec = (
+                    spec + torch.randn_like(spec) * specerr * self.noise_level_mag
+                )
+                # Calculate the range for the random noise based on the max_noise_intensity
+                noise_range = self.max_noise_intensity * torch.std(host_imgs)
+
+                # Generate random noise within the specified range
+                noisy_imgs = (
+                    host_imgs + (2 * torch.rand_like(host_imgs) - 1) * noise_range
+                )
+
+                # Return the noisy batch (and Nones to keep outputlength the same)
+                yield None, noisy_mag, time, mask, noisy_spec, freq, maskspec
+
+            elif self.combinations == set(["host_galaxy", "spectral", "lightcurve"]):
                 # Add random noise to images and time-magnitude tensors
                 mag, time, mask, magerr, spec, freq, maskspec, specerr = batch
 
@@ -115,8 +179,21 @@ class NoisyDataLoader(DataLoader):
                     spec + torch.randn_like(spec) * specerr * self.noise_level_mag
                 )
 
-                # Return the noisy batch (and Nones to keep outputlength the same)
-                yield None, noisy_mag, time, mask, noisy_spec, freq, maskspec
+                # Randomly apply rotation by multiples of 90 degrees
+                rotation_angle = torch.randint(0, 4, (noisy_imgs.size(0),)) * 90
+                rotated_imgs = []
+
+                # Apply rotation to each image
+                for i in range(noisy_imgs.size(0)):
+                    rotated_img = RandomRotation(
+                        [rotation_angle[i], rotation_angle[i]]
+                    )(noisy_imgs[i])
+                    rotated_imgs.append(rotated_img)
+
+                # Stack the rotated images back into a tensor
+                rotated_imgs = torch.stack(rotated_imgs)
+
+                yield rotated_imgs, noisy_mag, time, mask, noisy_spec, freq, maskspec
 
 
 def filter_files(filenames_avail, filenames_to_filter, data_to_filter):
