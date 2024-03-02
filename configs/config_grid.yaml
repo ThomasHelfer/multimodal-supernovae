@@ -20,5 +20,5 @@ parameters:
     values: [0,1e-4]
   seed:
     values: [0]
-# Options are 'lightcurve' 'spectral' and 'host_galaxy'
+# Options are 'lightcurve' 'spectral' and 'host_galaxy' -- order does not matter 
 combinations: ['lightcurve','spectral']

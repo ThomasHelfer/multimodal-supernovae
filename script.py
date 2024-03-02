@@ -55,6 +55,7 @@ if __name__ == "__main__":
     ]
 
     combinations = cfg["combinations"]
+    print(f"Using combinations: {combinations}")
 
     # Get the first valid directory
     data_dir = get_valid_dir(data_dirs)
@@ -66,7 +67,7 @@ if __name__ == "__main__":
     else:
         spectra_dir = None
 
-    max_data_len = 1000  # Spectral data is cut to this length
+    max_data_len = 500  # Spectral data is cut to this length
     dataset, nband = load_data(
         data_dir, spectra_dir, max_data_len, host_galaxy=("host_galaxy" in combinations)
     )
