@@ -8,17 +8,13 @@ from tqdm import tqdm
 import pandas as pd
 from typing import Tuple
 from torchvision.transforms import RandomRotation
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 import matplotlib.pyplot as plt
 from astropy.cosmology import Planck15 as cosmo  # Using Planck15 cosmology by default
-from typing import Tuple
+from typing import Tuple, List, Optional
 from torch.utils.data import TensorDataset
 from src.utils import find_indices_in_arrays
 
-
-# Custom data loader with noise augmentation using magerr
-from typing import List, Optional
-from torch.utils.data import DataLoader, Dataset
 
 # Custom data loader with noise augmentation using magerr
 class NoisyDataLoader(DataLoader):
@@ -30,8 +26,8 @@ class NoisyDataLoader(DataLoader):
     - batch_size (int): The size of the batch to load.
     - noise_level_img (float): The level of noise to add to the images.
     - noise_level_mag (float): The level of noise to add to the magnitudes and spectra.
-    - combinations (List[str]): Contains the modalities we are working with, the options are 
-        'host_galaxy','spectral' or 'lightcurve' 
+    - combinations (List[str]): Contains the modalities we are working with, the options are
+        'host_galaxy','spectral' or 'lightcurve'
     - shuffle (bool): Whether to shuffle the dataset at every epoch. Defaults to True.
     - **kwargs: Additional keyword arguments for the DataLoader.
 
@@ -47,7 +43,7 @@ class NoisyDataLoader(DataLoader):
         batch_size: int,
         noise_level_img: float,
         noise_level_mag: float,
-        combinations: Optional[List[str]] = ['host_galaxy','spectral'],
+        combinations: Optional[List[str]] = ["host_galaxy", "spectral"],
         shuffle: bool = True,
         **kwargs,
     ):
@@ -55,25 +51,27 @@ class NoisyDataLoader(DataLoader):
         self.max_noise_intensity = noise_level_img
         self.noise_level_mag = noise_level_mag
         self.combinations = set(combinations)
-        
-        # Checking if we get the right output 
+
+        # Checking if we get the right output
         if len(next(iter(dataset))) == 8:
-            assert('lightcurve' in  self.combinations)
-            assert('host_galaxy' not in  self.combinations)
-            assert('spectral' in  self.combinations)
+            assert "lightcurve" in self.combinations
+            assert "host_galaxy" not in self.combinations
+            assert "spectral" in self.combinations
         elif len(next(iter(dataset))) == 9:
-            assert('lightcurve' in  self.combinations)
-            assert('host_galaxy' in  self.combinations)
-            assert('spectral' in  self.combinations)
+            assert "lightcurve" in self.combinations
+            assert "host_galaxy" in self.combinations
+            assert "spectral" in self.combinations
         elif len(next(iter(dataset))) == 5:
-            assert('lightcurve' in  self.combinations or 'spectral' in self.conbinations)
-            assert('host_galaxy' in  self.combinations)
+            assert "lightcurve" in self.combinations or "spectral" in self.conbinations
+            assert "host_galaxy" in self.combinations
         else:
             raise ValueError("Input dataloader has the wrong dimensions")
 
     def __iter__(self):
         for batch in super().__iter__():
-            if self.combinations == set(['host_galaxy','lightcurve']) or self.combinations == set(['host_galaxy','spectral']):
+            if self.combinations == set(
+                ["host_galaxy", "lightcurve"]
+            ) or self.combinations == set(["host_galaxy", "spectral"]):
                 # Add random noise to images and time-magnitude tensors
                 host_imgs, mag, time, mask, magerr = batch
 
@@ -102,11 +100,10 @@ class NoisyDataLoader(DataLoader):
                 # Stack the rotated images back into a tensor
                 rotated_imgs = torch.stack(rotated_imgs)
 
-                # Return the noisy batch (and Nones to keep outputlength the same) 
+                # Return the noisy batch (and Nones to keep outputlength the same)
                 yield noisy_imgs, noisy_mag, time, mask, None, None, None
-        
-            elif self.combinations == set(['spectral','lightcurve']):
-                
+
+            elif self.combinations == set(["spectral", "lightcurve"]):
                 # Add random noise to images and time-magnitude tensors
                 mag, time, mask, magerr, spec, freq, maskspec, specerr = batch
 
@@ -118,11 +115,8 @@ class NoisyDataLoader(DataLoader):
                     spec + torch.randn_like(spec) * specerr * self.noise_level_mag
                 )
 
-                # Return the noisy batch (and Nones to keep outputlength the same) 
+                # Return the noisy batch (and Nones to keep outputlength the same)
                 yield None, noisy_mag, time, mask, noisy_spec, freq, maskspec
-
-
-
 
 
 def filter_files(filenames_avail, filenames_to_filter, data_to_filter):
@@ -408,7 +402,7 @@ def load_spectras(
 
             # If there is no error, then just give an empty array with zeros
             if max_columns == 3:
-                specerr = rescalefactor*np.pad(
+                specerr = rescalefactor * np.pad(
                     spectra_df["specerr"].iloc[indices],
                     (0, n_max_obs - len(indices)),
                     "constant",

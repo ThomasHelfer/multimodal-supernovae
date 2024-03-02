@@ -179,6 +179,9 @@ class TransformerWithTimeEmbeddings(nn.Module):
         return x
 
 
+from typing import List
+
+
 class LightCurveImageCLIP(pl.LightningModule):
     def __init__(
         self,
@@ -186,6 +189,12 @@ class LightCurveImageCLIP(pl.LightningModule):
         logit_scale: float = 10.0,
         nband: int = 1,
         transformer_kwargs: Dict[str, int] = {
+            "n_out": 128,
+            "emb": 256,
+            "heads": 2,
+            "depth": 8,
+        },
+        transformer_spectral_kwargs: Dict[str, int] = {
             "n_out": 128,
             "emb": 256,
             "heads": 2,
@@ -199,6 +208,7 @@ class LightCurveImageCLIP(pl.LightningModule):
             "patch_size": 10,
             "n_out": 128,
         },
+        combinations: List[str] = ["host_galaxy", "spectral"],
         optimizer_kwargs: Dict = {},
         lr: float = 1e-4,
         loss: str = "sigmoid",
@@ -213,6 +223,7 @@ class LightCurveImageCLIP(pl.LightningModule):
         transformer_kwargs (Dict[str, int]): Keyword arguments for the transformer encoder.
         conv_kwargs (Dict[str, int]): Keyword arguments for the convolutional encoder.
         optimizer_kwargs (Dict): Keyword arguments for the optimizer.
+        combination (array): containing
         lr (float): Learning rate.
         loss (str): Loss function type, either "sigmoid" or "softmax".
         """
@@ -220,6 +231,7 @@ class LightCurveImageCLIP(pl.LightningModule):
         self.lr = lr
         self.optimizer_kwargs = optimizer_kwargs
         self.enc_dim = enc_dim
+        self.combinations = set(combinations)
 
         # Parameters
         self.logit_scale = nn.Parameter(
@@ -228,14 +240,25 @@ class LightCurveImageCLIP(pl.LightningModule):
         self.logit_bias = nn.Parameter(torch.tensor(-10.0), requires_grad=True)
 
         # Encoders
-        self.lightcurve_encoder = TransformerWithTimeEmbeddings(
-            nband=nband, **transformer_kwargs
-        )
-        self.image_encoder = ConvMixer(**conv_kwargs)
+        if "lightcurve" in self.combinations:
+            # lightcuve typically has two bands
+            self.lightcurve_encoder = TransformerWithTimeEmbeddings(
+                nband=nband, **transformer_kwargs
+            )
+            self.lightcurve_projection = nn.Linear(transformer_kwargs["n_out"], enc_dim)
 
-        # Projection heads
-        self.lightcurve_projection = nn.Linear(transformer_kwargs["n_out"], enc_dim)
-        self.image_projection = nn.Linear(conv_kwargs["n_out"], enc_dim)
+        if "spectral" in self.combinations:
+            # Spectral data does not need the nband variable
+            self.spectral_encoder = TransformerWithTimeEmbeddings(
+                nband=1, **transformer_spectral_kwargs
+            )
+            self.spectral_projection = nn.Linear(
+                transformer_spectral_kwargs["n_out"], enc_dim
+            )
+
+        if "host_galaxy" in self.combinations:
+            self.image_encoder = ConvMixer(**conv_kwargs)
+            self.image_projection = nn.Linear(conv_kwargs["n_out"], enc_dim)
 
         self.loss = loss
 
@@ -244,7 +267,10 @@ class LightCurveImageCLIP(pl.LightningModule):
         x_img: torch.Tensor,
         x_lc: torch.Tensor,
         t_lc: torch.Tensor,
-        mask_lc: Optional[torch.Tensor] = None,
+        mask_lc: Optional[torch.Tensor],
+        x_sp: torch.Tensor,
+        t_sp: torch.Tensor,
+        mask_sp: Optional[torch.Tensor],
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Forward pass through the network.
@@ -254,13 +280,19 @@ class LightCurveImageCLIP(pl.LightningModule):
         x_lc (torch.Tensor): Input tensor for light curves.
         t_lc (torch.Tensor): Time tensor for light curves.
         mask_lc (Optional[torch.Tensor]): Mask tensor for light curves.
-
+        x_sp (torch.Tensor): Input tensor with spectral info
+        t_sp (torch.Tensor): frequency tensor with spectral info
         Returns:
-        Tuple[torch.Tensor, torch.Tensor]: Tuple of image and light curve embeddings.
+        List[torch.Tensor] : Array of embeddings.
         """
-        x_lc = self.lightcurve_embeddings_with_projection(x_lc, t_lc, mask_lc)
-        x_img = self.image_embeddings_with_projection(x_img)
-        return x_img, x_lc
+        x = []
+        if "host_galaxy" in self.combinations:
+            x.append(self.image_embeddings_with_projection(x_img))
+        if "lightcurve" in self.combinations:
+            x.append(self.lightcurve_embeddings_with_projection(x_lc, t_lc, mask_lc))
+        if "spectral" in self.combinations:
+            x.append(self.spectral_embeddings_with_projection(x_sp, t_sp, mask_sp))
+        return x
 
     def image_embeddings_with_projection(self, x_img):
         """Convenience function to get image embeddings with projection"""
@@ -275,6 +307,13 @@ class LightCurveImageCLIP(pl.LightningModule):
         x_lc = self.lightcurve_projection(x_lc)
         return x_lc / x_lc.norm(dim=-1, keepdim=True)
 
+    def spectral_embeddings_with_projection(self, x_lc, t_lc, mask_lc=None):
+        """Convenience function to get spectral curve embeddings with projection"""
+        x_lc = x_lc[..., None]  # Add channel dimension
+        x_lc = self.spectral_encoder(x_lc, t_lc, mask_lc)
+        x_lc = self.spectral_projection(x_lc)
+        return x_lc / x_lc.norm(dim=-1, keepdim=True)
+
     def configure_optimizers(self):
         optimizer = torch.optim.RAdam(
             self.parameters(), lr=self.lr, **self.optimizer_kwargs
@@ -282,18 +321,17 @@ class LightCurveImageCLIP(pl.LightningModule):
         return {"optimizer": optimizer}
 
     def training_step(self, batch, batch_idx):
-        x_img, x_lc, t_lc, mask_lc = batch
-        x_img, x_lc = self(x_img, x_lc, t_lc, mask_lc)
+        x_img, x_lc, t_lc, mask_lc, x_sp, t_sp, mask_sp = batch
+        x = self(x_img, x_lc, t_lc, mask_lc, x_sp, t_sp, mask_sp)
+
         if self.loss == "sigmoid":
-            loss = sigmoid_loss(x_img, x_lc, self.logit_scale, self.logit_bias).mean()
+            loss = sigmoid_loss(x[0], x[1], self.logit_scale, self.logit_bias).mean()
         elif self.loss == "softmax":
             loss = clip_loss(
-                x_img,
-                x_lc,
+                x[0],
+                x[1],
                 self.logit_scale,
                 self.logit_bias,
-                self.image_encoder,
-                self.lightcurve_encoder,
             ).mean()
         self.log(
             "train_loss", loss, on_epoch=True, on_step=False, prog_bar=True, logger=True
@@ -309,20 +347,18 @@ class LightCurveImageCLIP(pl.LightningModule):
         self.embs_images = []
 
     def validation_step(self, batch, batch_idx):
-        x_img, x_lc, t_lc, mask_lc = batch
-        x_img, x_lc = self(x_img, x_lc, t_lc, mask_lc)
-        self.embs_curves.append(x_lc)
-        self.embs_images.append(x_img)
+        x_img, x_lc, t_lc, mask_lc, x_sp, t_sp, mask_sp = batch
+        x = self(x_img, x_lc, t_lc, mask_lc, x_sp, t_sp, mask_sp)
+        self.embs_images.append(x[0])
+        self.embs_curves.append(x[1])
         if self.loss == "sigmoid":
-            loss = sigmoid_loss(x_img, x_lc, self.logit_scale, self.logit_bias).mean()
+            loss = sigmoid_loss(x[0], x[1], self.logit_scale, self.logit_bias).mean()
         elif self.loss == "softmax":
             loss = clip_loss(
-                x_img,
-                x_lc,
+                x[0],
+                x[1],
                 self.logit_scale,
                 self.logit_bias,
-                self.image_encoder,
-                self.lightcurve_encoder,
             ).mean()
         self.log(
             "val_loss", loss, on_epoch=True, on_step=False, prog_bar=True, logger=True
