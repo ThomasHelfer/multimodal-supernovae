@@ -29,6 +29,7 @@ from src.dataloader import (
 )
 from src.wandb_utils import schedule_sweep
 
+
 def train_sweep(config=None):
     with wandb.init(config=config) as run:
         print(f"run name: {run.name}", flush=True)
@@ -69,7 +70,7 @@ def train_sweep(config=None):
             shuffle=True,
             num_workers=num_workers,
             pin_memory=True,
-            combinations = combinations,
+            combinations=combinations,
         )
         val_loader = NoisyDataLoader(
             dataset_val,
@@ -79,7 +80,7 @@ def train_sweep(config=None):
             shuffle=False,
             num_workers=num_workers,
             pin_memory=True,
-            combinations = combinations,
+            combinations=combinations,
         )
 
         transformer_kwargs = {
@@ -88,6 +89,13 @@ def train_sweep(config=None):
             "heads": 2,
             "depth": cfg.transformer_depth,
             "dropout": cfg.dropout,
+        }
+        transformer_spectral_kwargs = {
+            "n_out": 32,
+            "emb": cfg.emb_spectral,
+            "heads": 2,
+            "depth": cfg.transformer_depth_spectral,
+            "dropout": cfg["dropout"],
         }
         conv_kwargs = {
             "dim": 32,
@@ -106,9 +114,10 @@ def train_sweep(config=None):
             nband=nband,
             loss="softmax",
             transformer_kwargs=transformer_kwargs,
+            transformer_spectral_kwargs=transformer_spectral_kwargs,
             conv_kwargs=conv_kwargs,
             optimizer_kwargs=optimizer_kwargs,
-            combinations = combinations,
+            combinations=combinations,
         )
 
         # Custom call back for tracking loss
@@ -166,7 +175,7 @@ if __name__ == "__main__":
     config = sys.argv[
         1
     ]  # '/n/home02/gemzhang/repos/Multimodal-hackathon-2024/sweep_configs/config_grid.yaml'
-    
+
     analysis_path = "./analysis/"
 
     sweep_id, model_path, cfg = schedule_sweep(config, analysis_path)
@@ -202,9 +211,10 @@ if __name__ == "__main__":
     else:
         spectra_dir = None
 
-
     max_data_len = 1000  # Spectral data is cut to this length
-    dataset, nband = load_data(data_dir, spectra_dir, max_data_len, host_galaxy=("host_galaxy" in combinations))
+    dataset, nband = load_data(
+        data_dir, spectra_dir, max_data_len, host_galaxy=("host_galaxy" in combinations)
+    )
 
     number_of_samples = len(dataset)
 

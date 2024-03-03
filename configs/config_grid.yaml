@@ -6,18 +6,25 @@ project: multimodal
 parameters:
   dropout:
     values: [0.001]
-  lr:
-    values: [1e-4]
-  batchsize:
-    values: [32]
+  # Lightcurve transformer
   transformer_depth:
     values: [1]
   emb:
     values: [32]
+  # Spectral transformer
+  emb_spectral:
+    values: [32]
+  transformer_depth_spectral:
+    values: [1]
+  # Optimiser 
+  lr:
+    values: [1e-4]
+  batchsize:
+    values: [256]
   epochs:
     values: [50]
   weight_decay:
-    values: [0,1e-4]
+    values: [0.01]
   seed:
     values: [0]
 # Options are 'lightcurve' 'spectral' and 'host_galaxy' -- order does not matter 

@@ -6,9 +6,10 @@ transformer_depth: 1
 # Parameter for lightcurve transformer
 emb_spectral: 32 
 transformer_depth_spectral: 1 
-epochs: 50
+# Optimiser
+epochs: 500
 lr: 0.0001
-weight_decay: 0
+weight_decay: 0.01
 seed: 0
 # Options are 'lightcurve' 'spectral' and 'host_galaxy' -- order does not matter 
 combinations: ['spectral','lightcurve']
