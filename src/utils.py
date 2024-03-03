@@ -196,7 +196,7 @@ def cosine_similarity(a, b, temperature=1):
 
 
 def get_embs(
-    clip_model: torch.nn.Module, dataloader: DataLoader
+    clip_model: torch.nn.Module, dataloader: DataLoader, combinations: List[str]
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     """
     Computes and concatenates embeddings for light curves and images from a DataLoader.
@@ -204,6 +204,7 @@ def get_embs(
     Args:
     clip_model (torch.nn.Module): The model used for generating embeddings.
     dataloader (DataLoader): DataLoader providing batches of data (images, magnitudes, times, masks).
+    combinations (List[str]): List of combinations of modalities to use for embeddings.
 
     Returns:
     Tuple[torch.Tensor, torch.Tensor]: Tuple of two tensors containing concatenated embeddings
@@ -212,27 +213,37 @@ def get_embs(
 
     clip_model.eval()
 
-    embs_curves = []
-    embs_images = []
+    embs_first = []
+    embs_second = []
 
     # Iterate through the DataLoader
     for batch in dataloader:
-        img, mag, time, mask, _ = batch
+        x_img, x_lc, t_lc, mask_lc, x_sp, t_sp, mask_sp = batch
 
         # Compute embeddings and detach from the computation graph
-        emb_host = clip_model.lightcurve_embeddings_with_projection(
-            mag.detach(), time.detach(), mask.detach()
-        ).detach()
-        emb_src = clip_model.image_embeddings_with_projection(img.detach()).detach()
+        with torch.no_grad():
+            x = []
+            if "host_galaxy" in combinations:
+                x.append(clip_model.image_embeddings_with_projection(x_img))
+            if "lightcurve" in combinations:
+                x.append(
+                    clip_model.lightcurve_embeddings_with_projection(
+                        x_lc, t_lc, mask_lc
+                    )
+                )
+            if "spectral" in combinations:
+                x.append(
+                    clip_model.spectral_embeddings_with_projection(x_sp, t_sp, mask_sp)
+                )
 
         # Append the results to the lists
-        embs_curves.append(emb_host)
-        embs_images.append(emb_src)
+        embs_first.append(x[0])
+        embs_second.append(x[1])
 
     # Concatenate all embeddings into single tensors
-    embs_curves = torch.cat(embs_curves, dim=0)
-    embs_images = torch.cat(embs_images, dim=0)
-    return embs_curves, embs_images
+    embs_first = torch.cat(embs_first, dim=0)
+    embs_second = torch.cat(embs_second, dim=0)
+    return embs_first, embs_second
 
 
 def get_ROC_data(

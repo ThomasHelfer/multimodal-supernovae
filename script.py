@@ -82,19 +82,25 @@ if __name__ == "__main__":
         dataset, [number_of_samples - n_samples_val, n_samples_val]
     )
 
-    train_loader_no_aug = DataLoader(
+    train_loader_no_aug = NoisyDataLoader(
         dataset_train,
         batch_size=batch_size,
+        noise_level_img=0,
+        noise_level_mag=0,
+        shuffle=False,
         num_workers=1,
         pin_memory=True,
-        shuffle=True,
+        combinations=combinations,
     )
-    val_loader_no_aug = DataLoader(
+    val_loader_no_aug = NoisyDataLoader(
         dataset_val,
         batch_size=batch_size,
+        noise_level_img=0,
+        noise_level_mag=0,
+        shuffle=False,
         num_workers=1,
         pin_memory=True,
-        shuffle=False,
+        combinations=combinations,
     )
 
     # Define the noise levels for images and magnitude (multiplied by magerr)
@@ -183,8 +189,12 @@ if __name__ == "__main__":
     )
 
     # Get embeddings for all images and light curves
-    embs_curves_train, embs_images_train = get_embs(clip_model, train_loader_no_aug)
-    embs_curves_val, embs_images_val = get_embs(clip_model, val_loader_no_aug)
+    embs_curves_train, embs_images_train = get_embs(
+        clip_model, train_loader_no_aug, combinations
+    )
+    embs_curves_val, embs_images_val = get_embs(
+        clip_model, val_loader_no_aug, combinations
+    )
 
     plot_ROC_curves(
         embs_curves_train,

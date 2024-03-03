@@ -138,7 +138,6 @@ class NoisyDataLoader(DataLoader):
             elif self.combinations == set(["spectral", "lightcurve"]):
                 # Add random noise to images and time-magnitude tensors
                 (
-                    host_imgs,
                     mag,
                     time,
                     mask,
@@ -156,6 +155,24 @@ class NoisyDataLoader(DataLoader):
                 noisy_spec = (
                     spec + torch.randn_like(spec) * specerr * self.noise_level_mag
                 )
+
+                # Return the noisy batch (and Nones to keep outputlength the same)
+                yield None, noisy_mag, time, mask, noisy_spec, freq, maskspec
+
+            elif self.combinations == set(["host_galaxy", "spectral", "lightcurve"]):
+                # Add random noise to images and time-magnitude tensors
+                (
+                    host_imgs,
+                    mag,
+                    time,
+                    mask,
+                    magerr,
+                    spec,
+                    freq,
+                    maskspec,
+                    specerr,
+                ) = batch
+
                 # Calculate the range for the random noise based on the max_noise_intensity
                 noise_range = self.max_noise_intensity * torch.std(host_imgs)
 
@@ -163,13 +180,6 @@ class NoisyDataLoader(DataLoader):
                 noisy_imgs = (
                     host_imgs + (2 * torch.rand_like(host_imgs) - 1) * noise_range
                 )
-
-                # Return the noisy batch (and Nones to keep outputlength the same)
-                yield None, noisy_mag, time, mask, noisy_spec, freq, maskspec
-
-            elif self.combinations == set(["host_galaxy", "spectral", "lightcurve"]):
-                # Add random noise to images and time-magnitude tensors
-                mag, time, mask, magerr, spec, freq, maskspec, specerr = batch
 
                 # Add Gaussian noise to mag using magerr
                 noisy_mag = mag + torch.randn_like(mag) * magerr * self.noise_level_mag
