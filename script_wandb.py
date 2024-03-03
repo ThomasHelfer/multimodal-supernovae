@@ -46,19 +46,25 @@ def train_sweep(config=None):
         num_workers = max(1, cpus_per_task - 1)
         print(f"Using {num_workers} workers for data loading", flush=True)
 
-        train_loader_no_aug = DataLoader(
+        train_loader_no_aug = NoisyDataLoader(
             dataset_train,
             batch_size=cfg.batchsize,
+            noise_level_img=0,
+            noise_level_mag=0,
+            shuffle=True,
             num_workers=num_workers,
             pin_memory=True,
-            shuffle=True,
+            combinations=combinations,
         )
-        val_loader_no_aug = DataLoader(
+        val_loader_no_aug = NoisyDataLoader(
             dataset_val,
             batch_size=cfg.batchsize,
+            noise_level_img=0,
+            noise_level_mag=0,
+            shuffle=False,
             num_workers=num_workers,
             pin_memory=True,
-            shuffle=False,
+            combinations=combinations,
         )
 
         # Create custom noisy data loaders
@@ -151,8 +157,8 @@ def train_sweep(config=None):
         )
 
         # Get embeddings for all images and light curves
-        embs_curves_train, embs_images_train = get_embs(clip_model, train_loader_no_aug)
-        embs_curves_val, embs_images_val = get_embs(clip_model, val_loader_no_aug)
+        embs_curves_train, embs_images_train = get_embs(clip_model, train_loader_no_aug, combinations)
+        embs_curves_val, embs_images_val = get_embs(clip_model, val_loader_no_aug, combinations)
 
         plot_ROC_curves(
             embs_curves_train,
