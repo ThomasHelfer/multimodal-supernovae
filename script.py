@@ -138,6 +138,15 @@ if __name__ == "__main__":
         "depth": cfg["transformer_depth"],
         "dropout": cfg["dropout"],
     }
+
+    transformer_spectral_kwargs = {
+        "n_out": 32,
+        "emb": cfg["emb_spectral"],
+        "heads": 2,
+        "depth": cfg["transformer_depth_spectral"],
+        "dropout": cfg["dropout"],
+    }
+
     conv_kwargs = {
         "dim": 32,
         "depth": 2,
@@ -156,6 +165,7 @@ if __name__ == "__main__":
         nband=nband,
         loss="softmax",
         transformer_kwargs=transformer_kwargs,
+        transformer_spectral_kwargs=transformer_spectral_kwargs,
         conv_kwargs=conv_kwargs,
         optimizer_kwargs=optimizer_kwargs,
         combinations=combinations,

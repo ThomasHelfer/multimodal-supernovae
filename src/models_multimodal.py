@@ -343,14 +343,14 @@ class LightCurveImageCLIP(pl.LightningModule):
         Called at the beginning of the validation loop.
         """
         # Initialize an empty list to store embeddings for lightcurve and galaxy images
-        self.embs_curves = []
-        self.embs_images = []
+        self.embs_first = []
+        self.embs_second = []
 
     def validation_step(self, batch, batch_idx):
         x_img, x_lc, t_lc, mask_lc, x_sp, t_sp, mask_sp = batch
         x = self(x_img, x_lc, t_lc, mask_lc, x_sp, t_sp, mask_sp)
-        self.embs_images.append(x[0])
-        self.embs_curves.append(x[1])
+        self.embs_second.append(x[0])
+        self.embs_first.append(x[1])
         if self.loss == "sigmoid":
             loss = sigmoid_loss(x[0], x[1], self.logit_scale, self.logit_bias).mean()
         elif self.loss == "softmax":
@@ -370,14 +370,14 @@ class LightCurveImageCLIP(pl.LightningModule):
         Called at the end of the validation epoch.
         """
         # Concatenate all embeddings into single tensors
-        self.embs_curves = torch.cat(self.embs_curves, dim=0)
-        self.embs_images = torch.cat(self.embs_images, dim=0)
+        self.embs_first = torch.cat(self.embs_first, dim=0)
+        self.embs_second = torch.cat(self.embs_second, dim=0)
 
-        AUC = get_AUC(self.embs_curves, self.embs_images)
+        AUC = get_AUC(self.embs_first, self.embs_second)
         self.log(
             "AUC_val", AUC, on_epoch=True, on_step=False, prog_bar=True, logger=True
         )
 
         # Delete the embeddings to free up memory
-        self.embs_curves = None
-        self.embs_images = None
+        self.embs_first = None
+        self.embs_second = None
