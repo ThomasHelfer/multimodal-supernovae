@@ -7,6 +7,7 @@ import math
 import sys
 from src.loss import sigmoid_loss, clip_loss
 from src.utils import get_AUC
+import wandb
 
 
 class Residual(nn.Module):
@@ -369,6 +370,9 @@ class LightCurveImageCLIP(pl.LightningModule):
         """
         Called at the end of the validation epoch.
         """
+        if self.global_step == 0:
+            wandb.define_metric("AUC_val", summary="max")
+
         # Concatenate all embeddings into single tensors
         self.embs_first = torch.cat(self.embs_first, dim=0)
         self.embs_second = torch.cat(self.embs_second, dim=0)
