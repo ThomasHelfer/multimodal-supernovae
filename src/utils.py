@@ -56,6 +56,8 @@ def get_savedir(args) -> str:
     if not os.path.exists("analysis/runs"):
         os.makedirs("analysis/runs")
 
+    # save in checkpoint directory if resuming from checkpoint 
+    # else save in numbered directory if not given runname
     if args.ckpt_path:
         cfg = YAML(typ="safe").load(
             open(os.path.join(os.path.dirname(args.ckpt_path), "config.yaml"))

@@ -455,7 +455,7 @@ def load_spectras(
                 spectra_df.columns = ["freq", "spec", "specerr"]
                 # Fill missing data with zeros
                 if zero_pad_missing_error:
-                    spectra_df["specerr"].fillna(0, inplace=True)
+                    spectra_df["specerr"] = spectra_df["specerr"].fillna(0)
                 # If no zero-pad remove whole colums with missing data
                 else:
                     spectra_df.dropna(subset=["specerr"], inplace=True)
