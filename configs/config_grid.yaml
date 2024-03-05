@@ -6,16 +6,24 @@ project: multimodal
 parameters:
   dropout:
     values: [0.001]
+  n_out:
+    values: [32]
   # Lightcurve transformer
   transformer_depth:
     values: [1]
   emb:
     values: [32]
+  heads:
+    values: [2]
   # Spectral transformer
   emb_spectral:
     values: [32]
   transformer_depth_spectral:
     values: [1]
+  heads_spectral:
+    values: [2]
+  max_spectra_len: 
+    values: [1000]
   # Optimiser 
   lr:
     values: [1e-4]

@@ -90,18 +90,18 @@ def train_sweep(config=None):
         )
 
         transformer_kwargs = {
-            "n_out": 32,
+            "n_out": cfg.n_out,
             "emb": cfg.emb,
-            "heads": 2,
+            "heads": cfg.heads,
             "depth": cfg.transformer_depth,
             "dropout": cfg.dropout,
         }
         transformer_spectral_kwargs = {
-            "n_out": 32,
+            "n_out": cfg.n_out,
             "emb": cfg.emb_spectral,
-            "heads": 2,
+            "heads": cfg.heads_spectral,
             "depth": cfg.transformer_depth_spectral,
-            "dropout": cfg["dropout"],
+            "dropout": cfg.dropout,
         }
         conv_kwargs = {
             "dim": 32,
@@ -109,7 +109,7 @@ def train_sweep(config=None):
             "channels": 3,
             "kernel_size": 5,
             "patch_size": 10,
-            "n_out": 32,
+            "n_out": cfg.n_out,
             "dropout_prob": cfg.dropout,
         }
         optimizer_kwargs = {"weight_decay": cfg.weight_decay}
@@ -212,19 +212,18 @@ if __name__ == "__main__":
 
     # Check if the config file has a spectra key
     if "spectral" in combinations:
-        data_dirs = ["ZTFBTS_spectra/"]
+        data_dirs = ["ZTFBTS_spectra/", "/n/home02/gemzhang/Storage/multimodal/ZTFBTS_spectra/"]
         spectra_dir = get_valid_dir(data_dirs)
     else:
         spectra_dir = None
 
-    max_data_len = 1000  # Spectral data is cut to this length
+    max_data_len = cfg.max_spectra_len  # Spectral data is cut to this length
     dataset, nband = load_data(
         data_dir, spectra_dir, max_data_len, host_galaxy=("host_galaxy" in combinations)
     )
 
     number_of_samples = len(dataset)
 
-    val_fraction = 0.05
     n_samples_val = int(val_fraction * number_of_samples)
 
     dataset_train, dataset_val = random_split(
