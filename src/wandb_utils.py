@@ -20,9 +20,13 @@ def schedule_sweep(config: str, analysis_path: str) -> Tuple[str, str]:
     yaml = YAML(typ="rt")
     cfg = yaml.load(open(f"{config}"))
 
-    sweep_id = wandb.sweep(sweep=YAML(typ="safe").load(open(f"{config}")))
+    combs = cfg['combinations']
+    cfg.pop('combinations', None)  # remove combinations from the config since it's not a valid wandb parameter
+
+    sweep_id = wandb.sweep(sweep=cfg)
     print("Schedule sweep with id : ", sweep_id, flush=True)
     cfg["sweep"] = {"id": sweep_id}
+    cfg["combinations"] = combs
 
     model_path = f"{analysis_path}/{sweep_id}/"
     config_path = f"{model_path}/sweep_config.yaml"
@@ -34,3 +38,11 @@ def schedule_sweep(config: str, analysis_path: str) -> Tuple[str, str]:
     print(f"config path saved at:\n{config_path}\n", flush=True)
 
     return sweep_id, model_path, cfg
+
+
+def continue_sweep(model_path):
+    print("Continue sweep with model path : ", model_path, flush=True)
+    yaml = YAML(typ="safe")
+    cfg = yaml.load(open(os.path.join(model_path, "sweep_config.yaml")))
+
+    return cfg 

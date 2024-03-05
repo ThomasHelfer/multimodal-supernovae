@@ -3,6 +3,7 @@ import wandb
 from ruamel.yaml import YAML
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 
 import numpy as np
 
@@ -27,7 +28,7 @@ from src.dataloader import (
     plot_lightcurve_and_images,
     NoisyDataLoader,
 )
-from src.wandb_utils import schedule_sweep
+from src.wandb_utils import continue_sweep, schedule_sweep
 
 
 def train_sweep(config=None):
@@ -135,11 +136,14 @@ def train_sweep(config=None):
         checkpoint_callback = ModelCheckpoint(
             dirpath=path_run, save_top_k=2, monitor="val_loss"
         )
-
+        early_stop_callback = EarlyStopping(
+            monitor="val_loss", min_delta=0.00, patience=30, verbose=False, mode="min"
+        )
+        
         trainer = pl.Trainer(
             max_epochs=cfg.epochs,
             accelerator=device,
-            callbacks=[loss_tracking_callback, checkpoint_callback],
+            callbacks=[loss_tracking_callback, checkpoint_callback, early_stop_callback],
             logger=wandb_logger,
             enable_progress_bar=False,
         )
@@ -178,13 +182,21 @@ def train_sweep(config=None):
 if __name__ == "__main__":
     wandb.login()
 
-    config = sys.argv[
-        1
-    ]  # '/n/home02/gemzhang/repos/Multimodal-hackathon-2024/sweep_configs/config_grid.yaml'
+    arg = sys.argv[1] 
+    if arg.endswith(".yaml"):
+        config = arg
+        resume = False
+    else:
+        sweep_id = os.path.basename(arg) 
+        resume = True
 
     analysis_path = "./analysis/"
 
-    sweep_id, model_path, cfg = schedule_sweep(config, analysis_path)
+    if resume: 
+        model_path = os.path.join(analysis_path, sweep_id)
+        cfg = continue_sweep(model_path)
+    else:
+        sweep_id, model_path, cfg = schedule_sweep(config, analysis_path)
     print("model path: " + model_path, flush=True)
 
     # define constants
@@ -217,7 +229,7 @@ if __name__ == "__main__":
     else:
         spectra_dir = None
 
-    max_data_len = cfg.max_spectra_len  # Spectral data is cut to this length
+    max_data_len = 1000  # Spectral data is cut to this length
     dataset, nband = load_data(
         data_dir, spectra_dir, max_data_len, host_galaxy=("host_galaxy" in combinations)
     )
@@ -230,4 +242,4 @@ if __name__ == "__main__":
         dataset, [number_of_samples - n_samples_val, n_samples_val]
     )
 
-    wandb.agent(sweep_id=sweep_id, function=train_sweep)
+    wandb.agent(sweep_id=sweep_id, project=cfg["project"], function=train_sweep)

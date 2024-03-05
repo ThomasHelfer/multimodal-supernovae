@@ -22,8 +22,6 @@ parameters:
     values: [1]
   heads_spectral:
     values: [2]
-  max_spectra_len: 
-    values: [1000]
   # Optimiser 
   lr:
     values: [1e-4]
