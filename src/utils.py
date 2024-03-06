@@ -38,7 +38,7 @@ def find_indices_in_arrays(st1, st2):
 def get_savedir(args) -> str:
     """
     Return config dict and path to save new plots and models based on
-    whether to continue from checkpoint or not
+    whether to continue from checkpoint or not; dump config file in savedir path
 
     Args:
     args: argparse.ArgumentParser object

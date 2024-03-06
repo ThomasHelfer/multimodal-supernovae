@@ -39,6 +39,11 @@ def train_sweep(config=None):
 
         cfg = wandb.config
         set_seed(cfg.seed)
+        
+        # dump config 
+        config_dict = {k: v for k, v in cfg.items()}
+        with open(os.path.join(path_run, "config.yaml"), "w") as f:
+            YAML().dump(config_dict, f)
 
         # Default to 1 if the environment variable is not set
         cpus_per_task = int(os.getenv("SLURM_CPUS_PER_TASK", 1))
@@ -173,10 +178,6 @@ def train_sweep(config=None):
             embs_images_val,
             path_base=path_run,
         )
-
-        config_dict = {k: v for k, v in cfg.items()}
-        with open(os.path.join(path_run, "config.yaml"), "w") as f:
-            YAML().dump(config_dict, f)
 
         wandb.finish()
 
