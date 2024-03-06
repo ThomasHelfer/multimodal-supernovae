@@ -57,11 +57,15 @@ Before installing, ensure you have the following prerequisites:
    ```bash
    python script_wandb.py configs/config_grid.yaml 
    ```
-4. #### API Key Configuration
+   Resume a sweep with the following command:
+   ```bash
+   python script_wandb.py [sweep_id]
+   ```
+5. #### API Key Configuration
    The first execution will prompt you for your Weights & Biases API key, which can be found [here]([https://wandb.ai](https://wandb.ai/authorize)https://wandb.ai/authorize). 
  Alternatively, you can set your API key as an environment variable, especially if running on a compute node:
       ```bash
    export WANDB_API_KEY=...
    ```
-5. #### View Results
+6. #### View Results
    Monitor and analyze your experiment results on your Weights & Biases project page. [wand.ai](https://wandb.ai)
