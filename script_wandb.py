@@ -137,7 +137,7 @@ def train_sweep(config=None):
             dirpath=path_run, save_top_k=2, monitor="val_loss"
         )
         early_stop_callback = EarlyStopping(
-            monitor="val_loss", min_delta=0.00, patience=30, verbose=False, mode="min"
+            monitor="val_loss", min_delta=0.00, patience=200, verbose=False, mode="min"
         )
         
         trainer = pl.Trainer(
@@ -147,6 +147,8 @@ def train_sweep(config=None):
             logger=wandb_logger,
             enable_progress_bar=False,
         )
+        wandb.define_metric("AUC_val", summary="max")
+
         trainer.fit(
             model=clip_model, train_dataloaders=train_loader, val_dataloaders=val_loader
         )
