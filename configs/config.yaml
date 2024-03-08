@@ -13,3 +13,4 @@ weight_decay: 0.01
 seed: 0
 # Options are 'lightcurve' 'spectral' and 'host_galaxy' -- order does not matter 
 combinations: ['spectral','lightcurve']
+max_data_len: 100

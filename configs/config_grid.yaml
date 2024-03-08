@@ -34,4 +34,6 @@ parameters:
   seed:
     values: [0]
 # Options are 'lightcurve' 'spectral' and 'host_galaxy' -- order does not matter 
-combinations: ['lightcurve','spectral']
+extra_args:
+  combinations: ["lightcurve", "spectral"] 
+  max_data_len: 1000

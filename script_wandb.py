@@ -186,20 +186,16 @@ if __name__ == "__main__":
     wandb.login()
 
     arg = sys.argv[1] 
-    if arg.endswith(".yaml"):
-        config = arg
-        resume = False
-    else:
-        sweep_id = os.path.basename(arg) 
-        resume = True
-
     analysis_path = "./analysis/"
 
-    if resume: 
+    if arg.endswith(".yaml"):
+        config = arg
+        sweep_id, model_path, cfg = schedule_sweep(config, analysis_path)
+    else:
+        sweep_id = os.path.basename(arg) 
         model_path = os.path.join(analysis_path, sweep_id)
         cfg = continue_sweep(model_path)
-    else:
-        sweep_id, model_path, cfg = schedule_sweep(config, analysis_path)
+
     print("model path: " + model_path, flush=True)
 
     # define constants
@@ -223,7 +219,7 @@ if __name__ == "__main__":
     data_dir = get_valid_dir(data_dirs)
 
     # Get what data combinations are used
-    combinations = cfg["combinations"]
+    combinations = cfg["extra_args"]["combinations"]
 
     # Check if the config file has a spectra key
     if "spectral" in combinations:
@@ -232,7 +228,7 @@ if __name__ == "__main__":
     else:
         spectra_dir = None
 
-    max_data_len = 1000  # Spectral data is cut to this length
+    max_data_len = cfg["extra_args"]["max_data_len"]  # Spectral data is cut to this length
     dataset, nband = load_data(
         data_dir, spectra_dir, max_data_len, host_galaxy=("host_galaxy" in combinations)
     )
