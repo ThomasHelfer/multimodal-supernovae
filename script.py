@@ -67,9 +67,9 @@ if __name__ == "__main__":
     else:
         spectra_dir = None
 
-    max_data_len = cfg["max_data_len"]  # Spectral data is cut to this length
+    max_spectral_data_len = cfg["max_spectral_data_len"]  # Spectral data is cut to this length
     dataset, nband = load_data(
-        data_dir, spectra_dir, max_data_len, host_galaxy=("host_galaxy" in combinations)
+        data_dir, spectra_dir, max_spectral_data_len, host_galaxy=("host_galaxy" in combinations)
     )
 
     number_of_samples = len(dataset)

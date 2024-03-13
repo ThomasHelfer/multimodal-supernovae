@@ -2,6 +2,7 @@ method: grid
 metric:
   goal: minimize
   name: best_val_loss
+entity: multimodal-supernovae
 project: multimodal
 parameters:
   dropout:
@@ -36,4 +37,5 @@ parameters:
 # Options are 'lightcurve' 'spectral' and 'host_galaxy' -- order does not matter 
 extra_args:
   combinations: ["lightcurve", "spectral"] 
-  max_data_len: 1000
+  nruns: 20
+  max_spectral_data_len: 1000

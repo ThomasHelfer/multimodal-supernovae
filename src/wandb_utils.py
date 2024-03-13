@@ -21,9 +21,9 @@ def schedule_sweep(config: str, analysis_path: str) -> Tuple[str, str]:
     cfg = yaml.load(open(f"{config}"))
 
     extras = cfg['extra_args']
-    cfg.pop('combinations', None)  # remove combinations from the config since it's not a valid wandb parameter
+    cfg.pop('extra_args', None)  # remove combinations from the config since it's not a valid wandb parameter
 
-    sweep_id = wandb.sweep(sweep=cfg)
+    sweep_id = wandb.sweep(sweep=cfg, entity=cfg['entity'], project=cfg["project"])
     print("Schedule sweep with id : ", sweep_id, flush=True)
     cfg["sweep"] = {"id": sweep_id}
     cfg["extra_args"] = extras

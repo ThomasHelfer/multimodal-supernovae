@@ -228,9 +228,9 @@ if __name__ == "__main__":
     else:
         spectra_dir = None
 
-    max_data_len = cfg["extra_args"]["max_data_len"]  # Spectral data is cut to this length
+    max_spectral_data_len = cfg["extra_args"]["max_spectral_data_len"]  # Spectral data is cut to this length
     dataset, nband = load_data(
-        data_dir, spectra_dir, max_data_len, host_galaxy=("host_galaxy" in combinations)
+        data_dir, spectra_dir, max_spectral_data_len, host_galaxy=("host_galaxy" in combinations)
     )
 
     number_of_samples = len(dataset)
@@ -241,4 +241,4 @@ if __name__ == "__main__":
         dataset, [number_of_samples - n_samples_val, n_samples_val]
     )
 
-    wandb.agent(sweep_id=sweep_id, project=cfg["project"], function=train_sweep)
+    wandb.agent(sweep_id=sweep_id, entity=cfg['entity'], project=cfg["project"], function=train_sweep, count=cfg["extra_args"]['nruns'])
