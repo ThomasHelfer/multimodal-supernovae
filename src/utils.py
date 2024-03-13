@@ -249,14 +249,14 @@ def get_embs(
 
 
 def get_ROC_data(
-    embs_curves: torch.Tensor, embs_images: torch.Tensor
+    embs1: torch.Tensor, embs2: torch.Tensor
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
     Calculate ROC-like data by evaluating the cosine similarity between two sets of embeddings.
 
     Args:
-    embs_curves (torch.Tensor): Tensor of embeddings for light curves.
-    embs_images (torch.Tensor): Tensor of embeddings for images.
+    embs1 (torch.Tensor): Tensor of first set of embeddings. 
+    embs2 (torch.Tensor): Tensor of second set of embeddings.
 
     Returns:
     Tuple[np.ndarray, np.ndarray]: A tuple containing an array of thresholds and an array of the fraction of correct predictions at each threshold.
@@ -265,8 +265,8 @@ def get_ROC_data(
     imgs = []
 
     # Iterate through image embeddings and calculate cosine similarity with curve embeddings
-    for idx, emb_src in enumerate(embs_images):
-        cos_sim = cosine_similarity(embs_curves, emb_src)
+    for idx, emb_src in enumerate(embs2):
+        cos_sim = cosine_similarity(embs1, emb_src)
         idx_sorted = torch.argsort(cos_sim, descending=True)
 
         # Calculate the number of correct predictions for each threshold
@@ -277,47 +277,47 @@ def get_ROC_data(
         imgs.append(num_right)
 
     # Calculate the fraction of correct predictions at each threshold
-    fraction_correct = np.sum(imgs, axis=0) / len(embs_images)
+    fraction_correct = np.sum(imgs, axis=0) / len(embs2)
 
     return thresholds, fraction_correct
 
 
 def get_AUC(
-    embs_curves: torch.Tensor,
-    embs_images: torch.Tensor,
+    embs1: torch.Tensor,
+    embs2: torch.Tensor,
 ) -> Tuple[float, float]:
     """
     Calculate the area under the ROC curve for training and validation datasets.
     Args:
-    embs_curves (torch.Tensor): Embeddings for light curves in the training set.
-    embs_images (torch.Tensor): Embeddings for images in the training set.
+    embs1 (torch.Tensor): Embeddings for first modality.
+    embs2 (torch.Tensor): Embeddings for second modality.
     """
-    thresholds, fraction_correct = get_ROC_data(embs_curves, embs_images)
+    thresholds, fraction_correct = get_ROC_data(embs1, embs2)
     auc = np.trapz(fraction_correct, thresholds)
     return auc
 
 
 def plot_ROC_curves(
-    embs_curves_train: torch.Tensor,
-    embs_images_train: torch.Tensor,
-    embs_curves_val: torch.Tensor,
-    embs_images_val: torch.Tensor,
+    embs1_train: torch.Tensor,
+    embs2_train: torch.Tensor,
+    embs1_val: torch.Tensor,
+    embs2_val: torch.Tensor,
     path_base: str = "./",
 ) -> None:
     """
     Plots ROC-like curves for training and validation datasets based on embeddings.
 
     Args:
-    embs_curves_train (torch.Tensor): Embeddings for light curves in the training set.
-    embs_images_train (torch.Tensor): Embeddings for images in the training set.
-    embs_curves_val (torch.Tensor): Embeddings for light curves in the validation set.
-    embs_images_val (torch.Tensor): Embeddings for images in the validation set.
+    embs1_train (torch.Tensor): Embeddings for first modality in the training set.
+    embs2_train (torch.Tensor): Embeddings for second modality in the training set.
+    embs1_val (torch.Tensor): Embeddings for first modality in the validation set.
+    embs2_val (torch.Tensor): Embeddings for second modality in the validation set.
     path_base (str) : path to save the plot
     """
     thresholds, fraction_correct_train = get_ROC_data(
-        embs_curves_train, embs_images_train
+        embs1_train, embs2_train
     )
-    thresholds, fraction_correct_val = get_ROC_data(embs_curves_val, embs_images_val)
+    thresholds, fraction_correct_val = get_ROC_data(embs1_val, embs2_val)
 
     # Set overall figure size and title
     plt.figure(figsize=(12, 6))
