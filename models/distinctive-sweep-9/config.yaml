@@ -1,0 +1,14 @@
+batchsize: 32
+dropout: 0.004254979488575372
+emb: 64
+emb_spectral: 64
+epochs: 500
+heads: 8
+heads_spectral: 2
+logit_scale: 14.129370340537989
+lr: 9.225587921589448e-05
+n_out: 32
+seed: 0
+transformer_depth: 16
+transformer_depth_spectral: 11
+weight_decay: 3.1557319964377926e-05
