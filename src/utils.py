@@ -9,6 +9,28 @@ from matplotlib import pyplot as plt
 from ruamel.yaml import YAML
 
 
+def filter_files(filenames_avail, filenames_to_filter, data_to_filter=None):
+    """
+    Function to filter filenames and data based on the filenames_avail
+
+    Args:
+    filenames_avail (list): List of filenames available
+    filenames_to_filter (list): List of filenames to filter
+    data_to_filter (np.ndarray): Data to filter based on filenames_to_filter
+
+    Returns:
+    inds_filt (np.ndarray): Indices of filtered filenames in filenames_to_filter
+    filenames_to_filter (list): List of filtered filenames
+    data_to_filter (np.ndarray): Filtered data
+    """
+    # Check which each filenames_to_filter are available in filenames_avail
+    inds_filt = np.in1d(filenames_to_filter, filenames_avail)
+    if data_to_filter: data_to_filter = data_to_filter[inds_filt]
+    filenames_to_filter = np.array(filenames_to_filter)[inds_filt]
+
+    return inds_filt, filenames_to_filter, data_to_filter
+
+
 def find_indices_in_arrays(st1, st2):
     """
     Find indices of where elements of st1 appear in st2 and indices in st1 of those elements.

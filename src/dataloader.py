@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 from astropy.cosmology import Planck15 as cosmo  # Using Planck15 cosmology by default
 from typing import Tuple, List, Optional
 from torch.utils.data import TensorDataset
-from src.utils import find_indices_in_arrays
+from src.utils import filter_files, find_indices_in_arrays
 
 
 # Custom data loader with noise augmentation using magerr
@@ -206,28 +206,8 @@ class NoisyDataLoader(DataLoader):
                 yield rotated_imgs, noisy_mag, time, mask, noisy_spec, freq, maskspec
 
 
-def filter_files(filenames_avail, filenames_to_filter, data_to_filter):
-    """
-    Function to filter filenames and data based on the filenames_avail
 
-    Args:
-    filenames_avail (list): List of filenames available
-    filenames_to_filter (list): List of filenames to filter
-    data_to_filter (np.ndarray): Data to filter based on filenames_to_filter
-
-    Returns:
-    filenames_to_filter (list): List of filtered filenames
-    data_to_filter (np.ndarray): Filtered data
-    """
-    # Check which each filenames_to_filter are available in filenames_avail
-    inds_filt = np.in1d(filenames_to_filter, filenames_avail)
-    data_to_filter = data_to_filter[inds_filt]
-    filenames_to_filter = np.array(filenames_to_filter)[inds_filt]
-
-    return filenames_to_filter, data_to_filter
-
-
-def load_images(data_dir: str) -> torch.Tensor:
+def load_images(data_dir: str, filenames: List[str] = None) -> torch.Tensor:
     """
     Load and preprocess images from a specified directory.
 
@@ -242,7 +222,11 @@ def load_images(data_dir: str) -> torch.Tensor:
     dir_host_imgs = f"{data_dir}/hostImgs/"
     host_imgs, filenames_valid = [], []
 
-    filenames = sorted(os.listdir(dir_host_imgs))
+    if filenames is None:
+        filenames = sorted(os.listdir(dir_host_imgs))
+    else: # If filenames are provided, filter the filenames 
+        filenames, _ = filter_files(sorted(os.listdir(dir_host_imgs)), filenames)
+
     # Iterate through the directory and load images
     for filename in tqdm(filenames):
         file_path = os.path.join(dir_host_imgs, filename)
@@ -293,6 +277,8 @@ def load_redshifts(data_dir: str, filenames: List[str]) -> np.ndarray:
 def load_lightcurves(
     data_dir: str,
     abs_mag: bool = False,
+    n_max_obs: int = 100,
+    lightcurve_files: List[str] = None,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, int]:
     """
     Load light curves from CSV files in the specified directory.
@@ -320,8 +306,12 @@ def load_lightcurves(
 
     bands = ["R", "g"]
     nband = len(bands)
-    n_max_obs = 100
-    lightcurve_files = sorted(os.listdir(dir_light_curves))  # Sort file names
+    if lightcurve_files is None:
+        lightcurve_files = sorted(os.listdir(dir_light_curves))  # Sort file names
+    else:  # If filenames are provided, filter the filenames
+        lightcurve_files, _ = filter_files(
+            sorted(os.listdir(dir_light_curves)), lightcurve_files
+        )
 
     mask_list, mag_list, magerr_list, time_list, filenames = [], [], [], [], []
 
