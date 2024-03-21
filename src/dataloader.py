@@ -279,7 +279,7 @@ def load_lightcurves(
     data_dir: str,
     abs_mag: bool = False,
     n_max_obs: int = 100,
-    lightcurve_files: List[str] = None,
+    filenames: List[str] = None,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, int]:
     """
     Load light curves from CSV files in the specified directory.
@@ -307,16 +307,16 @@ def load_lightcurves(
 
     bands = ["R", "g"]
     nband = len(bands)
-    if lightcurve_files is None:
-        lightcurve_files = sorted(os.listdir(dir_light_curves))  # Sort file names
+    if filenames is None:
+        filenames = sorted(os.listdir(dir_light_curves))  # Sort file names
     else:  # If filenames are provided, filter the filenames
-        _, lightcurve_files, _ = filter_files(
-            sorted(os.listdir(dir_light_curves)), lightcurve_files
+        _, filenames, _ = filter_files(
+            sorted(os.listdir(dir_light_curves)), filenames
         )
 
-    mask_list, mag_list, magerr_list, time_list, filenames = [], [], [], [], []
+    mask_list, mag_list, magerr_list, time_list, filenames_loaded = [], [], [], [], []
 
-    for filename in tqdm(lightcurve_files):
+    for filename in tqdm(filenames):
         if filename.endswith(".csv"):
             light_curve_df = open_light_curve_csv(filename)
 
@@ -371,7 +371,7 @@ def load_lightcurves(
             time_list.append(time_concat)
             mag_list.append(mag_concat)
             magerr_list.append(magerr_concat)
-            filenames.append(filename.replace(".csv", ""))
+            filenames_loaded.append(filename.replace(".csv", ""))
 
     time_ary = np.array(time_list)
     mag_ary = np.array(mag_list)
@@ -394,7 +394,7 @@ def load_lightcurves(
 
         filenames = np.array(filenames)[inds]
 
-    return time_ary, mag_ary, magerr_ary, mask_ary, nband, filenames
+    return time_ary, mag_ary, magerr_ary, mask_ary, nband, filenames_loaded
 
 
 def load_spectras(
@@ -402,6 +402,7 @@ def load_spectras(
     n_max_obs: int = 5000,
     zero_pad_missing_error: bool = True,
     rescalefactor: int = 1e14,
+    filenames: List[str] = None,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, int]:
     """
     Load spectra data from CSV files in the specified directory.
@@ -422,18 +423,24 @@ def load_spectras(
     """
 
     print("Loading spectra ...")
-    dir_light_curves = f"{data_dir}"
+    dir_data = f"{data_dir}"
 
     def open_spectra_csv(filename: str) -> pd.DataFrame:
         """Helper function to open a light curve CSV file."""
-        file_path = os.path.join(dir_light_curves, filename)
+        file_path = os.path.join(dir_data, filename)
         return pd.read_csv(file_path, header=None)
 
-    # Getting filenames
-    lightcurve_files = sorted(os.listdir(dir_light_curves))
-    mask_list, spec_list, specerr_list, freq_list, filenames = [], [], [], [], []
+    if filenames is None:
+        # Getting filenames
+        filenames = sorted(os.listdir(dir_data))
+    else: 
+        _, filenames, _ = filter_files(
+            sorted(os.listdir(dir_data)), filenames
+        )
+        
+    mask_list, spec_list, specerr_list, freq_list, filenames_loaded = [], [], [], [], []
 
-    for filename in tqdm(lightcurve_files):
+    for filename in tqdm(filenames):
         if filename.endswith(".csv"):
             spectra_df = open_spectra_csv(filename)
             max_columns = spectra_df.shape[1]
@@ -492,14 +499,14 @@ def load_spectras(
             freq_list.append(freq)
             spec_list.append(spec)
             specerr_list.append(specerr)
-            filenames.append(filename.replace(".csv", ""))
+            filenames_loaded.append(filename.replace(".csv", ""))
 
     freq_ary = np.array(freq_list)
     spec_ary = np.array(spec_list)
     specerr_ary = np.array(specerr_list)
     mask_ary = np.array(mask_list)
 
-    return freq_ary, spec_ary, specerr_ary, mask_ary, filenames
+    return freq_ary, spec_ary, specerr_ary, mask_ary, filenames_loaded
 
 
 def plot_lightcurve_and_images(
