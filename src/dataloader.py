@@ -216,6 +216,7 @@ def load_images(data_dir: str, filenames: List[str] = None) -> torch.Tensor:
 
     Returns:
     torch.Tensor: A tensor containing the preprocessed images.
+    List[str]: List of filenames corresponding to the loaded data.
     """
     print("Loading images...")
 
@@ -225,7 +226,7 @@ def load_images(data_dir: str, filenames: List[str] = None) -> torch.Tensor:
     if filenames is None:
         filenames = sorted(os.listdir(dir_host_imgs))
     else: # If filenames are provided, filter the filenames 
-        filenames, _ = filter_files(sorted(os.listdir(dir_host_imgs)), filenames)
+        _, filenames, _ = filter_files(sorted(os.listdir(dir_host_imgs)), filenames)
 
     # Iterate through the directory and load images
     for filename in tqdm(filenames):
@@ -309,7 +310,7 @@ def load_lightcurves(
     if lightcurve_files is None:
         lightcurve_files = sorted(os.listdir(dir_light_curves))  # Sort file names
     else:  # If filenames are provided, filter the filenames
-        lightcurve_files, _ = filter_files(
+        _, lightcurve_files, _ = filter_files(
             sorted(os.listdir(dir_light_curves)), lightcurve_files
         )
 
