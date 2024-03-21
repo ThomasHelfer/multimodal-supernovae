@@ -161,6 +161,7 @@ cython_debug/
 
 .DS_Store
 ZTFBTS/
+ZTFBTS_spectra/
 analysis/
 slurm_out/
 multimodal/
