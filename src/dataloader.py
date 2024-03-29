@@ -226,7 +226,7 @@ def load_images(data_dir: str, filenames: List[str] = None) -> torch.Tensor:
     if filenames is None:
         filenames = sorted(os.listdir(dir_host_imgs))
     else: # If filenames are provided, filter the filenames 
-        _, filenames, _ = filter_files(sorted(os.listdir(dir_host_imgs)), filenames)
+        _, filenames, _ = filter_files(sorted(os.listdir(dir_host_imgs)), [f + '.host.png' for f in filenames])
 
     # Iterate through the directory and load images
     for filename in tqdm(filenames):
@@ -311,7 +311,7 @@ def load_lightcurves(
         filenames = sorted(os.listdir(dir_light_curves))  # Sort file names
     else:  # If filenames are provided, filter the filenames
         _, filenames, _ = filter_files(
-            sorted(os.listdir(dir_light_curves)), filenames
+            sorted(os.listdir(dir_light_curves)), [f + '.csv' for f in filenames]
         )
 
     mask_list, mag_list, magerr_list, time_list, filenames_loaded = [], [], [], [], []
@@ -435,7 +435,7 @@ def load_spectras(
         filenames = sorted(os.listdir(dir_data))
     else: 
         _, filenames, _ = filter_files(
-            sorted(os.listdir(dir_data)), filenames
+            sorted(os.listdir(dir_data)), [f + '.csv' for f in filenames]
         )
         
     mask_list, spec_list, specerr_list, freq_list, filenames_loaded = [], [], [], [], []
@@ -587,11 +587,13 @@ def plot_lightcurve_and_images(
     plt.savefig(os.path.join(path_base, "banner.png"))
 
 
+
 def load_data(
     data_dir: str,
     spectra_dir: str = None,
-    max_data_len: int = 1000,
-    host_galaxy: bool = True,
+    max_data_len_lc: int = 100,
+    max_data_len_spec: int = 1000,
+    combinations: List = ["host_galaxy", "lightcurve"],
 ) -> Tuple[TensorDataset, int]:
     """
     Load data from specified directories, handling both images and light curves or spectra.
@@ -613,9 +615,18 @@ def load_data(
 
     # Decision based on whether spectra data is available
     if spectra_dir is None:
-        print("light curve and host galaxy")
+        spectra_dir = data_dir 
+
+    data, nband, filenames = [], 1, None 
+
+    if 'host_galaxy' in combinations:
         # Load images from data_dir
         host_imgs, filenames_host = load_images(data_dir)
+
+        data.append(host_imgs)
+        filenames = filenames_host
+
+    if 'lightcurve' in combinations:
         # Load light curves from data_dir if no spectra directory is provided
         (
             time_ary,
@@ -624,134 +635,42 @@ def load_data(
             mask_ary,
             nband,
             filenames_lightcurves,
-        ) = load_lightcurves(data_dir)
+        ) = load_lightcurves(data_dir, n_max_obs = max_data_len_lc, filenames = filenames)
 
-        # Ensuring that filenames between images and light curves match
-        assert (
-            filenames_host == filenames_lightcurves
-        ), "Filenames between host images and light curves must match."
+        # Ensuring that filenames between images and light curves match if we loaded images 
+        if filenames is None: filenames = filenames_lightcurves
+        else: _, filenames, data = filter_files(filenames_lightcurves, filenames, data)
 
         # Prepare dataset with light curve data
         time = torch.from_numpy(time_ary).float()
         mag = torch.from_numpy(mag_ary).float()
         mask = torch.from_numpy(mask_ary).bool()
         magerr = torch.from_numpy(magerr_ary).float()
-        dataset = TensorDataset(host_imgs, mag, time, mask, magerr)
-        return dataset, nband
-    else:
-        # Decision if you want to combine spectral data with host galaxy or light curve
-        if host_galaxy:
-            print("spectral and host galaxy")
-            # Load images from data_dir
-            host_imgs, filenames_host = load_images(data_dir)
-            # Load spectra from spectra_dir if provided
-            (
-                freq_ary,
-                spec_ary,
-                specerr_ary,
-                maskspec_ary,
-                filenames_spectra,
-            ) = load_spectras(spectra_dir, max_data_len)
 
-            # Finding overlapping filenames between spectra and images
-            inds_spec, inds_light = find_indices_in_arrays(
-                filenames_spectra, filenames_host
-            )
+        data += [mag, time, mask, magerr]
+        nband = 2 
+        
+    if 'spectral' in combinations:
+        # Load spectra from spectra_dir if provided
+        (
+            freq_ary,
+            spec_ary,
+            specerr_ary,
+            maskspec_ary,
+            filenames_spectra,
+        ) = load_spectras(spectra_dir, n_max_obs = max_data_len_spec, filenames = filenames)
 
-            # Filter data to ensure each spectrum has a corresponding image
-            freq_ary, spec_ary, specerr_ary, maskspec_ary, filenames_spectra = [
-                arr[inds_light]
-                for arr in [
-                    freq_ary,
-                    spec_ary,
-                    specerr_ary,
-                    maskspec_ary,
-                    np.array(filenames_spectra),
-                ]
-            ]
-            host_imgs, filenames_host = [
-                arr[inds_spec] for arr in [host_imgs, np.array(filenames_host)]
-            ]
+        _, filenames, data = filter_files(filenames_spectra, filenames, data)
 
-            # Ensuring that filtered filenames match between host images and spectra
-            assert (
-                filenames_host.tolist() == filenames_spectra.tolist()
-            ), "Filtered filenames between host images and spectra must match."
+        assert filenames.tolist() == filenames_spectra , "Filtered filenames between modalities must match."
 
-            # Prepare dataset with spectra data
-            freq = torch.from_numpy(freq_ary).float()
-            spec = torch.from_numpy(spec_ary).float()
-            maskspec = torch.from_numpy(maskspec_ary).bool()
-            specerr = torch.from_numpy(specerr_ary).float()
-            dataset = TensorDataset(host_imgs, spec, freq, maskspec, specerr)
-            nband = 1  # Number of bands is set to 1 for spectra
-            return dataset, nband
+        # Prepare dataset with spectra data
+        freq = torch.from_numpy(freq_ary).float()
+        spec = torch.from_numpy(spec_ary).float()
+        maskspec = torch.from_numpy(maskspec_ary).bool()
+        specerr = torch.from_numpy(specerr_ary).float()
+        data += [spec, freq, maskspec, specerr]
 
-        else:
-            print("spectral and light curve")
-            # Load light curves from data_dir if no spectra directory is provided
-            (
-                time_ary,
-                mag_ary,
-                magerr_ary,
-                mask_ary,
-                nband,
-                filenames_lightcurves,
-            ) = load_lightcurves(data_dir)
+    data = TensorDataset(*data)
 
-            # Load spectra from spectra_dir if provided
-            (
-                freq_ary,
-                spec_ary,
-                specerr_ary,
-                maskspec_ary,
-                filenames_spectra,
-            ) = load_spectras(spectra_dir, max_data_len)
-
-            # Finding overlapping filenames between spectra and images
-            inds_spec, inds_light = find_indices_in_arrays(
-                filenames_spectra, filenames_lightcurves
-            )
-
-            # Filter data to ensure each spectrum has a corresponding image
-            freq_ary, spec_ary, specerr_ary, maskspec_ary, filenames_spectra = [
-                arr[inds_light]
-                for arr in [
-                    freq_ary,
-                    spec_ary,
-                    specerr_ary,
-                    maskspec_ary,
-                    np.array(filenames_spectra),
-                ]
-            ]
-            time_ary, mag_ary, magerr_ary, mask_ary, filenames_lightcurves = [
-                arr[inds_spec]
-                for arr in [
-                    time_ary,
-                    mag_ary,
-                    magerr_ary,
-                    mask_ary,
-                    np.array(filenames_lightcurves),
-                ]
-            ]
-
-            # Ensuring that filtered filenames match between host images and spectra
-            assert (
-                filenames_lightcurves.tolist() == filenames_spectra.tolist()
-            ), "Filtered filenames between host images and spectra must match."
-
-            # Prepare dataset with spectra data
-            time = torch.from_numpy(time_ary).float()
-            mag = torch.from_numpy(mag_ary).float()
-            mask = torch.from_numpy(mask_ary).bool()
-            magerr = torch.from_numpy(magerr_ary).float()
-
-            freq = torch.from_numpy(freq_ary).float()
-            spec = torch.from_numpy(spec_ary).float()
-            maskspec = torch.from_numpy(maskspec_ary).bool()
-            specerr = torch.from_numpy(specerr_ary).float()
-            dataset = TensorDataset(
-                mag, time, mask, magerr, spec, freq, maskspec, specerr
-            )
-
-            return dataset, nband
+    return data, nband

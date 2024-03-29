@@ -5,7 +5,7 @@ from typing import Dict, Optional, Tuple
 import torch
 import math
 import sys
-from src.loss import sigmoid_loss, clip_loss
+from src.loss import sigmoid_loss_multimodal, clip_loss_multimodal
 from src.utils import get_AUC
 import wandb
 
@@ -145,7 +145,7 @@ class TransformerWithTimeEmbeddings(nn.Module):
         # learned embeddings for multibands
         if self.nband > 1:
             # first half of the array is band 0, second half is band 1, etc.
-            # creats one-hot encoding for bands
+            # creates one-hot encoding for bands
             onehot = (
                 torch.linspace(0, self.nband - 1, self.nband)
                 .type(torch.LongTensor)
@@ -326,11 +326,10 @@ class LightCurveImageCLIP(pl.LightningModule):
         x = self(x_img, x_lc, t_lc, mask_lc, x_sp, t_sp, mask_sp)
 
         if self.loss == "sigmoid":
-            loss = sigmoid_loss(x[0], x[1], self.logit_scale, self.logit_bias).mean()
+            loss = sigmoid_loss_multimodal(x, self.logit_scale, self.logit_bias).mean()
         elif self.loss == "softmax":
-            loss = clip_loss(
-                x[0],
-                x[1],
+            loss = clip_loss_multimodal(
+                x,
                 self.logit_scale,
                 self.logit_bias,
             ).mean()
@@ -343,21 +342,20 @@ class LightCurveImageCLIP(pl.LightningModule):
         """
         Called at the beginning of the validation loop.
         """
-        # Initialize an empty list to store embeddings for lightcurve and galaxy images
-        self.embs_first = []
-        self.embs_second = []
+        # Initialize an empty list to store embeddings
+        self.embs_list = [[] for i in range(len(self.combinations))]
 
     def validation_step(self, batch, batch_idx):
         x_img, x_lc, t_lc, mask_lc, x_sp, t_sp, mask_sp = batch
         x = self(x_img, x_lc, t_lc, mask_lc, x_sp, t_sp, mask_sp)
-        self.embs_second.append(x[0])
-        self.embs_first.append(x[1])
+
+        for i in range(len(x)):
+            self.embs_list[i].append(x[i])
         if self.loss == "sigmoid":
-            loss = sigmoid_loss(x[0], x[1], self.logit_scale, self.logit_bias).mean()
+            loss = sigmoid_loss_multimodal(x, self.logit_scale, self.logit_bias).mean()
         elif self.loss == "softmax":
-            loss = clip_loss(
-                x[0],
-                x[1],
+            loss = clip_loss_multimodal(
+                x,
                 self.logit_scale,
                 self.logit_bias,
             ).mean()
@@ -372,14 +370,21 @@ class LightCurveImageCLIP(pl.LightningModule):
         """
 
         # Concatenate all embeddings into single tensors
-        self.embs_first = torch.cat(self.embs_first, dim=0)
-        self.embs_second = torch.cat(self.embs_second, dim=0)
+        for i in range(len(self.embs_list)):
+            self.embs_list[i] = torch.cat(self.embs_list[i], dim=0)
 
-        AUC = get_AUC(self.embs_first, self.embs_second)
-        self.log(
-            "AUC_val", AUC, on_epoch=True, on_step=False, prog_bar=True, logger=True
-        )
+        count = 1 
+        for i in range(len(self.combinations) - 1):
+            for j in range(i + 1, len(self.combinations)):
+                self.log(
+                    f"AUC_val{count}", get_AUC(self.embs_list[i], 
+                                       self.embs_list[j]), 
+                                       on_epoch=True, 
+                                       on_step=False, 
+                                       prog_bar=True, 
+                                       logger=True
+                )
+                count += 1 
 
         # Delete the embeddings to free up memory
-        self.embs_first = None
-        self.embs_second = None
+        self.embs_list = None 

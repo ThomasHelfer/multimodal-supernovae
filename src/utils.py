@@ -24,8 +24,11 @@ def filter_files(filenames_avail, filenames_to_filter, data_to_filter=None):
     data_to_filter (np.ndarray): Filtered data
     """
     # Check which each filenames_to_filter are available in filenames_avail
-    inds_filt = np.in1d(filenames_to_filter, filenames_avail)
-    if data_to_filter: data_to_filter = data_to_filter[inds_filt]
+    inds_filt = np.isin(filenames_to_filter, filenames_avail)
+    if data_to_filter: 
+        for i in range(len(data_to_filter)):
+            data_to_filter[i] = data_to_filter[i][inds_filt]
+            
     filenames_to_filter = np.array(filenames_to_filter)[inds_filt]
 
     return inds_filt, filenames_to_filter, data_to_filter
