@@ -617,7 +617,7 @@ def load_data(
     if spectra_dir is None:
         spectra_dir = data_dir 
 
-    data, nband, filenames = [], 1, None 
+    data, filenames = [], None 
 
     if 'host_galaxy' in combinations:
         # Load images from data_dir
@@ -648,7 +648,6 @@ def load_data(
         magerr = torch.from_numpy(magerr_ary).float()
 
         data += [mag, time, mask, magerr]
-        nband = 2 
         
     if 'spectral' in combinations:
         # Load spectra from spectra_dir if provided
@@ -670,6 +669,7 @@ def load_data(
         maskspec = torch.from_numpy(maskspec_ary).bool()
         specerr = torch.from_numpy(specerr_ary).float()
         data += [spec, freq, maskspec, specerr]
+        nband = 1 
 
     data = TensorDataset(*data)
 
