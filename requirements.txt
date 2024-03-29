@@ -11,3 +11,5 @@ wandb
 ruamel.yaml
 pytest
 astropy
+seaborn
+notebook
