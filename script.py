@@ -69,7 +69,7 @@ if __name__ == "__main__":
 
     max_spectral_data_len = cfg["max_spectral_data_len"]  # Spectral data is cut to this length
     dataset, nband = load_data(
-        data_dir, spectra_dir, max_spectral_data_len, host_galaxy=("host_galaxy" in combinations)
+        data_dir, spectra_dir, max_data_len_spec = max_spectral_data_len, combinations=combinations
     )
 
     number_of_samples = len(dataset)
@@ -132,17 +132,17 @@ if __name__ == "__main__":
     )
 
     transformer_kwargs = {
-        "n_out": 32,
+        "n_out": cfg["n_out"],
         "emb": cfg["emb"],
-        "heads": 2,
+        "heads": cfg["heads"],
         "depth": cfg["transformer_depth"],
         "dropout": cfg["dropout"],
     }
 
     transformer_spectral_kwargs = {
-        "n_out": 32,
+        "n_out": cfg["n_out"],
         "emb": cfg["emb_spectral"],
-        "heads": 2,
+        "heads": cfg["heads_spectral"],
         "depth": cfg["transformer_depth_spectral"],
         "dropout": cfg["dropout"],
     }
@@ -153,14 +153,14 @@ if __name__ == "__main__":
         "channels": 3,
         "kernel_size": 5,
         "patch_size": 10,
-        "n_out": 32,
+        "n_out": cfg["n_out"],
         "dropout_prob": cfg["dropout"],
     }
 
     optimizer_kwargs = {"weight_decay": cfg["weight_decay"]}
 
     clip_model = LightCurveImageCLIP(
-        logit_scale=20.0,
+        logit_scale=cfg['logit_scale'],
         lr=cfg["lr"],
         nband=nband,
         loss="softmax",

@@ -1,16 +1,20 @@
+seed: 0
 batchsize: 256
-# Parameter for lightcurve transformer
 dropout: 0
+logit_scale: 2.4319243932138925
+n_out: 32
+# Parameter for lightcurve transformer
 emb: 32
 transformer_depth: 1
-# Parameter for lightcurve transformer
+heads: 2
+# Parameter for spectra transformer
 emb_spectral: 32 
 transformer_depth_spectral: 1 
+heads_spectra: 2
 # Optimiser
 epochs: 500
 lr: 0.0001
 weight_decay: 0.01
-seed: 0
 # Options are 'lightcurve' 'spectral' and 'host_galaxy' -- order does not matter 
 combinations: ['spectral','lightcurve']
 max_spectral_data_len: 100
