@@ -14,14 +14,13 @@ from src.dataloader import (
 def test_dataloader():
     # Loading spectra and galaxy 
     max_data_len = 1000
-    load_galaxy = True
     # Note that load_data has internal asserts, checking if the right files are mached 
-    dataset, nband = load_data("ZTFBTS", "ZTFBTS_spectra/", max_data_len,load_galaxy)
+    dataset, nband = load_data("ZTFBTS", "ZTFBTS_spectra/", max_data_len_spec=max_data_len, combinations=["spectral", 'host_galaxy'])
     assert(len(next(iter(dataset))) == 5)
     assert(nband == 1)
     # Loading lightcurve and galaxy 
     max_data_len = 1000
-    dataset, nband = load_data("ZTFBTS", None, max_data_len)
+    dataset, nband = load_data("ZTFBTS", None, max_data_len_lc=max_data_len, combinations=["lightcurve", 'host_galaxy'])
     assert(len(next(iter(dataset))) == 5)
     assert(nband == 2)
     # Checking that time indeed starts at 0 for all lightcurves
