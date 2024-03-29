@@ -12,8 +12,8 @@ import torch.nn as nn
 
 
 def clip_loss(
-    image_embeddings,
-    text_embeddings,
+    embs1,
+    embs2,
     logit_scale=1.0,
     logit_bias=0.0,
     image_encoder=None,
@@ -21,7 +21,7 @@ def clip_loss(
 ):
     logit_scale = logit_scale.exp()
 
-    logits = (text_embeddings @ image_embeddings.T) * logit_scale + logit_bias
+    logits = (embs2 @ embs1.T) * logit_scale + logit_bias
 
     images_loss = nn.LogSoftmax(dim=1)(logits)
     texts_loss = nn.LogSoftmax(dim=0)(logits)
@@ -29,7 +29,7 @@ def clip_loss(
     images_loss = -images_loss.diag()
     texts_loss = -texts_loss.diag()
 
-    n = min(len(image_embeddings), len(text_embeddings))
+    n = min(len(embs1), len(embs2))
 
     images_loss = images_loss.sum() / n
     texts_loss = texts_loss.sum() / n
@@ -63,17 +63,17 @@ def clip_loss_multimodal(
     return loss_total
 
 
-def sigmoid_loss(image_embeds, text_embeds, logit_scale=1.0, logit_bias=2.73):
+def sigmoid_loss(embs1, embs2, logit_scale=1.0, logit_bias=2.73):
     """Sigmoid-based CLIP loss, from https://arxiv.org/abs/2303.15343"""
 
     logit_scale = logit_scale.exp()
 
-    bs = text_embeds.shape[0]
+    bs = embs2.shape[0]
 
     labels = 2 * torch.eye(bs) - torch.ones((bs, bs))
-    labels = labels.to(text_embeds.device)
+    labels = labels.to(embs2.device)
 
-    logits = -text_embeds @ image_embeds.t() * logit_scale + logit_bias
+    logits = -embs2 @ embs1.t() * logit_scale + logit_bias
     logits = logits.to(torch.float64)
 
     loss = -torch.mean(torch.log(torch.sigmoid(-labels * logits)))

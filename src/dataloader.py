@@ -282,11 +282,14 @@ def load_lightcurves(
     filenames: List[str] = None,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, int]:
     """
-    Load light curves from CSV files in the specified directory.
+    Load light curves from CSV files in the specified directory; load files that are available if
+    filenames are provided.
 
     Args:
     data_dir (str): Directory path containing light curve CSV files.
     abs_mag (bool): If True, convert apparent magnitude to absolute magnitude.
+    n_max_obs (int): Maximum number of data points per lightcurve.
+    filenames (List[str], optional): List of filenames to load. If None, all files are loaded.
 
     Returns:
     Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, int]: A tuple containing:
@@ -295,6 +298,7 @@ def load_lightcurves(
         - magerr_ary: Numpy array of magnitude error observations.
         - mask_ary: Numpy array indicating the presence of an observation.
         - nband: Number of observation bands.
+        - filenames_loaded: List of filenames corresponding to the loaded data.
     """
 
     print("Loading light curves...")
@@ -405,12 +409,15 @@ def load_spectras(
     filenames: List[str] = None,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, int]:
     """
-    Load spectra data from CSV files in the specified directory.
+    Load spectra data from CSV files in the specified directory; load files that are available if 
+    filneames are provided.
 
     Args:
         data_dir (str): Path to the directory containing the CSV files.
         n_max_obs (int) default 5000: maximum length of data, shorter data is padded and masked and longer data is shorted by randomly choosing points
         zero_pad_missing_error (bool) default True: if there is missing error in a file, pad the error with zero, otherwise it will be removed
+        rescalefactor (int) default 1e14: factor to rescale the spectrum data
+        filenames (List[str], optional): List of filenames to load. If None, all files are loaded.
 
     Returns:
         Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, List[str]]: A tuple containing
@@ -419,7 +426,7 @@ def load_spectras(
         - spec (np.ndarray): Array of spectrum values for each observation.
         - specerr (np.ndarray): Array of spectrum error values for each observation.
         - mask (np.ndarray): Array indicating which observations are not padding.
-        - filenames (List[str]): List of filenames corresponding to the loaded data.
+        - filenames_loaded (List[str]): List of filenames corresponding to the loaded data.
     """
 
     print("Loading spectra ...")
@@ -528,6 +535,7 @@ def plot_lightcurve_and_images(
     magerr_ary (np.ndarray): Numpy array of magnitude error observations for light curves.
     mask_ary (np.ndarray): Numpy array indicating the presence of an observation.
     nband (int): Number of observation bands.
+    path_base (str): Path to save the plot; default is the current directory.
     """
 
     # Plot host images and light curves in a grid layout
@@ -598,17 +606,18 @@ def load_data(
     """
     Load data from specified directories, handling both images and light curves or spectra.
 
-    Parameters:
-    - data_dir (str): Directory containing images and possibly light curves.
-    - spectra_dir (str, optional): Directory containing spectra data. If None, loads light curves instead.
-    - max_data_len (int, optional): Maximum length of the data arrays to load. Default is 1000.
-    - host_galaxy (bool,optional): If True choose host galaxy as first modality otherwise It will return lightcurve data
+    Args:
+    data_dir (str): Directory containing images and possibly light curves.
+    spectra_dir (str, optional): Directory containing spectra data. If None, loads light curves instead.
+    max_data_len (int, optional): Maximum length of the data arrays to load. Default is 1000.
+    host_galaxy (bool,optional): If True choose host galaxy as first modality otherwise It will return lightcurve data
+    combinations (List[str], optional): List of modalities to load. Default is ["host_galaxy", "lightcurve"].
 
     Returns:
-    - dataset (TensorDataset): A TensorDataset containing the loaded data.
-    - nband (int): Number of bands in the light curve data, or 1 if spectra are loaded.
+    dataset (TensorDataset): A TensorDataset containing the loaded data.
+    nband (int): Number of bands in the light curve data, or 1 if spectra are loaded.
 
-    The function loads images and either light curves or spectra from the specified directories.
+    The function loads images, light curves, and/or spectra data from the specified directories.
     It ensures that the filenames between images and light curves or spectra match,
     filtering out unmatched data. The resulting dataset is suitable for machine learning models.
     """

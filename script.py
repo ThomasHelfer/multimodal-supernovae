@@ -7,6 +7,7 @@ from ruamel.yaml import YAML
 import numpy as np
 from torch.utils.data import TensorDataset, DataLoader, random_split
 from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 
 from src.models_multimodal import LightCurveImageCLIP
 from src.utils import (
@@ -180,10 +181,14 @@ if __name__ == "__main__":
         dirpath=save_dir, save_top_k=2, monitor="val_loss"
     )
 
+    early_stop_callback = EarlyStopping(
+            monitor="val_loss", min_delta=0.00, patience=100, verbose=False, mode="min"
+        )
+    
     trainer = pl.Trainer(
         max_epochs=cfg["epochs"],
         accelerator=device,
-        callbacks=[loss_tracking_callback, checkpoint_callback],
+        callbacks=[loss_tracking_callback, checkpoint_callback, early_stop_callback],
     )
     trainer.fit(
         model=clip_model,
@@ -199,17 +204,16 @@ if __name__ == "__main__":
     )
 
     # Get embeddings for all images and light curves
-    embs_curves_train, embs_images_train = get_embs(
+    embs_train = get_embs(
         clip_model, train_loader_no_aug, combinations
     )
-    embs_curves_val, embs_images_val = get_embs(
+    embs_val = get_embs(
         clip_model, val_loader_no_aug, combinations
     )
 
     plot_ROC_curves(
-        embs_curves_train,
-        embs_images_train,
-        embs_curves_val,
-        embs_images_val,
+        embs_train, 
+        embs_val,
+        combinations, 
         path_base=save_dir,
     )

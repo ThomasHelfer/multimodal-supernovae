@@ -16,7 +16,7 @@ def filter_files(filenames_avail, filenames_to_filter, data_to_filter=None):
     Args:
     filenames_avail (list): List of filenames available
     filenames_to_filter (list): List of filenames to filter
-    data_to_filter (np.ndarray): Data to filter based on filenames_to_filter
+    data_to_filter (List[np.ndarray]): Data to filter based on filenames_to_filter
 
     Returns:
     inds_filt (np.ndarray): Indices of filtered filenames in filenames_to_filter
@@ -215,6 +215,17 @@ def plot_loss_history(train_loss_history, val_loss_history, path_base="./"):
 
 
 def cosine_similarity(a, b, temperature=1):
+    """
+    Compute cosine similarity between two tensors.
+
+    Args:
+    a (torch.Tensor): First tensor.
+    b (torch.Tensor): Second tensor.
+    temperature (float): Temperature parameter for scaling the cosine similarity; default is 1.
+
+    Returns:
+    torch.Tensor: Cosine similarity between the two tensors.
+    """
     a_norm = a / a.norm(dim=-1, keepdim=True)
     b_norm = b / b.norm(dim=-1, keepdim=True)
 
@@ -234,14 +245,12 @@ def get_embs(
     combinations (List[str]): List of combinations of modalities to use for embeddings.
 
     Returns:
-    Tuple[torch.Tensor, torch.Tensor]: Tuple of two tensors containing concatenated embeddings
-    for light curves and images, respectively.
+    List[torch.Tensor]: List of concatenated embeddings for each item in combinations.
     """
 
     clip_model.eval()
 
-    embs_first = []
-    embs_second = []
+    embs_list = [[] for i in range(len(combinations))]
 
     # Iterate through the DataLoader
     for batch in dataloader:
@@ -253,24 +262,18 @@ def get_embs(
             if "host_galaxy" in combinations:
                 x.append(clip_model.image_embeddings_with_projection(x_img))
             if "lightcurve" in combinations:
-                x.append(
-                    clip_model.lightcurve_embeddings_with_projection(
-                        x_lc, t_lc, mask_lc
-                    )
-                )
+                x.append(clip_model.lightcurve_embeddings_with_projection(x_lc, t_lc, mask_lc))
             if "spectral" in combinations:
-                x.append(
-                    clip_model.spectral_embeddings_with_projection(x_sp, t_sp, mask_sp)
-                )
+                x.append(clip_model.spectral_embeddings_with_projection(x_sp, t_sp, mask_sp))
 
         # Append the results to the lists
-        embs_first.append(x[0])
-        embs_second.append(x[1])
+        for i in range(len(x)):
+            embs_list[i].append(x[i])
 
     # Concatenate all embeddings into single tensors
-    embs_first = torch.cat(embs_first, dim=0)
-    embs_second = torch.cat(embs_second, dim=0)
-    return embs_first, embs_second
+    for i in range(len(embs_list)):
+        embs_list[i] = torch.cat(embs_list[i], dim=0)
+    return embs_list
 
 
 def get_ROC_data(
@@ -323,26 +326,31 @@ def get_AUC(
 
 
 def plot_ROC_curves(
-    embs1_train: torch.Tensor,
-    embs2_train: torch.Tensor,
-    embs1_val: torch.Tensor,
-    embs2_val: torch.Tensor,
+    embs_train: List[torch.Tensor],
+    embs_val: List[torch.Tensor],
+    combinations: List[str],
     path_base: str = "./",
 ) -> None:
     """
     Plots ROC-like curves for training and validation datasets based on embeddings.
 
     Args:
-    embs1_train (torch.Tensor): Embeddings for first modality in the training set.
-    embs2_train (torch.Tensor): Embeddings for second modality in the training set.
-    embs1_val (torch.Tensor): Embeddings for first modality in the validation set.
-    embs2_val (torch.Tensor): Embeddings for second modality in the validation set.
+    embs_train (List[torch.Tensor]): List of embeddings for training data.
+    embs_val (List[torch.Tensor]): List of embeddings for validation data.
+    combinations (List[str]): List of combinations of modalities to use for embeddings.
     path_base (str) : path to save the plot
     """
-    thresholds, fraction_correct_train = get_ROC_data(
-        embs1_train, embs2_train
-    )
-    thresholds, fraction_correct_val = get_ROC_data(embs1_val, embs2_val)
+
+    combinations = sorted(combinations)
+
+    fractions_train, fractions_val, labels = [], [], [] 
+    for i in range(len(embs_train) - 1): 
+        for j in range(i + 1, len(embs_train)):
+            thresholds, fraction_correct_train = get_ROC_data(embs_train[i], embs_train[j])
+            thresholds, fraction_correct_val = get_ROC_data(embs_val[i], embs_val[j])
+            fractions_train.append(fraction_correct_train)
+            fractions_val.append(fraction_correct_val)
+            labels.append(f'{combinations[i]} and {combinations[j]}')
 
     # Set overall figure size and title
     plt.figure(figsize=(12, 6))
@@ -350,7 +358,8 @@ def plot_ROC_curves(
 
     # Plot for validation data
     plt.subplot(1, 2, 1)
-    plt.plot(thresholds, fraction_correct_val, color="blue", lw=2, label="Validation")
+    for i, f_val in enumerate(fractions_val): 
+        plt.plot(thresholds, f_val, lw=2, label=labels[i])
     plt.plot(thresholds, thresholds, linestyle="--", color="gray", label="Random")
     plt.title("Validation Data")
     plt.xlabel("Threshold")
@@ -360,7 +369,8 @@ def plot_ROC_curves(
 
     # Plot for training data
     plt.subplot(1, 2, 2)
-    plt.plot(thresholds, fraction_correct_train, color="green", lw=2, label="Training")
+    for i, f_train in enumerate(fractions_train): 
+        plt.plot(thresholds, f_train, lw=2, label=labels[i])
     plt.plot(thresholds, thresholds, linestyle="--", color="gray", label="Random")
     plt.title("Training Data")
     plt.xlabel("Threshold")

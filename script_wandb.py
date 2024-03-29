@@ -22,10 +22,7 @@ from src.utils import (
     get_embs,
 )
 from src.dataloader import (
-    load_images,
-    load_lightcurves,
     load_data,
-    plot_lightcurve_and_images,
     NoisyDataLoader,
 )
 from src.wandb_utils import continue_sweep, schedule_sweep
@@ -121,7 +118,7 @@ def train_sweep(config=None):
         optimizer_kwargs = {"weight_decay": cfg.weight_decay}
 
         clip_model = LightCurveImageCLIP(
-            logit_scale=20.0,
+            logit_scale=cfg.logit_scale,
             lr=cfg.lr,
             nband=nband,
             loss="softmax",
@@ -168,14 +165,13 @@ def train_sweep(config=None):
         )
 
         # Get embeddings for all images and light curves
-        embs_curves_train, embs_images_train = get_embs(clip_model, train_loader_no_aug, combinations)
-        embs_curves_val, embs_images_val = get_embs(clip_model, val_loader_no_aug, combinations)
+        embs_train = get_embs(clip_model, train_loader_no_aug, combinations)
+        embs_val = get_embs(clip_model, val_loader_no_aug, combinations)
 
         plot_ROC_curves(
-            embs_curves_train,
-            embs_images_train,
-            embs_curves_val,
-            embs_images_val,
+            embs_train,
+            embs_val,
+            combinations, 
             path_base=path_run,
         )
 
