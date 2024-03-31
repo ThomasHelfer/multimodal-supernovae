@@ -138,6 +138,7 @@ if __name__ == "__main__":
         "heads": cfg["heads"],
         "depth": cfg["transformer_depth"],
         "dropout": cfg["dropout"],
+        "time_norm": cfg["time_norm"],
     }
 
     transformer_spectral_kwargs = {
@@ -146,11 +147,12 @@ if __name__ == "__main__":
         "heads": cfg["heads_spectral"],
         "depth": cfg["transformer_depth_spectral"],
         "dropout": cfg["dropout"],
+        "time_norm": cfg["time_norm_spectral"],
     }
 
     conv_kwargs = {
         "dim": 32,
-        "depth": 2,
+        "depth": cfg["cnn_depth"],
         "channels": 3,
         "kernel_size": 5,
         "patch_size": 10,

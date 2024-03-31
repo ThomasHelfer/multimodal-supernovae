@@ -108,7 +108,7 @@ def train_sweep(config=None):
         }
         conv_kwargs = {
             "dim": 32,
-            "depth": 2,
+            "depth": cfg.cnn_depth,
             "channels": 3,
             "kernel_size": 5,
             "patch_size": 10,
@@ -121,6 +121,8 @@ def train_sweep(config=None):
             logit_scale=cfg.logit_scale,
             lr=cfg.lr,
             nband=nband,
+            time_norm=cfg.time_norm,
+            time_norm_spectral=cfg.time_norm_spectral,
             loss="softmax",
             transformer_kwargs=transformer_kwargs,
             transformer_spectral_kwargs=transformer_spectral_kwargs,
@@ -139,7 +141,7 @@ def train_sweep(config=None):
             dirpath=path_run, save_top_k=2, monitor="val_loss"
         )
         early_stop_callback = EarlyStopping(
-            monitor="val_loss", min_delta=0.00, patience=200, verbose=False, mode="min"
+            monitor="val_loss", min_delta=0.00, patience=50, verbose=False, mode="min"
         )
         
         trainer = pl.Trainer(
@@ -149,7 +151,7 @@ def train_sweep(config=None):
             logger=wandb_logger,
             enable_progress_bar=False,
         )
-        wandb.define_metric("AUC_val", summary="max")
+        if len(combinations) == 2: wandb.define_metric("AUC_val", summary="max")
 
         trainer.fit(
             model=clip_model, train_dataloaders=train_loader, val_dataloaders=val_loader
@@ -208,7 +210,7 @@ if __name__ == "__main__":
         "/home/thelfer1/scr4_tedwar42/thelfer1/ZTFBTS/",
         "ZTFBTS/",
         "/ocean/projects/phy230064p/shared/ZTFBTS/",
-        "/n/home02/gemzhang/repos/Multimodal-hackathon-2024/ZTFBTS/",
+        "/n/home02/gemzhang/repos/Multimodal-hackathon-2024/data/ZTFBTS/",
     ]
 
     # Get the first valid directory
@@ -226,7 +228,7 @@ if __name__ == "__main__":
 
     max_spectral_data_len = cfg["extra_args"]["max_spectral_data_len"]  # Spectral data is cut to this length
     dataset, nband = load_data(
-        data_dir, spectra_dir, max_spectral_data_len, host_galaxy=("host_galaxy" in combinations)
+        data_dir, spectra_dir, max_data_len_spec = max_spectral_data_len, combinations=combinations
     )
 
     number_of_samples = len(dataset)

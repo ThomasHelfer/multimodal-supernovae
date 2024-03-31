@@ -85,18 +85,19 @@ class ConvMixer(nn.Module):
 
 
 class TimePositionalEncoding(nn.Module):
-    def __init__(self, d_emb):
+    def __init__(self, d_emb, norm=10000.0):
         """
         Inputs
             d_model - Hidden dimensionality.
         """
         super().__init__()
         self.d_emb = d_emb
+        self.norm = norm
 
     def forward(self, t):
         pe = torch.zeros(t.shape[0], t.shape[1], self.d_emb).to(t.device)  # (B, T, D)
         div_term = torch.exp(
-            torch.arange(0, self.d_emb, 2).float() * (-math.log(10000.0) / self.d_emb)
+            torch.arange(0, self.d_emb, 2).float() * (-math.log(self.norm) / self.d_emb)
         )[None, None, :].to(
             t.device
         )  # (1, 1, D / 2)
@@ -111,7 +112,7 @@ class TransformerWithTimeEmbeddings(nn.Module):
     Transformer for classifying sequences
     """
 
-    def __init__(self, n_out, nband=1, agg="mean", **kwargs):
+    def __init__(self, n_out, nband=1, agg="mean", time_norm=10000.0, **kwargs):
         """
         :param n_out: Number of output emedding.
         :param kwargs: Arguments for Transformer.
@@ -121,7 +122,7 @@ class TransformerWithTimeEmbeddings(nn.Module):
         self.agg = agg
         self.nband = nband
         self.embedding_mag = nn.Linear(in_features=1, out_features=kwargs["emb"])
-        self.embedding_t = TimePositionalEncoding(kwargs["emb"])
+        self.embedding_t = TimePositionalEncoding(kwargs["emb"], time_norm)
         self.transformer = Transformer(**kwargs)
 
         if nband > 1:
@@ -189,6 +190,8 @@ class LightCurveImageCLIP(pl.LightningModule):
         enc_dim: int = 128,
         logit_scale: float = 10.0,
         nband: int = 1,
+        time_norm: float = 10000.0,
+        time_norm_spectral: float = 10000.0,
         transformer_kwargs: Dict[str, int] = {
             "n_out": 128,
             "emb": 256,
@@ -244,14 +247,14 @@ class LightCurveImageCLIP(pl.LightningModule):
         if "lightcurve" in self.combinations:
             # lightcuve typically has two bands
             self.lightcurve_encoder = TransformerWithTimeEmbeddings(
-                nband=nband, **transformer_kwargs
+                nband=nband, time_norm=time_norm, **transformer_kwargs
             )
             self.lightcurve_projection = nn.Linear(transformer_kwargs["n_out"], enc_dim)
 
         if "spectral" in self.combinations:
             # Spectral data does not need the nband variable
             self.spectral_encoder = TransformerWithTimeEmbeddings(
-                nband=1, **transformer_spectral_kwargs
+                nband=1, time_norm=time_norm_spectral, **transformer_spectral_kwargs
             )
             self.spectral_projection = nn.Linear(
                 transformer_spectral_kwargs["n_out"], enc_dim
@@ -373,18 +376,27 @@ class LightCurveImageCLIP(pl.LightningModule):
         for i in range(len(self.embs_list)):
             self.embs_list[i] = torch.cat(self.embs_list[i], dim=0)
 
-        count = 1 
-        for i in range(len(self.combinations) - 1):
-            for j in range(i + 1, len(self.combinations)):
-                self.log(
-                    f"AUC_val{count}", get_AUC(self.embs_list[i], 
-                                       self.embs_list[j]), 
-                                       on_epoch=True, 
-                                       on_step=False, 
-                                       prog_bar=True, 
-                                       logger=True
-                )
-                count += 1 
+        if len(self.combinations) == 2:
+            self.log(
+                f"AUC_val", get_AUC(self.embs_list[0], self.embs_list[1]), 
+                                        on_epoch=True, 
+                                        on_step=False, 
+                                        prog_bar=True, 
+                                        logger=True
+            )
+        else:
+            count = 1 
+            for i in range(len(self.combinations) - 1):
+                for j in range(i + 1, len(self.combinations)):
+                    self.log(
+                        f"AUC_val{count}", get_AUC(self.embs_list[i], 
+                                        self.embs_list[j]), 
+                                        on_epoch=True, 
+                                        on_step=False, 
+                                        prog_bar=True, 
+                                        logger=True
+                    )
+                    count += 1 
 
         # Delete the embeddings to free up memory
         self.embs_list = None 
