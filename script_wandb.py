@@ -98,6 +98,8 @@ def train_sweep(config=None):
             "heads": cfg.heads,
             "depth": cfg.transformer_depth,
             "dropout": cfg.dropout,
+            "time_norm": cfg.time_norm,
+            'agg': cfg.agg,
         }
         transformer_spectral_kwargs = {
             "n_out": cfg.n_out,
@@ -105,6 +107,8 @@ def train_sweep(config=None):
             "heads": cfg.heads_spectral,
             "depth": cfg.transformer_depth_spectral,
             "dropout": cfg.dropout,
+            "time_norm": cfg.time_norm_spectral,
+            'agg': cfg.agg_spectral,
         }
         conv_kwargs = {
             "dim": 32,
@@ -121,8 +125,6 @@ def train_sweep(config=None):
             logit_scale=cfg.logit_scale,
             lr=cfg.lr,
             nband=nband,
-            time_norm=cfg.time_norm,
-            time_norm_spectral=cfg.time_norm_spectral,
             loss="softmax",
             transformer_kwargs=transformer_kwargs,
             transformer_spectral_kwargs=transformer_spectral_kwargs,
@@ -135,6 +137,9 @@ def train_sweep(config=None):
         loss_tracking_callback = LossTrackingCallback()
 
         device = "gpu" if torch.cuda.is_available() else "cpu"
+        if device == "gpu":  # Set float32 matmul precision for A100 GPUs
+            cuda_name = torch.cuda.get_device_name(torch.cuda.current_device())
+            if cuda_name.startswith("NVIDIA A100-SXM4"): torch.set_float32_matmul_precision('high')
 
         wandb_logger = WandbLogger()
         checkpoint_callback = ModelCheckpoint(
@@ -157,9 +162,10 @@ def train_sweep(config=None):
             model=clip_model, train_dataloaders=train_loader, val_dataloaders=val_loader
         )
 
-        wandb.run.summary["best_val_loss"] = np.min(
-            loss_tracking_callback.val_loss_history
-        )
+        wandb.run.summary["best_auc"] = np.max(loss_tracking_callback.auc_val_history)
+        #wandb.run.summary["best_val_loss"] = np.min(
+        #    loss_tracking_callback.val_loss_history
+        #)
         plot_loss_history(
             loss_tracking_callback.train_loss_history,
             loss_tracking_callback.val_loss_history,

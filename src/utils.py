@@ -1,5 +1,6 @@
 import os
 from typing import List
+from pytorch_lightning import LightningModule, Trainer
 from pytorch_lightning.callbacks import Callback
 import torch
 import numpy as np
@@ -150,6 +151,7 @@ class LossTrackingCallback(Callback):
         self.train_loss_history = []
         self.val_loss_history = []
         self.epoch_train_loss = []
+        self.auc_val_history = []
 
     def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx):
         # Accumulate training loss for each batch
@@ -168,6 +170,13 @@ class LossTrackingCallback(Callback):
         val_loss = trainer.callback_metrics.get("val_loss")
         if val_loss is not None:
             self.val_loss_history.append(val_loss.detach().item())
+
+    def on_validation_end(self, trainer: Trainer, pl_module: LightningModule) -> None:
+        auc_val = trainer.callback_metrics.get("AUC_val")
+        if auc_val is None: 
+            auc_val = sum([trainer.callback_metrics.get(f"AUC_val{i}").detach().item() for i in range(1, 4)])/3
+        self.auc_val_history.append(auc_val)
+
 
 
 def plot_loss_history(train_loss_history, val_loss_history, path_base="./"):

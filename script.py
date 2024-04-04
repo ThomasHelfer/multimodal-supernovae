@@ -139,6 +139,7 @@ if __name__ == "__main__":
         "depth": cfg["transformer_depth"],
         "dropout": cfg["dropout"],
         "time_norm": cfg["time_norm"],
+        "agg": cfg["agg"],
     }
 
     transformer_spectral_kwargs = {
@@ -148,6 +149,7 @@ if __name__ == "__main__":
         "depth": cfg["transformer_depth_spectral"],
         "dropout": cfg["dropout"],
         "time_norm": cfg["time_norm_spectral"],
+        "agg": cfg["agg_spectral"],
     }
 
     conv_kwargs = {

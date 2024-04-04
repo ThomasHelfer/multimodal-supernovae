@@ -114,7 +114,7 @@ class TransformerWithTimeEmbeddings(nn.Module):
 
     def __init__(self, n_out, nband=1, agg="mean", time_norm=10000.0, **kwargs):
         """
-        :param n_out: Number of output emedding.
+        :param n_out: Number of output embedding.
         :param kwargs: Arguments for Transformer.
         """
         super().__init__()
@@ -133,6 +133,9 @@ class TransformerWithTimeEmbeddings(nn.Module):
         # If using attention, initialize a learnable query vector
         if self.agg == "attn":
             self.query = nn.Parameter(torch.rand(kwargs["emb"]))
+            self.agg_attn = nn.MultiheadAttention(
+                embed_dim=kwargs['emb'], num_heads=2, dropout=0.0, batch_first=True
+            )
 
     def forward(self, x, t, mask=None):
         """
@@ -172,9 +175,7 @@ class TransformerWithTimeEmbeddings(nn.Module):
                 x.shape[0], 1, 1
             )  # Duplicate the query across the batch dimension
             k = v = x
-            x, _ = nn.MultiheadAttention(
-                embed_dim=128, num_heads=2, dropout=0.0, batch_first=True
-            )(q, k, v)
+            x, _ = self.agg_attn(q, k, v)
             x = x.squeeze(1)  # (B, 1, D) -> (B, D)
 
         x = self.projection(x)
@@ -190,19 +191,19 @@ class LightCurveImageCLIP(pl.LightningModule):
         enc_dim: int = 128,
         logit_scale: float = 10.0,
         nband: int = 1,
-        time_norm: float = 10000.0,
-        time_norm_spectral: float = 10000.0,
         transformer_kwargs: Dict[str, int] = {
             "n_out": 128,
             "emb": 256,
             "heads": 2,
             "depth": 8,
+            "time_norm": 10000.0,
         },
         transformer_spectral_kwargs: Dict[str, int] = {
             "n_out": 128,
             "emb": 256,
             "heads": 2,
             "depth": 8,
+            "time_norm": 10000.0,
         },
         conv_kwargs: Dict[str, int] = {
             "dim": 32,
@@ -247,14 +248,14 @@ class LightCurveImageCLIP(pl.LightningModule):
         if "lightcurve" in self.combinations:
             # lightcuve typically has two bands
             self.lightcurve_encoder = TransformerWithTimeEmbeddings(
-                nband=nband, time_norm=time_norm, **transformer_kwargs
+                nband=nband, **transformer_kwargs
             )
             self.lightcurve_projection = nn.Linear(transformer_kwargs["n_out"], enc_dim)
 
         if "spectral" in self.combinations:
             # Spectral data does not need the nband variable
             self.spectral_encoder = TransformerWithTimeEmbeddings(
-                nband=1, time_norm=time_norm_spectral, **transformer_spectral_kwargs
+                nband=1, **transformer_spectral_kwargs
             )
             self.spectral_projection = nn.Linear(
                 transformer_spectral_kwargs["n_out"], enc_dim
