@@ -627,6 +627,7 @@ def load_data(
         spectra_dir = data_dir 
 
     data, filenames = [], None 
+    nband = 1 # Default number of bands for spectra data
 
     if 'host_galaxy' in combinations:
         # Load images from data_dir
@@ -678,7 +679,6 @@ def load_data(
         maskspec = torch.from_numpy(maskspec_ary).bool()
         specerr = torch.from_numpy(specerr_ary).float()
         data += [spec, freq, maskspec, specerr]
-        nband = 1 
 
     data = TensorDataset(*data)
 
