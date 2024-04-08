@@ -16,6 +16,10 @@ parameters:
     values: [32]
   heads:
     values: [2]
+  time_norm: 
+    values: [10000]
+  agg: 
+    values: ["mean"]
   # Spectral transformer
   emb_spectral:
     values: [32]
@@ -23,6 +27,10 @@ parameters:
     values: [1]
   heads_spectral:
     values: [2]
+  time_norm_spectral:
+    values: [10000]
+  agg_spectral:
+    values: ["mean"]
   # Optimiser 
   lr:
     values: [1e-4]

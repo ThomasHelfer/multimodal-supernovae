@@ -7,14 +7,18 @@ n_out: 32
 emb: 32
 transformer_depth: 1
 heads: 2
+time_norm: 10000
+agg: "mean"
 # Parameter for spectra transformer
 emb_spectral: 32 
 transformer_depth_spectral: 1 
 heads_spectra: 2
+time_norm_spectral: 10000
+agg_spectral: "mean"
 # Optimiser
 epochs: 500
 lr: 0.0001
 weight_decay: 0.01
 # Options are 'lightcurve' 'spectral' and 'host_galaxy' -- order does not matter 
 combinations: ['spectral','lightcurve']
-max_spectral_data_len: 100
+max_spectral_data_len: 1000
