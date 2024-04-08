@@ -5,7 +5,7 @@ emb_spectral: 32
 epochs: 500
 heads: 2
 heads_spectral: 2
-logit_scale: 22.96547594066347
+logit_scale: 20.0
 lr: 7.897484293117265e-05
 n_out: 32
 seed: 0

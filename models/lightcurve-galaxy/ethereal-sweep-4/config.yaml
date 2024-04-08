@@ -1,0 +1,17 @@
+batchsize: 32
+cnn_depth: 7
+dropout: 0.0072484609941876
+emb: 64
+emb_spectral: 32
+epochs: 500
+heads: 8
+heads_spectral: 8
+logit_scale: 8.471890237718537
+lr: 2.481529679233978e-05
+n_out: 32
+seed: 0
+time_norm: 363.0794848503694
+time_norm_spectral: 7405.896275312251
+transformer_depth: 16
+transformer_depth_spectral: 2
+weight_decay: 7.287157067362061e-05
