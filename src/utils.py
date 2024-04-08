@@ -175,6 +175,8 @@ class LossTrackingCallback(Callback):
         auc_val = trainer.callback_metrics.get("AUC_val")
         if auc_val is None: 
             auc_val = sum([trainer.callback_metrics.get(f"AUC_val{i}").detach().item() for i in range(1, 4)])/3
+        else: 
+            auc_val = auc_val.detach().item()
         self.auc_val_history.append(auc_val)
 
 

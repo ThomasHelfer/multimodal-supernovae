@@ -34,7 +34,12 @@ if __name__ == "__main__":
     parser.add_argument(
         "--ckpt_path", type=str, default=None, help="Path to the checkpoint directory"
     )
-    parser.add_argument("--runname", type=str, default=None, help="Name of the run")
+    parser.add_argument(
+        "--runname", 
+        type=str, 
+        default=None, 
+        help="Name of the run for saving; if None, will be set to the next available number"
+        )
     parser.add_argument(
         "--config_path",
         type=str,
@@ -52,7 +57,7 @@ if __name__ == "__main__":
         "/home/thelfer1/scr4_tedwar42/thelfer1/ZTFBTS/",
         "ZTFBTS/",
         "/ocean/projects/phy230064p/shared/ZTFBTS/",
-        "/n/home02/gemzhang/repos/Multimodal-hackathon-2024/ZTFBTS/",
+        "/n/home02/gemzhang/repos/Multimodal-hackathon-2024/data/ZTFBTS/",
     ]
 
     combinations = cfg["combinations"]
@@ -63,7 +68,7 @@ if __name__ == "__main__":
 
     # Check if the config file has a spectra key
     if "spectral" in combinations:
-        data_dirs = ["ZTFBTS_spectra/"]
+        data_dirs = ["ZTFBTS_spectra/", "data/ZTFBTS_spectra/"]
         spectra_dir = get_valid_dir(data_dirs)
     else:
         spectra_dir = None

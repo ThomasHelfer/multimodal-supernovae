@@ -163,9 +163,7 @@ def train_sweep(config=None):
         )
 
         wandb.run.summary["best_auc"] = np.max(loss_tracking_callback.auc_val_history)
-        #wandb.run.summary["best_val_loss"] = np.min(
-        #    loss_tracking_callback.val_loss_history
-        #)
+        wandb.run.summary["best_val_loss"] = np.min(loss_tracking_callback.val_loss_history)
         plot_loss_history(
             loss_tracking_callback.train_loss_history,
             loss_tracking_callback.val_loss_history,
