@@ -609,13 +609,14 @@ def load_data(
     Args:
     data_dir (str): Directory containing images and possibly light curves.
     spectra_dir (str, optional): Directory containing spectra data. If None, loads light curves instead.
-    max_data_len (int, optional): Maximum length of the data arrays to load. Default is 1000.
-    host_galaxy (bool,optional): If True choose host galaxy as first modality otherwise It will return lightcurve data
+    max_data_len_lc (int, optional): Maximum length of the light curve arrays to load. Default is 100.
+    max_data_len_spec (int, optional): Maximum length of the spectra arrays to load. Default is 1000.
     combinations (List[str], optional): List of modalities to load. Default is ["host_galaxy", "lightcurve"].
 
     Returns:
     dataset (TensorDataset): A TensorDataset containing the loaded data.
     nband (int): Number of bands in the light curve data, or 1 if spectra are loaded.
+    filenames (List[str]): List of filenames corresponding to the loaded data.
 
     The function loads images, light curves, and/or spectra data from the specified directories.
     It ensures that the filenames between images and light curves or spectra match,
@@ -682,4 +683,4 @@ def load_data(
 
     data = TensorDataset(*data)
 
-    return data, nband
+    return data, nband, filenames

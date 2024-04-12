@@ -231,7 +231,7 @@ if __name__ == "__main__":
         spectra_dir = None
 
     max_spectral_data_len = cfg["extra_args"]["max_spectral_data_len"]  # Spectral data is cut to this length
-    dataset, nband = load_data(
+    dataset, nband,_ = load_data(
         data_dir, spectra_dir, max_data_len_spec = max_spectral_data_len, combinations=combinations
     )
 
