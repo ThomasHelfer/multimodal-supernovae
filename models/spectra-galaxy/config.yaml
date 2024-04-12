@@ -9,6 +9,10 @@ logit_scale: 20.0
 lr: 4.868535284389549e-05
 n_out: 32
 seed: 0
+time_norm: 10000.0
+time_norm_spectral: 10000.0
+agg: mean
+agg_spectral: mean
 transformer_depth: 9
 transformer_depth_spectral: 5
 weight_decay: 0.0003758061478982189
