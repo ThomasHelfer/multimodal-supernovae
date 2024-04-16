@@ -9,6 +9,8 @@ parameters:
     values: [0.001]
   n_out:
     values: [32]
+  # CNN
+  cnn_depth: [4]
   # Lightcurve transformer
   transformer_depth:
     values: [1]
@@ -40,6 +42,8 @@ parameters:
     values: [50]
   weight_decay:
     values: [0.01]
+  logit_scale:
+    values: [20.]
   seed:
     values: [0]
 # Options are 'lightcurve' 'spectral' and 'host_galaxy' -- order does not matter 
