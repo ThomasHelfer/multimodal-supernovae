@@ -10,7 +10,8 @@ parameters:
   n_out:
     values: [32]
   # CNN
-  cnn_depth: [4]
+  cnn_depth: 
+    values: [4]
   # Lightcurve transformer
   transformer_depth:
     values: [1]
