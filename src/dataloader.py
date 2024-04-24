@@ -69,7 +69,58 @@ class NoisyDataLoader(DataLoader):
 
     def __iter__(self):
         for batch in super().__iter__():
-            if self.combinations == set(["host_galaxy", "lightcurve"]):
+            if self.combinations == set(["host_galaxy"]):
+                # Add random noise to images
+                host_imgs = batch
+
+                # Calculate the range for the random noise based on the max_noise_intensity
+                noise_range = self.max_noise_intensity * torch.std(host_imgs)
+
+                # Generate random noise within the specified range
+                noisy_imgs = (
+                    host_imgs + (2 * torch.rand_like(host_imgs) - 1) * noise_range
+                )
+
+                # Randomly apply rotation by multiples of 90 degrees
+                rotation_angle = torch.randint(0, 4, (noisy_imgs.size(0),)) * 90
+                rotated_imgs = []
+
+                # Apply rotation to each image
+                for i in range(noisy_imgs.size(0)):
+                    rotated_img = RandomRotation(
+                        [rotation_angle[i], rotation_angle[i]]
+                    )(noisy_imgs[i])
+                    rotated_imgs.append(rotated_img)
+
+                # Stack the rotated images back into a tensor
+                rotated_imgs = torch.stack(rotated_imgs)
+
+                # Return the noisy batch (and Nones to keep outputlength the same)
+                yield rotated_imgs, None, None, None, None, None, None, redshift
+
+            elif self.combinations == set(["lightcurve"]):
+                # Add random noise to time-magnitude tensors
+                mag, time, mask, magerr = batch
+
+                # Add Gaussian noise to mag using magerr
+                noisy_mag = mag + torch.randn_like(mag) * magerr * self.noise_level_mag
+
+                # Return the noisy batch (and Nones to keep outputlength the same)
+                yield None, noisy_mag, time, mask, None, None, None, redshift
+
+            elif self.combinations == set(["spectral"]):
+                # Add random noise to spectra tensors
+                spec, freq, maskspec, specerr = batch
+
+                # Add Gaussian noise to spec using specerr
+                noisy_spec = (
+                    spec + torch.randn_like(spec) * specerr * self.noise_level_mag
+                )
+
+                # Return the noisy batch (and Nones to keep outputlength the same)
+                yield None, None, None, None, noisy_spec, freq, maskspec, redshift
+
+            elif self.combinations == set(["host_galaxy", "lightcurve"]):
                 # Add random noise to images and time-magnitude tensors
                 host_imgs, mag, time, mask, magerr, redshift = batch
 
