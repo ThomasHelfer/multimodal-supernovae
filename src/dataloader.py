@@ -53,15 +53,15 @@ class NoisyDataLoader(DataLoader):
         self.combinations = set(combinations)
 
         # Checking if we get the right output
-        if len(next(iter(dataset))) == 8:
+        if len(next(iter(dataset))) == 9:
             assert "lightcurve" in self.combinations
             assert "host_galaxy" not in self.combinations
             assert "spectral" in self.combinations
-        elif len(next(iter(dataset))) == 9:
+        elif len(next(iter(dataset))) == 10:
             assert "lightcurve" in self.combinations
             assert "host_galaxy" in self.combinations
             assert "spectral" in self.combinations
-        elif len(next(iter(dataset))) == 5:
+        elif len(next(iter(dataset))) == 6:
             assert "lightcurve" in self.combinations or "spectral" in self.combinations
             assert "host_galaxy" in self.combinations
         else:
@@ -71,7 +71,7 @@ class NoisyDataLoader(DataLoader):
         for batch in super().__iter__():
             if self.combinations == set(["host_galaxy", "lightcurve"]):
                 # Add random noise to images and time-magnitude tensors
-                host_imgs, mag, time, mask, magerr = batch
+                host_imgs, mag, time, mask, magerr, redshift = batch
 
                 # Calculate the range for the random noise based on the max_noise_intensity
                 noise_range = self.max_noise_intensity * torch.std(host_imgs)
@@ -99,11 +99,11 @@ class NoisyDataLoader(DataLoader):
                 rotated_imgs = torch.stack(rotated_imgs)
 
                 # Return the noisy batch (and Nones to keep outputlength the same)
-                yield rotated_imgs, noisy_mag, time, mask, None, None, None
+                yield rotated_imgs, noisy_mag, time, mask, None, None, None, redshift
 
             elif self.combinations == set(["host_galaxy", "spectral"]):
                 # Add random noise to images and time-magnitude tensors
-                host_imgs, spec, freq, maskspec, specerr = batch
+                host_imgs, spec, freq, maskspec, specerr, redshift = batch
 
                 # Calculate the range for the random noise based on the max_noise_intensity
                 noise_range = self.max_noise_intensity * torch.std(host_imgs)
@@ -133,7 +133,7 @@ class NoisyDataLoader(DataLoader):
                 rotated_imgs = torch.stack(rotated_imgs)
 
                 # Return the noisy batch (and Nones to keep outputlength the same)
-                yield rotated_imgs, None, None, None, noisy_spec, freq, maskspec
+                yield rotated_imgs, None, None, None, noisy_spec, freq, maskspec, redshift
 
             elif self.combinations == set(["spectral", "lightcurve"]):
                 # Add random noise to images and time-magnitude tensors
@@ -146,6 +146,7 @@ class NoisyDataLoader(DataLoader):
                     freq,
                     maskspec,
                     specerr,
+                    redshift,
                 ) = batch
 
                 # Add Gaussian noise to mag using magerr
@@ -157,7 +158,7 @@ class NoisyDataLoader(DataLoader):
                 )
 
                 # Return the noisy batch (and Nones to keep outputlength the same)
-                yield None, noisy_mag, time, mask, noisy_spec, freq, maskspec
+                yield None, noisy_mag, time, mask, noisy_spec, freq, maskspec, redshift
 
             elif self.combinations == set(["host_galaxy", "spectral", "lightcurve"]):
                 # Add random noise to images and time-magnitude tensors
@@ -171,6 +172,7 @@ class NoisyDataLoader(DataLoader):
                     freq,
                     maskspec,
                     specerr,
+                    redshift,
                 ) = batch
 
                 # Calculate the range for the random noise based on the max_noise_intensity
@@ -203,8 +205,7 @@ class NoisyDataLoader(DataLoader):
                 # Stack the rotated images back into a tensor
                 rotated_imgs = torch.stack(rotated_imgs)
 
-                yield rotated_imgs, noisy_mag, time, mask, noisy_spec, freq, maskspec
-
+                yield rotated_imgs, noisy_mag, time, mask, noisy_spec, freq, maskspec, None, redshift
 
 
 def load_images(data_dir: str, filenames: List[str] = None) -> torch.Tensor:
@@ -225,8 +226,10 @@ def load_images(data_dir: str, filenames: List[str] = None) -> torch.Tensor:
 
     if filenames is None:
         filenames = sorted(os.listdir(dir_host_imgs))
-    else: # If filenames are provided, filter the filenames 
-        _, filenames, _ = filter_files(sorted(os.listdir(dir_host_imgs)), [f + '.host.png' for f in filenames])
+    else:  # If filenames are provided, filter the filenames
+        _, filenames, _ = filter_files(
+            sorted(os.listdir(dir_host_imgs)), [f + ".host.png" for f in filenames]
+        )
 
     # Iterate through the directory and load images
     for filename in tqdm(filenames):
@@ -261,18 +264,22 @@ def load_redshifts(data_dir: str, filenames: List[str]) -> np.ndarray:
 
     Returns:
     np.ndarray: Array of redshift values.
+    filenames (List[str]): List of filenames corresponding to the returned data.
     """
     print("Loading redshifts...")
 
     # Load values from the CSV file
     df = pd.read_csv(f"{data_dir}/ZTFBTS_TransientTable.csv")
+    df["redshift"] = pd.to_numeric(df["redshift"], errors="coerce")
+    df = df.dropna()
 
     # Filter redshifts based on the filenames
-    redshifts = pd.to_numeric(
-        df[df["ZTFID"].isin(filenames)]["redshift"], errors="coerce"
-    ).values
+    redshifts = df[df["ZTFID"].isin(filenames)]["redshift"].values
 
-    return redshifts
+    filenames_redshift = df[df["ZTFID"].isin(filenames)]
+
+    print("Finished loading redshift")
+    return redshifts, filenames_redshift
 
 
 def load_lightcurves(
@@ -315,7 +322,7 @@ def load_lightcurves(
         filenames = sorted(os.listdir(dir_light_curves))  # Sort file names
     else:  # If filenames are provided, filter the filenames
         _, filenames, _ = filter_files(
-            sorted(os.listdir(dir_light_curves)), [f + '.csv' for f in filenames]
+            sorted(os.listdir(dir_light_curves)), [f + ".csv" for f in filenames]
         )
 
     mask_list, mag_list, magerr_list, time_list, filenames_loaded = [], [], [], [], []
@@ -409,7 +416,7 @@ def load_spectras(
     filenames: List[str] = None,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, int]:
     """
-    Load spectra data from CSV files in the specified directory; load files that are available if 
+    Load spectra data from CSV files in the specified directory; load files that are available if
     filneames are provided.
 
     Args:
@@ -440,11 +447,11 @@ def load_spectras(
     if filenames is None:
         # Getting filenames
         filenames = sorted(os.listdir(dir_data))
-    else: 
+    else:
         _, filenames, _ = filter_files(
-            sorted(os.listdir(dir_data)), [f + '.csv' for f in filenames]
+            sorted(os.listdir(dir_data)), [f + ".csv" for f in filenames]
         )
-        
+
     mask_list, spec_list, specerr_list, freq_list, filenames_loaded = [], [], [], [], []
 
     for filename in tqdm(filenames):
@@ -595,7 +602,6 @@ def plot_lightcurve_and_images(
     plt.savefig(os.path.join(path_base, "banner.png"))
 
 
-
 def load_data(
     data_dir: str,
     spectra_dir: str = None,
@@ -625,19 +631,19 @@ def load_data(
 
     # Decision based on whether spectra data is available
     if spectra_dir is None:
-        spectra_dir = data_dir 
+        spectra_dir = data_dir
 
-    data, filenames = [], None 
-    nband = 1 # Default number of bands for spectra data
+    data, filenames = [], None
+    nband = 1  # Default number of bands for spectra data
 
-    if 'host_galaxy' in combinations:
+    if "host_galaxy" in combinations:
         # Load images from data_dir
         host_imgs, filenames_host = load_images(data_dir)
 
         data.append(host_imgs)
         filenames = filenames_host
 
-    if 'lightcurve' in combinations:
+    if "lightcurve" in combinations:
         # Load light curves from data_dir if no spectra directory is provided
         (
             time_ary,
@@ -646,11 +652,13 @@ def load_data(
             mask_ary,
             nband,
             filenames_lightcurves,
-        ) = load_lightcurves(data_dir, n_max_obs = max_data_len_lc, filenames = filenames)
+        ) = load_lightcurves(data_dir, n_max_obs=max_data_len_lc, filenames=filenames)
 
-        # Ensuring that filenames between images and light curves match if we loaded images 
-        if filenames is None: filenames = filenames_lightcurves
-        else: _, filenames, data = filter_files(filenames_lightcurves, filenames, data)
+        # Ensuring that filenames between images and light curves match if we loaded images
+        if filenames is None:
+            filenames = filenames_lightcurves
+        else:
+            _, filenames, data = filter_files(filenames_lightcurves, filenames, data)
 
         # Prepare dataset with light curve data
         time = torch.from_numpy(time_ary).float()
@@ -659,8 +667,8 @@ def load_data(
         magerr = torch.from_numpy(magerr_ary).float()
 
         data += [mag, time, mask, magerr]
-        
-    if 'spectral' in combinations:
+
+    if "spectral" in combinations:
         # Load spectra from spectra_dir if provided
         (
             freq_ary,
@@ -668,18 +676,22 @@ def load_data(
             specerr_ary,
             maskspec_ary,
             filenames_spectra,
-        ) = load_spectras(spectra_dir, n_max_obs = max_data_len_spec, filenames = filenames)
+        ) = load_spectras(spectra_dir, n_max_obs=max_data_len_spec, filenames=filenames)
 
         _, filenames, data = filter_files(filenames_spectra, filenames, data)
 
-        assert filenames.tolist() == filenames_spectra , "Filtered filenames between modalities must match."
+        assert (
+            filenames.tolist() == filenames_spectra
+        ), "Filtered filenames between modalities must match."
 
-        # Prepare dataset with spectra data
-        freq = torch.from_numpy(freq_ary).float()
-        spec = torch.from_numpy(spec_ary).float()
-        maskspec = torch.from_numpy(maskspec_ary).bool()
-        specerr = torch.from_numpy(specerr_ary).float()
-        data += [spec, freq, maskspec, specerr]
+    # Always load the redshift
+    redshifts, filenames_redshift = load_redshifts(f"{data_dir}", filenames)
+    _, filenames, data = filter_files(filenames_redshift, filenames, data)
+
+    # Prepare dataset with spectra data
+    redshifts = torch.from_numpy(redshifts).float()
+
+    data += [redshifts]
 
     data = TensorDataset(*data)
 

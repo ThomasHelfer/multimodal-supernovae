@@ -26,10 +26,10 @@ def filter_files(filenames_avail, filenames_to_filter, data_to_filter=None):
     """
     # Check which each filenames_to_filter are available in filenames_avail
     inds_filt = np.isin(filenames_to_filter, filenames_avail)
-    if data_to_filter: 
+    if data_to_filter:
         for i in range(len(data_to_filter)):
             data_to_filter[i] = data_to_filter[i][inds_filt]
-            
+
     filenames_to_filter = np.array(filenames_to_filter)[inds_filt]
 
     return inds_filt, filenames_to_filter, data_to_filter
@@ -82,7 +82,7 @@ def get_savedir(args) -> str:
     if not os.path.exists("analysis/runs"):
         os.makedirs("analysis/runs")
 
-    # save in checkpoint directory if resuming from checkpoint 
+    # save in checkpoint directory if resuming from checkpoint
     # else save in numbered directory if not given runname
     if args.ckpt_path:
         cfg = YAML(typ="safe").load(
@@ -173,12 +173,19 @@ class LossTrackingCallback(Callback):
 
     def on_validation_end(self, trainer: Trainer, pl_module: LightningModule) -> None:
         auc_val = trainer.callback_metrics.get("AUC_val")
-        if auc_val is None: 
-            auc_val = sum([trainer.callback_metrics.get(f"AUC_val{i}").detach().item() for i in range(1, 4)])/3
-        else: 
+        if auc_val is None:
+            auc_val = (
+                sum(
+                    [
+                        trainer.callback_metrics.get(f"AUC_val{i}").detach().item()
+                        for i in range(1, 4)
+                    ]
+                )
+                / 3
+            )
+        else:
             auc_val = auc_val.detach().item()
         self.auc_val_history.append(auc_val)
-
 
 
 def plot_loss_history(train_loss_history, val_loss_history, path_base="./"):
@@ -260,12 +267,23 @@ def get_embs(
     """
 
     clip_model.eval()
+    # getting device of model
+    device = next(clip_model.parameters()).device
 
     embs_list = [[] for i in range(len(combinations))]
 
     # Iterate through the DataLoader
     for batch in dataloader:
         x_img, x_lc, t_lc, mask_lc, x_sp, t_sp, mask_sp = batch
+        x_img, x_lc, t_lc, mask_lc, x_sp, t_sp, mask_sp = (
+            x_img.to(device),
+            x_lc.to(device),
+            t_lc.to(device),
+            mask_lc.to(device),
+            x_sp.to(device),
+            t_sp.to(device),
+            mask_sp.to(device),
+        )
 
         # Compute embeddings and detach from the computation graph
         with torch.no_grad():
@@ -273,9 +291,15 @@ def get_embs(
             if "host_galaxy" in combinations:
                 x.append(clip_model.image_embeddings_with_projection(x_img))
             if "lightcurve" in combinations:
-                x.append(clip_model.lightcurve_embeddings_with_projection(x_lc, t_lc, mask_lc))
+                x.append(
+                    clip_model.lightcurve_embeddings_with_projection(
+                        x_lc, t_lc, mask_lc
+                    )
+                )
             if "spectral" in combinations:
-                x.append(clip_model.spectral_embeddings_with_projection(x_sp, t_sp, mask_sp))
+                x.append(
+                    clip_model.spectral_embeddings_with_projection(x_sp, t_sp, mask_sp)
+                )
 
         # Append the results to the lists
         for i in range(len(x)):
@@ -294,7 +318,7 @@ def get_ROC_data(
     Calculate ROC-like data by evaluating the cosine similarity between two sets of embeddings.
 
     Args:
-    embs1 (torch.Tensor): Tensor of first set of embeddings. 
+    embs1 (torch.Tensor): Tensor of first set of embeddings.
     embs2 (torch.Tensor): Tensor of second set of embeddings.
 
     Returns:
@@ -354,14 +378,16 @@ def plot_ROC_curves(
 
     combinations = sorted(combinations)
 
-    fractions_train, fractions_val, labels = [], [], [] 
-    for i in range(len(embs_train) - 1): 
+    fractions_train, fractions_val, labels = [], [], []
+    for i in range(len(embs_train) - 1):
         for j in range(i + 1, len(embs_train)):
-            thresholds, fraction_correct_train = get_ROC_data(embs_train[i], embs_train[j])
+            thresholds, fraction_correct_train = get_ROC_data(
+                embs_train[i], embs_train[j]
+            )
             thresholds, fraction_correct_val = get_ROC_data(embs_val[i], embs_val[j])
             fractions_train.append(fraction_correct_train)
             fractions_val.append(fraction_correct_val)
-            labels.append(f'{combinations[i]} and {combinations[j]}')
+            labels.append(f"{combinations[i]} and {combinations[j]}")
 
     # Set overall figure size and title
     plt.figure(figsize=(12, 6))
@@ -369,7 +395,7 @@ def plot_ROC_curves(
 
     # Plot for validation data
     plt.subplot(1, 2, 1)
-    for i, f_val in enumerate(fractions_val): 
+    for i, f_val in enumerate(fractions_val):
         plt.plot(thresholds, f_val, lw=2, label=labels[i])
     plt.plot(thresholds, thresholds, linestyle="--", color="gray", label="Random")
     plt.title("Validation Data")
@@ -380,7 +406,7 @@ def plot_ROC_curves(
 
     # Plot for training data
     plt.subplot(1, 2, 2)
-    for i, f_train in enumerate(fractions_train): 
+    for i, f_train in enumerate(fractions_train):
         plt.plot(thresholds, f_train, lw=2, label=labels[i])
     plt.plot(thresholds, thresholds, linestyle="--", color="gray", label="Random")
     plt.title("Training Data")
