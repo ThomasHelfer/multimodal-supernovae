@@ -27,7 +27,7 @@ def test_dataloader():
     # Checking that time indeed starts at 0 for all lightcurves
     iterator = iter(dataset)
     for i in range(len(dataset)):
-        host_imgs, mag, time, mask, magerr = next(iterator)
+        host_imgs, mag, time, mask, magerr, z = next(iterator)
         assert(torch.min(time[mask])==0)
 
     # Loading lightcurve and spectra
