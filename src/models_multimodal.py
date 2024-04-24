@@ -266,6 +266,7 @@ class LightCurveImageCLIP(pl.LightningModule):
             self.image_projection = nn.Linear(conv_kwargs["n_out"], enc_dim)
 
         self.loss = loss
+        self.linear = nn.linear(enc_dim * len(self.combinations), 1)
 
     def forward(
         self,
@@ -326,7 +327,7 @@ class LightCurveImageCLIP(pl.LightningModule):
         return {"optimizer": optimizer}
 
     def training_step(self, batch, batch_idx):
-        x_img, x_lc, t_lc, mask_lc, x_sp, t_sp, mask_sp = batch
+        x_img, x_lc, t_lc, mask_lc, x_sp, t_sp, mask_sp, redshift = batch
         x = self(x_img, x_lc, t_lc, mask_lc, x_sp, t_sp, mask_sp)
 
         if self.loss == "sigmoid":
@@ -337,6 +338,10 @@ class LightCurveImageCLIP(pl.LightningModule):
                 self.logit_scale,
                 self.logit_bias,
             ).mean()
+        elif self.loss == 'mse': 
+            x = torch.cat(x, dim=-1)
+            x = self.linear(x)
+            loss = nn.MSELoss()(x, redshift)
         self.log(
             "train_loss", loss, on_epoch=True, on_step=False, prog_bar=True, logger=True
         )
@@ -350,7 +355,7 @@ class LightCurveImageCLIP(pl.LightningModule):
         self.embs_list = [[] for i in range(len(self.combinations))]
 
     def validation_step(self, batch, batch_idx):
-        x_img, x_lc, t_lc, mask_lc, x_sp, t_sp, mask_sp = batch
+        x_img, x_lc, t_lc, mask_lc, x_sp, t_sp, mask_sp, redshift = batch
         x = self(x_img, x_lc, t_lc, mask_lc, x_sp, t_sp, mask_sp)
 
         for i in range(len(x)):
@@ -363,6 +368,10 @@ class LightCurveImageCLIP(pl.LightningModule):
                 self.logit_scale,
                 self.logit_bias,
             ).mean()
+        elif self.loss == 'mse': 
+            x = torch.cat(x, dim=-1)
+            x = self.linear(x)
+            loss = nn.MSELoss()(x, redshift)
         self.log(
             "val_loss", loss, on_epoch=True, on_step=False, prog_bar=True, logger=True
         )
