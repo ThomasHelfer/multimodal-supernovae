@@ -205,7 +205,7 @@ class NoisyDataLoader(DataLoader):
                 # Stack the rotated images back into a tensor
                 rotated_imgs = torch.stack(rotated_imgs)
 
-                yield rotated_imgs, noisy_mag, time, mask, noisy_spec, freq, maskspec, None, redshift
+                yield rotated_imgs, noisy_mag, time, mask, noisy_spec, freq, maskspec, redshift
 
 
 def load_images(data_dir: str, filenames: List[str] = None) -> torch.Tensor:
@@ -684,13 +684,18 @@ def load_data(
             filenames.tolist() == filenames_spectra
         ), "Filtered filenames between modalities must match."
 
+        freq = torch.from_numpy(freq_ary).float()
+        spec = torch.from_numpy(spec_ary).float()
+        maskspec = torch.from_numpy(maskspec_ary).bool()
+        specerr = torch.from_numpy(specerr_ary).float()
+        data += [spec, freq, maskspec, specerr]
+
     # Always load the redshift
     redshifts, filenames_redshift = load_redshifts(f"{data_dir}", filenames)
     _, filenames, data = filter_files(filenames_redshift, filenames, data)
 
     # Prepare dataset with spectra data
     redshifts = torch.from_numpy(redshifts).float()
-
     data += [redshifts]
 
     data = TensorDataset(*data)
