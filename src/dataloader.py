@@ -64,14 +64,18 @@ class NoisyDataLoader(DataLoader):
         elif len(next(iter(dataset))) == 6:
             assert "lightcurve" in self.combinations or "spectral" in self.combinations
             assert "host_galaxy" in self.combinations
+        elif len(next(iter(dataset))) == 2:
+            assert "host_galaxy" in self.combinations and len(self.combinations) == 1
+        elif len(next(iter(dataset))) == 5:
+            assert ("lightcurve" in self.combinations or "spectral" in self.combinations) and len(self.combinations) == 1
         else:
-            raise ValueError("Input dataloader has the wrong dimensions")
+            raise ValueError("Input dataloader has the wrong dimensions; has dimension {} which is unexpected".format(len(next(iter(dataset)))))
 
     def __iter__(self):
         for batch in super().__iter__():
             if self.combinations == set(["host_galaxy"]):
                 # Add random noise to images
-                host_imgs = batch
+                host_imgs, redshift = batch
 
                 # Calculate the range for the random noise based on the max_noise_intensity
                 noise_range = self.max_noise_intensity * torch.std(host_imgs)
@@ -100,7 +104,7 @@ class NoisyDataLoader(DataLoader):
 
             elif self.combinations == set(["lightcurve"]):
                 # Add random noise to time-magnitude tensors
-                mag, time, mask, magerr = batch
+                mag, time, mask, magerr, redshift = batch
 
                 # Add Gaussian noise to mag using magerr
                 noisy_mag = mag + torch.randn_like(mag) * magerr * self.noise_level_mag
@@ -110,7 +114,7 @@ class NoisyDataLoader(DataLoader):
 
             elif self.combinations == set(["spectral"]):
                 # Add random noise to spectra tensors
-                spec, freq, maskspec, specerr = batch
+                spec, freq, maskspec, specerr, redshift = batch
 
                 # Add Gaussian noise to spec using specerr
                 noisy_spec = (

@@ -353,7 +353,9 @@ class LightCurveImageCLIP(pl.LightningModule):
         x_img, x_lc, t_lc, mask_lc, x_sp, t_sp, mask_sp, redshift = batch
         x = self(x_img, x_lc, t_lc, mask_lc, x_sp, t_sp, mask_sp)
 
-        if self.loss == "sigmoid":
+        if self.regression: 
+            loss = nn.MSELoss()(x, redshift)
+        elif self.loss == "sigmoid":
             loss = sigmoid_loss_multimodal(x, self.logit_scale, self.logit_bias).mean()
         elif self.loss == "softmax":
             loss = clip_loss_multimodal(
@@ -361,10 +363,7 @@ class LightCurveImageCLIP(pl.LightningModule):
                 self.logit_scale,
                 self.logit_bias,
             ).mean()
-        elif self.regression: 
-            x = torch.cat(x, dim=-1)
-            x = self.linear(x)
-            loss = nn.MSELoss()(x, redshift)
+    
         self.log(
             "train_loss", loss, on_epoch=True, on_step=False, prog_bar=True, logger=True
         )
@@ -381,18 +380,18 @@ class LightCurveImageCLIP(pl.LightningModule):
         x_img, x_lc, t_lc, mask_lc, x_sp, t_sp, mask_sp, redshift = batch
         x = self(x_img, x_lc, t_lc, mask_lc, x_sp, t_sp, mask_sp)
 
-        for i in range(len(x)):
-            self.embs_list[i].append(x[i])
-        if self.loss == "sigmoid":
+        if self.regression: 
+            loss = nn.MSELoss()(x, redshift)
+        elif self.loss == "sigmoid":
+            for i in range(len(x)): self.embs_list[i].append(x[i])
             loss = sigmoid_loss_multimodal(x, self.logit_scale, self.logit_bias).mean()
         elif self.loss == "softmax":
+            for i in range(len(x)): self.embs_list[i].append(x[i]) 
             loss = clip_loss_multimodal(
                 x,
                 self.logit_scale,
                 self.logit_bias,
             ).mean()
-        elif self.regression: 
-            loss = nn.MSELoss()(x, redshift)
         self.log(
             "val_loss", loss, on_epoch=True, on_step=False, prog_bar=True, logger=True
         )
@@ -403,31 +402,32 @@ class LightCurveImageCLIP(pl.LightningModule):
         Called at the end of the validation epoch.
         """
 
-        # Concatenate all embeddings into single tensors
-        for i in range(len(self.embs_list)):
-            self.embs_list[i] = torch.cat(self.embs_list[i], dim=0)
+        if not self.regression:
+            # Concatenate all embeddings into single tensors
+            for i in range(len(self.embs_list)):
+                self.embs_list[i] = torch.cat(self.embs_list[i], dim=0)
 
-        if len(self.combinations) == 2:
-            self.log(
-                f"AUC_val", get_AUC(self.embs_list[0], self.embs_list[1]), 
-                                        on_epoch=True, 
-                                        on_step=False, 
-                                        prog_bar=True, 
-                                        logger=True
-            )
-        else:
-            count = 1 
-            for i in range(len(self.combinations) - 1):
-                for j in range(i + 1, len(self.combinations)):
-                    self.log(
-                        f"AUC_val{count}", get_AUC(self.embs_list[i], 
-                                        self.embs_list[j]), 
-                                        on_epoch=True, 
-                                        on_step=False, 
-                                        prog_bar=True, 
-                                        logger=True
-                    )
-                    count += 1 
+            if len(self.combinations) == 2:
+                self.log(
+                    f"AUC_val", get_AUC(self.embs_list[0], self.embs_list[1]), 
+                                            on_epoch=True, 
+                                            on_step=False, 
+                                            prog_bar=True, 
+                                            logger=True
+                )
+            else:
+                count = 1 
+                for i in range(len(self.combinations) - 1):
+                    for j in range(i + 1, len(self.combinations)):
+                        self.log(
+                            f"AUC_val{count}", get_AUC(self.embs_list[i], 
+                                            self.embs_list[j]), 
+                                            on_epoch=True, 
+                                            on_step=False, 
+                                            prog_bar=True, 
+                                            logger=True
+                        )
+                        count += 1 
 
-        # Delete the embeddings to free up memory
-        self.embs_list = None 
+            # Delete the embeddings to free up memory
+            self.embs_list = None 

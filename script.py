@@ -61,7 +61,7 @@ if __name__ == "__main__":
     ]
 
     combinations = cfg["combinations"]
-    regression = cdf["regression"]
+    regression = cfg["regression"]
     print(f"Using combinations: {combinations}")
 
     # Get the first valid directory
@@ -219,13 +219,14 @@ if __name__ == "__main__":
         path_base=save_dir,
     )
 
-    # Get embeddings for all images and light curves
-    embs_train = get_embs(clip_model, train_loader_no_aug, combinations)
-    embs_val = get_embs(clip_model, val_loader_no_aug, combinations)
+    if len(set(combinations)) > 1: 
+        # Get embeddings for all images and light curves
+        embs_train = get_embs(clip_model, train_loader_no_aug, combinations)
+        embs_val = get_embs(clip_model, val_loader_no_aug, combinations)
 
-    plot_ROC_curves(
-        embs_train,
-        embs_val,
-        combinations,
-        path_base=save_dir,
-    )
+        plot_ROC_curves(
+            embs_train,
+            embs_val,
+            combinations,
+            path_base=save_dir,
+        )
