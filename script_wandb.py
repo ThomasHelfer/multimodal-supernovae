@@ -37,6 +37,14 @@ def train_sweep(config=None):
         cfg = wandb.config
         set_seed(cfg.seed)
 
+        number_of_samples = len(dataset)
+
+        n_samples_val = int(val_fraction * number_of_samples)
+
+        dataset_train, dataset_val = random_split(
+            dataset, [number_of_samples - n_samples_val, n_samples_val]
+        )
+
         # dump config
         config_dict = {k: v for k, v in cfg.items()}
         with open(os.path.join(path_run, "config.yaml"), "w") as f:
@@ -251,14 +259,6 @@ if __name__ == "__main__":
         spectra_dir,
         max_data_len_spec=max_spectral_data_len,
         combinations=combinations,
-    )
-
-    number_of_samples = len(dataset)
-
-    n_samples_val = int(val_fraction * number_of_samples)
-
-    dataset_train, dataset_val = random_split(
-        dataset, [number_of_samples - n_samples_val, n_samples_val]
     )
 
     wandb.agent(
