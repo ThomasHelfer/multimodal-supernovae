@@ -35,11 +35,11 @@ if __name__ == "__main__":
         "--ckpt_path", type=str, default=None, help="Path to the checkpoint directory"
     )
     parser.add_argument(
-        "--runname", 
-        type=str, 
-        default=None, 
-        help="Name of the run for saving; if None, will be set to the next available number"
-        )
+        "--runname",
+        type=str,
+        default=None,
+        help="Name of the run for saving; if None, will be set to the next available number",
+    )
     parser.add_argument(
         "--config_path",
         type=str,
@@ -61,6 +61,7 @@ if __name__ == "__main__":
     ]
 
     combinations = cfg["combinations"]
+    regression = cdf["regression"]
     print(f"Using combinations: {combinations}")
 
     # Get the first valid directory
@@ -73,9 +74,14 @@ if __name__ == "__main__":
     else:
         spectra_dir = None
 
-    max_spectral_data_len = cfg["max_spectral_data_len"]  # Spectral data is cut to this length
-    dataset, nband,_ = load_data(
-        data_dir, spectra_dir, max_data_len_spec = max_spectral_data_len, combinations=combinations
+    max_spectral_data_len = cfg[
+        "max_spectral_data_len"
+    ]  # Spectral data is cut to this length
+    dataset, nband, _ = load_data(
+        data_dir,
+        spectra_dir,
+        max_data_len_spec=max_spectral_data_len,
+        combinations=combinations,
     )
 
     number_of_samples = len(dataset)
@@ -170,7 +176,7 @@ if __name__ == "__main__":
     optimizer_kwargs = {"weight_decay": cfg["weight_decay"]}
 
     clip_model = LightCurveImageCLIP(
-        logit_scale=cfg['logit_scale'],
+        logit_scale=cfg["logit_scale"],
         lr=cfg["lr"],
         nband=nband,
         loss="softmax",
@@ -179,6 +185,7 @@ if __name__ == "__main__":
         conv_kwargs=conv_kwargs,
         optimizer_kwargs=optimizer_kwargs,
         combinations=combinations,
+        regression=regression,
     )
 
     # Custom call back for tracking loss
@@ -191,9 +198,9 @@ if __name__ == "__main__":
     )
 
     early_stop_callback = EarlyStopping(
-            monitor="val_loss", min_delta=0.00, patience=100, verbose=False, mode="min"
-        )
-    
+        monitor="val_loss", min_delta=0.00, patience=100, verbose=False, mode="min"
+    )
+
     trainer = pl.Trainer(
         max_epochs=cfg["epochs"],
         accelerator=device,
@@ -213,16 +220,12 @@ if __name__ == "__main__":
     )
 
     # Get embeddings for all images and light curves
-    embs_train = get_embs(
-        clip_model, train_loader_no_aug, combinations
-    )
-    embs_val = get_embs(
-        clip_model, val_loader_no_aug, combinations
-    )
+    embs_train = get_embs(clip_model, train_loader_no_aug, combinations)
+    embs_val = get_embs(clip_model, val_loader_no_aug, combinations)
 
     plot_ROC_curves(
-        embs_train, 
+        embs_train,
         embs_val,
-        combinations, 
+        combinations,
         path_base=save_dir,
     )

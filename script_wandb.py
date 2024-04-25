@@ -36,8 +36,8 @@ def train_sweep(config=None):
 
         cfg = wandb.config
         set_seed(cfg.seed)
-        
-        # dump config 
+
+        # dump config
         config_dict = {k: v for k, v in cfg.items()}
         with open(os.path.join(path_run, "config.yaml"), "w") as f:
             YAML().dump(config_dict, f)
@@ -99,7 +99,7 @@ def train_sweep(config=None):
             "depth": cfg.transformer_depth,
             "dropout": cfg.dropout,
             "time_norm": cfg.time_norm,
-            'agg': cfg.agg,
+            "agg": cfg.agg,
         }
         transformer_spectral_kwargs = {
             "n_out": cfg.n_out,
@@ -108,7 +108,7 @@ def train_sweep(config=None):
             "depth": cfg.transformer_depth_spectral,
             "dropout": cfg.dropout,
             "time_norm": cfg.time_norm_spectral,
-            'agg': cfg.agg_spectral,
+            "agg": cfg.agg_spectral,
         }
         conv_kwargs = {
             "dim": 32,
@@ -131,6 +131,7 @@ def train_sweep(config=None):
             conv_kwargs=conv_kwargs,
             optimizer_kwargs=optimizer_kwargs,
             combinations=combinations,
+            regression=regression,
         )
 
         # Custom call back for tracking loss
@@ -139,7 +140,8 @@ def train_sweep(config=None):
         device = "gpu" if torch.cuda.is_available() else "cpu"
         if device == "gpu":  # Set float32 matmul precision for A100 GPUs
             cuda_name = torch.cuda.get_device_name(torch.cuda.current_device())
-            if cuda_name.startswith("NVIDIA A100-SXM4"): torch.set_float32_matmul_precision('high')
+            if cuda_name.startswith("NVIDIA A100-SXM4"):
+                torch.set_float32_matmul_precision("high")
 
         wandb_logger = WandbLogger()
         checkpoint_callback = ModelCheckpoint(
@@ -148,22 +150,29 @@ def train_sweep(config=None):
         early_stop_callback = EarlyStopping(
             monitor="val_loss", min_delta=0.00, patience=50, verbose=False, mode="min"
         )
-        
+
         trainer = pl.Trainer(
             max_epochs=cfg.epochs,
             accelerator=device,
-            callbacks=[loss_tracking_callback, checkpoint_callback, early_stop_callback],
+            callbacks=[
+                loss_tracking_callback,
+                checkpoint_callback,
+                early_stop_callback,
+            ],
             logger=wandb_logger,
             enable_progress_bar=False,
         )
-        if len(combinations) == 2: wandb.define_metric("AUC_val", summary="max")
+        if len(combinations) == 2:
+            wandb.define_metric("AUC_val", summary="max")
 
         trainer.fit(
             model=clip_model, train_dataloaders=train_loader, val_dataloaders=val_loader
         )
 
         wandb.run.summary["best_auc"] = np.max(loss_tracking_callback.auc_val_history)
-        wandb.run.summary["best_val_loss"] = np.min(loss_tracking_callback.val_loss_history)
+        wandb.run.summary["best_val_loss"] = np.min(
+            loss_tracking_callback.val_loss_history
+        )
         plot_loss_history(
             loss_tracking_callback.train_loss_history,
             loss_tracking_callback.val_loss_history,
@@ -177,7 +186,7 @@ def train_sweep(config=None):
         plot_ROC_curves(
             embs_train,
             embs_val,
-            combinations, 
+            combinations,
             path_base=path_run,
         )
 
@@ -187,14 +196,14 @@ def train_sweep(config=None):
 if __name__ == "__main__":
     wandb.login()
 
-    arg = sys.argv[1] 
+    arg = sys.argv[1]
     analysis_path = "./analysis/"
 
     if arg.endswith(".yaml"):
         config = arg
         sweep_id, model_path, cfg = schedule_sweep(config, analysis_path)
     else:
-        sweep_id = os.path.basename(arg) 
+        sweep_id = os.path.basename(arg)
         model_path = os.path.join(analysis_path, sweep_id)
         cfg = continue_sweep(model_path)
 
@@ -222,17 +231,26 @@ if __name__ == "__main__":
 
     # Get what data combinations are used
     combinations = cfg["extra_args"]["combinations"]
+    regression = cfg["extra_args"]["regression"]
 
     # Check if the config file has a spectra key
     if "spectral" in combinations:
-        data_dirs = ["ZTFBTS_spectra/", "/n/home02/gemzhang/Storage/multimodal/ZTFBTS_spectra/"]
+        data_dirs = [
+            "ZTFBTS_spectra/",
+            "/n/home02/gemzhang/Storage/multimodal/ZTFBTS_spectra/",
+        ]
         spectra_dir = get_valid_dir(data_dirs)
     else:
         spectra_dir = None
 
-    max_spectral_data_len = cfg["extra_args"]["max_spectral_data_len"]  # Spectral data is cut to this length
-    dataset, nband,_ = load_data(
-        data_dir, spectra_dir, max_data_len_spec = max_spectral_data_len, combinations=combinations
+    max_spectral_data_len = cfg["extra_args"][
+        "max_spectral_data_len"
+    ]  # Spectral data is cut to this length
+    dataset, nband, _ = load_data(
+        data_dir,
+        spectra_dir,
+        max_data_len_spec=max_spectral_data_len,
+        combinations=combinations,
     )
 
     number_of_samples = len(dataset)
@@ -243,4 +261,10 @@ if __name__ == "__main__":
         dataset, [number_of_samples - n_samples_val, n_samples_val]
     )
 
-    wandb.agent(sweep_id=sweep_id, entity=cfg['entity'], project=cfg["project"], function=train_sweep, count=cfg["extra_args"]['nruns'])
+    wandb.agent(
+        sweep_id=sweep_id,
+        entity=cfg["entity"],
+        project=cfg["project"],
+        function=train_sweep,
+        count=cfg["extra_args"]["nruns"],
+    )
