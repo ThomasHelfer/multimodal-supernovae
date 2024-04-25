@@ -49,6 +49,7 @@ parameters:
     values: [0]
 # Options are 'lightcurve' 'spectral' and 'host_galaxy' -- order does not matter 
 extra_args:
-  combinations: ["lightcurve", "spectral"] 
+  combinations: ["lightcurve", "host_galaxy"] 
+  regression: True
   nruns: 20
   max_spectral_data_len: 1000
