@@ -309,13 +309,13 @@ def load_images(data_dir: str, filenames: List[str] = None) -> torch.Tensor:
     return host_imgs, filenames_valid
 
 
-def load_redshifts(data_dir: str, filenames: List[str]) -> np.ndarray:
+def load_redshifts(data_dir: str, filenames: List[str] = None) -> np.ndarray:
     """
     Load redshift values from a CSV file in the specified directory.
 
     Args:
     data_dir (str): Directory path containing the redshift CSV file.
-    filenames (List[str]): List of filenames corresponding to the loaded data.
+    filenames (List[str]): List of filenames corresponding to the loaded data; default is None.
 
     Returns:
     np.ndarray: Array of redshift values.
@@ -326,12 +326,16 @@ def load_redshifts(data_dir: str, filenames: List[str]) -> np.ndarray:
     # Load values from the CSV file
     df = pd.read_csv(f"{data_dir}/ZTFBTS_TransientTable.csv")
     df["redshift"] = pd.to_numeric(df["redshift"], errors="coerce")
-    df = df.dropna()
+    df = df.dropna(subset=["redshift"])
 
-    # Filter redshifts based on the filenames
-    redshifts = df[df["ZTFID"].isin(filenames)]["redshift"].values
+    if filenames is None:
+        redshifts = df["redshift"].values
+        filenames_redshift = df["ZTFID"].values
+    else: 
+        # Filter redshifts based on the filenames
+        redshifts = df[df["ZTFID"].isin(filenames)]["redshift"].values
 
-    filenames_redshift = df[df["ZTFID"].isin(filenames)]
+        filenames_redshift = df[df["ZTFID"].isin(filenames)]
 
     print("Finished loading redshift")
     return redshifts, filenames_redshift
@@ -733,10 +737,13 @@ def load_data(
             filenames_spectra,
         ) = load_spectras(spectra_dir, n_max_obs=max_data_len_spec, filenames=filenames)
 
-        _, filenames, data = filter_files(filenames_spectra, filenames, data)
+        if filenames is not None: 
+            _, filenames, data = filter_files(filenames_spectra, filenames, data)
+        else: 
+            filenames = filenames_spectra 
 
         assert (
-            filenames.tolist() == filenames_spectra
+            list(filenames) == filenames_spectra
         ), "Filtered filenames between modalities must match."
 
         freq = torch.from_numpy(freq_ary).float()

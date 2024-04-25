@@ -177,26 +177,27 @@ def train_sweep(config=None):
             model=clip_model, train_dataloaders=train_loader, val_dataloaders=val_loader
         )
 
-        wandb.run.summary["best_auc"] = np.max(loss_tracking_callback.auc_val_history)
-        wandb.run.summary["best_val_loss"] = np.min(
-            loss_tracking_callback.val_loss_history
-        )
-        plot_loss_history(
-            loss_tracking_callback.train_loss_history,
-            loss_tracking_callback.val_loss_history,
-            path_base=path_run,
-        )
+        if not regression:
+            wandb.run.summary["best_auc"] = np.max(loss_tracking_callback.auc_val_history)
+            wandb.run.summary["best_val_loss"] = np.min(
+                loss_tracking_callback.val_loss_history
+            )
+            plot_loss_history(
+                loss_tracking_callback.train_loss_history,
+                loss_tracking_callback.val_loss_history,
+                path_base=path_run,
+            )
 
-        # Get embeddings for all images and light curves
-        embs_train = get_embs(clip_model, train_loader_no_aug, combinations)
-        embs_val = get_embs(clip_model, val_loader_no_aug, combinations)
+            # Get embeddings for all images and light curves
+            embs_train = get_embs(clip_model, train_loader_no_aug, combinations)
+            embs_val = get_embs(clip_model, val_loader_no_aug, combinations)
 
-        plot_ROC_curves(
-            embs_train,
-            embs_val,
-            combinations,
-            path_base=path_run,
-        )
+            plot_ROC_curves(
+                embs_train,
+                embs_val,
+                combinations,
+                path_base=path_run,
+            )
 
         wandb.finish()
 
