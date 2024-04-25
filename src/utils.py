@@ -274,7 +274,7 @@ def get_embs(
 
     # Iterate through the DataLoader
     for batch in dataloader:
-        x_img, x_lc, t_lc, mask_lc, x_sp, t_sp, mask_sp = batch
+        x_img, x_lc, t_lc, mask_lc, x_sp, t_sp, mask_sp,_ = batch
         x_img, x_lc, t_lc, mask_lc, x_sp, t_sp, mask_sp = (
             x_img.to(device),
             x_lc.to(device),

@@ -217,6 +217,7 @@ class LightCurveImageCLIP(pl.LightningModule):
         optimizer_kwargs: Dict = {},
         lr: float = 1e-4,
         loss: str = "sigmoid",
+        regression: bool = True, 
     ):
         """
         Initialize the LightCurveImageCLIP module.
@@ -237,6 +238,7 @@ class LightCurveImageCLIP(pl.LightningModule):
         self.optimizer_kwargs = optimizer_kwargs
         self.enc_dim = enc_dim
         self.combinations = set(combinations)
+        self.regression = regression
 
         # Parameters
         self.logit_scale = nn.Parameter(
@@ -291,14 +293,32 @@ class LightCurveImageCLIP(pl.LightningModule):
         Returns:
         List[torch.Tensor] : Array of embeddings.
         """
-        x = []
-        if "host_galaxy" in self.combinations:
-            x.append(self.image_embeddings_with_projection(x_img))
-        if "lightcurve" in self.combinations:
-            x.append(self.lightcurve_embeddings_with_projection(x_lc, t_lc, mask_lc))
-        if "spectral" in self.combinations:
-            x.append(self.spectral_embeddings_with_projection(x_sp, t_sp, mask_sp))
-        return x
+        if self.regression: 
+            x = []
+            if "host_galaxy" in self.combinations:
+                x_img = self.image_encoder(x_img)
+                x_img = self.image_projection(x_img)
+                x.append(x_img)
+            if "lightcurve" in self.combinations:
+                x_lc = x_lc[..., None]  # Add channel dimension
+                x_lc = self.lightcurve_encoder(x_lc, t_lc, mask_lc)
+                x_lc = self.lightcurve_projection(x_lc)            if "spectral" in self.combinations:
+                x.append(x_lc)
+            if "spectral" in self.combinations:
+                x_sp = x_sp[..., None]  # Add channel dimension
+                x_sp = self.spectral_encoder(x_sp, t_sp, mask_sp)
+                x_sp = self.spectral_projection(x_sp)
+                x.append(x_sp)
+            return x
+        else:
+            x = []
+            if "host_galaxy" in self.combinations:
+                x.append(self.image_embeddings_with_projection(x_img))
+            if "lightcurve" in self.combinations:
+                x.append(self.lightcurve_embeddings_with_projection(x_lc, t_lc, mask_lc))
+            if "spectral" in self.combinations:
+                x.append(self.spectral_embeddings_with_projection(x_sp, t_sp, mask_sp))
+            return x
 
     def image_embeddings_with_projection(self, x_img):
         """Convenience function to get image embeddings with projection"""
@@ -338,7 +358,7 @@ class LightCurveImageCLIP(pl.LightningModule):
                 self.logit_scale,
                 self.logit_bias,
             ).mean()
-        elif self.loss == 'mse': 
+        elif self.regression: 
             x = torch.cat(x, dim=-1)
             x = self.linear(x)
             loss = nn.MSELoss()(x, redshift)
@@ -368,7 +388,7 @@ class LightCurveImageCLIP(pl.LightningModule):
                 self.logit_scale,
                 self.logit_bias,
             ).mean()
-        elif self.loss == 'mse': 
+        elif self.regression: 
             x = torch.cat(x, dim=-1)
             x = self.linear(x)
             loss = nn.MSELoss()(x, redshift)
