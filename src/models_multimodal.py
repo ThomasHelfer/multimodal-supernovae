@@ -309,6 +309,9 @@ class LightCurveImageCLIP(pl.LightningModule):
                 x_sp = self.spectral_encoder(x_sp, t_sp, mask_sp)
                 x_sp = self.spectral_projection(x_sp)
                 x.append(x_sp)
+
+            x = torch.cat(x, dim=-1)
+            x = self.linear(x)
             return x
         else:
             x = []
@@ -389,8 +392,6 @@ class LightCurveImageCLIP(pl.LightningModule):
                 self.logit_bias,
             ).mean()
         elif self.regression: 
-            x = torch.cat(x, dim=-1)
-            x = self.linear(x)
             loss = nn.MSELoss()(x, redshift)
         self.log(
             "val_loss", loss, on_epoch=True, on_step=False, prog_bar=True, logger=True
