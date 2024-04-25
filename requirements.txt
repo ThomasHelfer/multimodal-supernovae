@@ -14,3 +14,6 @@ astropy
 seaborn
 notebook
 pyarrow
+h5py 
+astropy 
+pzflow
