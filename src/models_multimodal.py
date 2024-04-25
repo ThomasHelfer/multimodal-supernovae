@@ -217,7 +217,7 @@ class LightCurveImageCLIP(pl.LightningModule):
         optimizer_kwargs: Dict = {},
         lr: float = 1e-4,
         loss: str = "sigmoid",
-        regression: bool = True, 
+        regression: bool = False, 
     ):
         """
         Initialize the LightCurveImageCLIP module.
