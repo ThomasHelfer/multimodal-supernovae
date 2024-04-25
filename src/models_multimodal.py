@@ -268,7 +268,7 @@ class LightCurveImageCLIP(pl.LightningModule):
             self.image_projection = nn.Linear(conv_kwargs["n_out"], enc_dim)
 
         self.loss = loss
-        self.linear = nn.linear(enc_dim * len(self.combinations), 1)
+        self.linear = nn.Linear(enc_dim * len(self.combinations), 1)
 
     def forward(
         self,
@@ -302,7 +302,7 @@ class LightCurveImageCLIP(pl.LightningModule):
             if "lightcurve" in self.combinations:
                 x_lc = x_lc[..., None]  # Add channel dimension
                 x_lc = self.lightcurve_encoder(x_lc, t_lc, mask_lc)
-                x_lc = self.lightcurve_projection(x_lc)            if "spectral" in self.combinations:
+                x_lc = self.lightcurve_projection(x_lc)            
                 x.append(x_lc)
             if "spectral" in self.combinations:
                 x_sp = x_sp[..., None]  # Add channel dimension
