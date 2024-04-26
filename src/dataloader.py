@@ -853,4 +853,4 @@ class SimulationLightcurveDataset(Dataset):
                 data += list(mag_data)
                 time += list(time_data)
 
-        return time, data
+        return torch.tensor(time), torch.tensor(data)
