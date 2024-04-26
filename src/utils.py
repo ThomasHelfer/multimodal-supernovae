@@ -172,8 +172,9 @@ class LossTrackingCallback(Callback):
             self.val_loss_history.append(val_loss.detach().item())
 
     def on_validation_end(self, trainer: Trainer, pl_module: LightningModule) -> None:
-        try: 
-            auc_val = trainer.callback_metrics.get("AUC_val")
+        auc_val = trainer.callback_metrics.get("AUC_val")
+        auc_val1 = trainer.callback_metrics.get("AUC_val1")
+        if auc_val or auc_val1:
             if auc_val is None:
                 auc_val = (
                     sum(
@@ -187,8 +188,6 @@ class LossTrackingCallback(Callback):
             else:
                 auc_val = auc_val.detach().item()
             self.auc_val_history.append(auc_val)
-        except:
-            pass
 
 
 def plot_loss_history(train_loss_history, val_loss_history, path_base="./"):
@@ -277,7 +276,7 @@ def get_embs(
 
     # Iterate through the DataLoader
     for batch in dataloader:
-        x_img, x_lc, t_lc, mask_lc, x_sp, t_sp, mask_sp,_ = batch
+        x_img, x_lc, t_lc, mask_lc, x_sp, t_sp, mask_sp, _ = batch
         x_img, x_lc, t_lc, mask_lc, x_sp, t_sp, mask_sp = (
             x_img.to(device),
             x_lc.to(device),
