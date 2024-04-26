@@ -354,7 +354,7 @@ class LightCurveImageCLIP(pl.LightningModule):
         x = self(x_img, x_lc, t_lc, mask_lc, x_sp, t_sp, mask_sp)
 
         if self.regression: 
-            loss = nn.MSELoss()(x, redshift)
+            loss = nn.MSELoss()(x.squeeze(), redshift)
         elif self.loss == "sigmoid":
             loss = sigmoid_loss_multimodal(x, self.logit_scale, self.logit_bias).mean()
         elif self.loss == "softmax":
@@ -381,7 +381,7 @@ class LightCurveImageCLIP(pl.LightningModule):
         x = self(x_img, x_lc, t_lc, mask_lc, x_sp, t_sp, mask_sp)
 
         if self.regression: 
-            loss = nn.MSELoss()(x, redshift)
+            loss = nn.MSELoss()(x.squeeze(), redshift)
         elif self.loss == "sigmoid":
             for i in range(len(x)): self.embs_list[i].append(x[i])
             loss = sigmoid_loss_multimodal(x, self.logit_scale, self.logit_bias).mean()
