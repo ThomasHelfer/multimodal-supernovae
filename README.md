@@ -21,25 +21,31 @@ Before installing, ensure you have the following prerequisites:
    cd Multimodal-hackathon-2024.git
    ```
 
-2. #### Unzip the Data
+2. #### Get data
    Unpack the dataset containing supernovae spectra, light curves and host galaxy images:
    ```bash
    unzip data/ZTFBTS.zip
    unzip data/ZTFBTS_spectra.zip   
    ```
-
-3. #### Install Required Python Packages
+   for larger simulation-based data download using wget 
+   ```bash
+   mkdir sim_data
+   cd sim_data
+   wget https://zenodo.org/records/6601211/files/scotch_z3.hdf5
+   ```
+  
+4. #### Install Required Python Packages
    Install all dependencies listed in the requirements.txt file:
    ```bash
    pip install -r requirements.txt 
    ```
 
-4. #### Run the Script
+5. #### Run the Script
    Execute the main script to start your analysis:
    ```bash
    python script.py --config_path configs/config.yaml
    ```
-5. #### Restart script
+6. #### Restart script
    To start off from a checkpoint use 
    ```bash
    python script.py --ckpt_path analysis/batch_sweep/worldly-sweep-4/model.ckpt
