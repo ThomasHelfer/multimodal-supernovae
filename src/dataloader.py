@@ -1,15 +1,17 @@
 import os
-import numpy as np
 import torch
+import h5py
+import numpy as np
+from typing import List, Tuple, Optional
 from PIL import Image
-from typing import List
-from einops import rearrange
-from tqdm import tqdm
+
 import pandas as pd
-from typing import Tuple
+import matplotlib.pyplot as plt
+from tqdm import tqdm
+from einops import rearrange
+
 from torchvision.transforms import RandomRotation
 from torch.utils.data import DataLoader, Dataset
-import matplotlib.pyplot as plt
 from astropy.cosmology import Planck15 as cosmo  # Using Planck15 cosmology by default
 from typing import Tuple, List, Optional
 from torch.utils.data import TensorDataset
@@ -67,9 +69,15 @@ class NoisyDataLoader(DataLoader):
         elif len(next(iter(dataset))) == 2:
             assert "host_galaxy" in self.combinations and len(self.combinations) == 1
         elif len(next(iter(dataset))) == 5:
-            assert ("lightcurve" in self.combinations or "spectral" in self.combinations) and len(self.combinations) == 1
+            assert (
+                "lightcurve" in self.combinations or "spectral" in self.combinations
+            ) and len(self.combinations) == 1
         else:
-            raise ValueError("Input dataloader has the wrong dimensions; has dimension {} which is unexpected".format(len(next(iter(dataset)))))
+            raise ValueError(
+                "Input dataloader has the wrong dimensions; has dimension {} which is unexpected".format(
+                    len(next(iter(dataset)))
+                )
+            )
 
     def __iter__(self):
         for batch in super().__iter__():
@@ -331,7 +339,7 @@ def load_redshifts(data_dir: str, filenames: List[str] = None) -> np.ndarray:
     if filenames is None:
         redshifts = df["redshift"].values
         filenames_redshift = df["ZTFID"].values
-    else: 
+    else:
         # Filter redshifts based on the filenames
         redshifts = df[df["ZTFID"].isin(filenames)]["redshift"].values
 
@@ -737,10 +745,10 @@ def load_data(
             filenames_spectra,
         ) = load_spectras(spectra_dir, n_max_obs=max_data_len_spec, filenames=filenames)
 
-        if filenames is not None: 
+        if filenames is not None:
             _, filenames, data = filter_files(filenames_spectra, filenames, data)
-        else: 
-            filenames = filenames_spectra 
+        else:
+            filenames = filenames_spectra
 
         assert (
             list(filenames) == filenames_spectra
@@ -763,3 +771,86 @@ def load_data(
     data = TensorDataset(*data)
 
     return data, nband, filenames
+
+
+class SimulationLightcurveDataset(Dataset):
+    """
+    A dataset class for handling transient astronomical data stored in HDF5 files.
+
+    Attributes:
+        hdf5_path (str): The path to the HDF5 file containing transient data.
+        transient_types (Optional[List[str]]): A list of transient event types to load from the file.
+            If None, all available types in the file are loaded.
+        bands (List[str]): The list of photometric bands to retrieve data for (e.g., ['r', 'g', 'b']).
+        index_map (List[Tuple[str, str, int]]): A list of tuples where each tuple contains the
+            transient type, model, and entry index for quick data retrieval.
+
+    Methods:
+        __len__: Returns the number of entries in the dataset.
+        __getitem__: Retrieves a dataset entry by index, loading data from the file as needed.
+    """
+
+    def __init__(
+        self,
+        hdf5_path: str,
+        transient_types: Optional[List[str]] = None,
+        bands: List[str] = ["r"],
+    ) -> None:
+        """
+        Initializes the dataset object by opening the HDF5 file and precalculating indices for quick access.
+
+        Args:
+            hdf5_path (str): Path to the HDF5 file.
+            transient_types (Optional[List[str]]): List of transient types in the HDF5 file. If None,
+                defaults to using all keys available in the file.
+            bands (List[str]): List of bands of interest (e.g., ['r', 'g', 'b']).
+        """
+        self.hdf5_path = hdf5_path
+        self.bands = bands
+
+        # Open the HDF5 file
+        with h5py.File(self.hdf5_path, "r") as file:
+            transients = file["TransientTable"]
+            # Default to using all keys if no specific types are provided
+            if transient_types is None:
+                transient_types = list(transients.keys())
+            self.transient_types = transient_types
+
+            # Pre-calculate indices for each entry
+            self.index_map = []
+            for t_type in self.transient_types:
+                for model in transients[t_type].keys():
+                    num_entries = len(transients[t_type][model]["MJD"])
+                    for i in range(num_entries):
+                        self.index_map.append((t_type, model, i))
+
+    def __len__(self) -> int:
+        """Returns the number of entries in the dataset."""
+        return len(self.index_map)
+
+    def __getitem__(self, idx: int) -> Tuple[List[float], List[float]]:
+        """
+        Retrieves an entry from the dataset by its index, dynamically loading data from the HDF5 file.
+
+        Args:
+            idx (int): The index of the data entry to retrieve.
+
+        Returns:
+            Tuple[List[float], List[float]]: A tuple containing time and magnitude data for the requested entry.
+        """
+        t_type, model, entry_idx = self.index_map[idx]
+
+        # Access the HDF5 file for each item
+        with h5py.File(self.hdf5_path, "r") as file:
+            transient_model = file["TransientTable"][t_type][model]
+
+            # Append data from multiple bands
+            data = []
+            time = []
+            for band in self.bands:
+                time_data = transient_model["MJD"][entry_idx]
+                mag_data = transient_model[f"mag_{band}"][entry_idx]
+                data += list(mag_data)
+                time += list(time_data)
+
+        return time, data
