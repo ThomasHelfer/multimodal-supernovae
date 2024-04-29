@@ -343,7 +343,7 @@ def load_redshifts(data_dir: str, filenames: List[str] = None) -> np.ndarray:
         # Filter redshifts based on the filenames
         redshifts = df[df["ZTFID"].isin(filenames)]["redshift"].values
 
-        filenames_redshift = df[df["ZTFID"].isin(filenames)]
+        filenames_redshift = df[df["ZTFID"].isin(filenames)]["ZTFID"].values
 
     print("Finished loading redshift")
     return redshifts, filenames_redshift
@@ -763,6 +763,10 @@ def load_data(
     # Always load the redshift
     redshifts, filenames_redshift = load_redshifts(f"{data_dir}", filenames)
     _, filenames, data = filter_files(filenames_redshift, filenames, data)
+
+    assert (
+        list(filenames) == filenames_redshift
+    ).all(), "Filtered filenames between modalities must match."
 
     # Prepare dataset with spectra data
     redshifts = torch.from_numpy(redshifts).float()
