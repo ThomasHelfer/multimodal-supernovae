@@ -134,7 +134,7 @@ class TransformerWithTimeEmbeddings(nn.Module):
         if self.agg == "attn":
             self.query = nn.Parameter(torch.rand(kwargs["emb"]))
             self.agg_attn = nn.MultiheadAttention(
-                embed_dim=kwargs['emb'], num_heads=2, dropout=0.0, batch_first=True
+                embed_dim=kwargs["emb"], num_heads=2, dropout=0.0, batch_first=True
             )
 
     def forward(self, x, t, mask=None):
@@ -217,7 +217,7 @@ class LightCurveImageCLIP(pl.LightningModule):
         optimizer_kwargs: Dict = {},
         lr: float = 1e-4,
         loss: str = "sigmoid",
-        regression: bool = False, 
+        regression: bool = False,
     ):
         """
         Initialize the LightCurveImageCLIP module.
@@ -293,7 +293,7 @@ class LightCurveImageCLIP(pl.LightningModule):
         Returns:
         List[torch.Tensor] : Array of embeddings.
         """
-        if self.regression: 
+        if self.regression:
             x = []
             if "host_galaxy" in self.combinations:
                 x_img = self.image_encoder(x_img)
@@ -302,7 +302,7 @@ class LightCurveImageCLIP(pl.LightningModule):
             if "lightcurve" in self.combinations:
                 x_lc = x_lc[..., None]  # Add channel dimension
                 x_lc = self.lightcurve_encoder(x_lc, t_lc, mask_lc)
-                x_lc = self.lightcurve_projection(x_lc)            
+                x_lc = self.lightcurve_projection(x_lc)
                 x.append(x_lc)
             if "spectral" in self.combinations:
                 x_sp = x_sp[..., None]  # Add channel dimension
@@ -318,7 +318,9 @@ class LightCurveImageCLIP(pl.LightningModule):
             if "host_galaxy" in self.combinations:
                 x.append(self.image_embeddings_with_projection(x_img))
             if "lightcurve" in self.combinations:
-                x.append(self.lightcurve_embeddings_with_projection(x_lc, t_lc, mask_lc))
+                x.append(
+                    self.lightcurve_embeddings_with_projection(x_lc, t_lc, mask_lc)
+                )
             if "spectral" in self.combinations:
                 x.append(self.spectral_embeddings_with_projection(x_sp, t_sp, mask_sp))
             return x
@@ -353,8 +355,12 @@ class LightCurveImageCLIP(pl.LightningModule):
         x_img, x_lc, t_lc, mask_lc, x_sp, t_sp, mask_sp, redshift = batch
         x = self(x_img, x_lc, t_lc, mask_lc, x_sp, t_sp, mask_sp)
 
-        if self.regression: 
+        if self.regression:
             loss = nn.MSELoss()(x.squeeze(), redshift)
+            # Store the predictions and true values for R2 calculation
+            self.y_pred.append(x.flatten())
+            self.y_true.append(redshift)
+
         elif self.loss == "sigmoid":
             loss = sigmoid_loss_multimodal(x, self.logit_scale, self.logit_bias).mean()
         elif self.loss == "softmax":
@@ -363,11 +369,35 @@ class LightCurveImageCLIP(pl.LightningModule):
                 self.logit_scale,
                 self.logit_bias,
             ).mean()
-    
+
         self.log(
             "train_loss", loss, on_epoch=True, on_step=False, prog_bar=True, logger=True
         )
         return loss
+
+    def on_train_epoch_start(self):
+        if self.regression:
+            # Initialize empty lists to store predictions and true values
+            self.y_true = []
+            self.y_pred = []
+
+    def on_train_epoch_end(self) -> None:
+        if self.regression:
+            # Compute R2
+            y_true = torch.cat(self.y_true, dim=0)
+            y_pred = torch.cat(self.y_pred, dim=0)
+            r2 = (
+                1
+                - (y_true - y_pred).pow(2).sum() / (y_true - y_true.mean()).pow(2).sum()
+            )
+            self.log(
+                "R2_train",
+                r2.cpu(),
+                on_epoch=True,
+                on_step=False,
+                prog_bar=True,
+                logger=True,
+            )
 
     def on_validation_start(self) -> None:
         """
@@ -375,18 +405,26 @@ class LightCurveImageCLIP(pl.LightningModule):
         """
         # Initialize an empty list to store embeddings
         self.embs_list = [[] for i in range(len(self.combinations))]
+        if self.regression:
+            self.y_pred_val = []
+            self.y_true_val = []
 
     def validation_step(self, batch, batch_idx):
         x_img, x_lc, t_lc, mask_lc, x_sp, t_sp, mask_sp, redshift = batch
         x = self(x_img, x_lc, t_lc, mask_lc, x_sp, t_sp, mask_sp)
 
-        if self.regression: 
+        if self.regression:
             loss = nn.MSELoss()(x.squeeze(), redshift)
+            # Store the predictions and true values for R2 calculation
+            self.y_pred_val.append(x.flatten())
+            self.y_true_val.append(redshift)
         elif self.loss == "sigmoid":
-            for i in range(len(x)): self.embs_list[i].append(x[i])
+            for i in range(len(x)):
+                self.embs_list[i].append(x[i])
             loss = sigmoid_loss_multimodal(x, self.logit_scale, self.logit_bias).mean()
         elif self.loss == "softmax":
-            for i in range(len(x)): self.embs_list[i].append(x[i]) 
+            for i in range(len(x)):
+                self.embs_list[i].append(x[i])
             loss = clip_loss_multimodal(
                 x,
                 self.logit_scale,
@@ -402,32 +440,49 @@ class LightCurveImageCLIP(pl.LightningModule):
         Called at the end of the validation epoch.
         """
 
-        if not self.regression:
+        if self.regression:
+            # Compute R2 Value if regression
+            y_true = torch.cat(self.y_true_val, dim=0)
+            y_pred = torch.cat(self.y_pred_val, dim=0)
+            r2 = (
+                1
+                - (y_true - y_pred).pow(2).sum() / (y_true - y_true.mean()).pow(2).sum()
+            )
+            self.log(
+                "R2_val",
+                r2.cpu(),
+                on_epoch=True,
+                on_step=False,
+                prog_bar=True,
+                logger=True,
+            )
+        else:
             # Concatenate all embeddings into single tensors
             for i in range(len(self.embs_list)):
                 self.embs_list[i] = torch.cat(self.embs_list[i], dim=0)
 
             if len(self.combinations) == 2:
                 self.log(
-                    f"AUC_val", get_AUC(self.embs_list[0], self.embs_list[1]), 
-                                            on_epoch=True, 
-                                            on_step=False, 
-                                            prog_bar=True, 
-                                            logger=True
+                    f"AUC_val",
+                    get_AUC(self.embs_list[0], self.embs_list[1]),
+                    on_epoch=True,
+                    on_step=False,
+                    prog_bar=True,
+                    logger=True,
                 )
             else:
-                count = 1 
+                count = 1
                 for i in range(len(self.combinations) - 1):
                     for j in range(i + 1, len(self.combinations)):
                         self.log(
-                            f"AUC_val{count}", get_AUC(self.embs_list[i], 
-                                            self.embs_list[j]), 
-                                            on_epoch=True, 
-                                            on_step=False, 
-                                            prog_bar=True, 
-                                            logger=True
+                            f"AUC_val{count}",
+                            get_AUC(self.embs_list[i], self.embs_list[j]),
+                            on_epoch=True,
+                            on_step=False,
+                            prog_bar=True,
+                            logger=True,
                         )
-                        count += 1 
+                        count += 1
 
             # Delete the embeddings to free up memory
-            self.embs_list = None 
+            self.embs_list = None
