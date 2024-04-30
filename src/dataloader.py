@@ -349,6 +349,33 @@ def load_redshifts(data_dir: str, filenames: List[str] = None) -> np.ndarray:
     return redshifts, filenames_redshift
 
 
+def make_padding_mask(n_obs: int, n_max_obs: int) -> np.ndarray:
+    '''
+    Args: 
+    n_obs (int): number of observations in the light curve
+    n_max_obs (int): maximum number of observations to pad to/filter 
+
+    Returns:
+    Tuple[np.ndarray, np.ndarray]: indices of the observations to 
+                    keep and mask for the observations
+    
+    '''
+
+    if n_obs > n_max_obs:
+        # Sample n_max_obs observations randomly (note order doesn't matter and the replace flag guarantees no double datapoints)
+        indices = np.random.choice(
+            n_obs, n_max_obs, replace=False
+        )
+        mask = np.ones(n_max_obs, dtype=bool)
+    else:
+        # Pad the arrays with zeros and create a mask
+        indices = np.arange(n_obs)
+        mask = np.zeros(n_max_obs, dtype=bool)
+        mask[: len(indices)] = True
+
+    return indices, mask
+
+
 def load_lightcurves(
     data_dir: str,
     abs_mag: bool = False,
@@ -408,18 +435,8 @@ def load_lightcurves(
             for band in bands:
                 df_band = light_curve_df[light_curve_df["band"] == band]
 
-                if len(df_band["mag"]) > n_max_obs:
-                    # Sample n_max_obs observations randomly (note order doesn't matter and the replace flag guarantees no double datapoints)
-                    indices = np.random.choice(
-                        len(df_band["mag"]), n_max_obs, replace=False
-                    )
-                    mask = np.ones(n_max_obs, dtype=bool)
-                else:
-                    # Pad the arrays with zeros and create a mask
-                    indices = np.arange(len(df_band["mag"]))
-                    mask = np.zeros(n_max_obs, dtype=bool)
-                    mask[: len(indices)] = True
-
+                indices, mask = make_padding_mask(df_band["mag"], n_max_obs)
+            
                 time = np.pad(
                     df_band["time"].iloc[indices],
                     (0, n_max_obs - len(indices)),
@@ -541,18 +558,7 @@ def load_spectras(
             else:
                 ValueError("spectra csv should have 2 or three columns only")
 
-            # Checking if the file is too long
-            if len(spectra_df["spec"]) > n_max_obs:
-                # Sample n_max_obs observations randomly (note order doesn't matter and the replace flag guarantees no double datapoints)
-                indices = np.random.choice(
-                    len(spectra_df["spec"]), n_max_obs, replace=False
-                )
-                mask = np.ones(n_max_obs, dtype=bool)
-            else:
-                # Pad the arrays with zeros and create a mask
-                indices = np.arange(len(spectra_df["spec"]))
-                mask = np.zeros(n_max_obs, dtype=bool)
-                mask[: len(indices)] = True
+            indices, mask = make_padding_mask(len(spectra_df["spec"]), n_max_obs)
 
             # Pad time and mag
             freq = np.pad(
@@ -799,6 +805,7 @@ class SimulationLightcurveDataset(Dataset):
         hdf5_path: str,
         transient_types: Optional[List[str]] = None,
         bands: List[str] = ["r"],
+        n_max_obs = 100, 
     ) -> None:
         """
         Initializes the dataset object by opening the HDF5 file and precalculating indices for quick access.
@@ -811,6 +818,7 @@ class SimulationLightcurveDataset(Dataset):
         """
         self.hdf5_path = hdf5_path
         self.bands = bands
+        self.n_max_obs = n_max_obs
 
         # Open the HDF5 file
         with h5py.File(self.hdf5_path, "r") as file:
@@ -830,7 +838,7 @@ class SimulationLightcurveDataset(Dataset):
 
     def __len__(self) -> int:
         """Returns the number of entries in the dataset."""
-        return len(self.index_map)
+        return 5000 #len(self.index_map)
 
     def __getitem__(self, idx: int) -> Tuple[List[float], List[float]]:
         """
@@ -851,10 +859,30 @@ class SimulationLightcurveDataset(Dataset):
             # Append data from multiple bands
             data = []
             time = []
+            mask_concat = []
             for band in self.bands:
                 time_data = transient_model["MJD"][entry_idx]
                 mag_data = transient_model[f"mag_{band}"][entry_idx]
+
+                indices, mask = make_padding_mask(len(time_data), self.n_max_obs)
+            
+                time_data = np.pad(
+                    time_data[indices],
+                    (0, self.n_max_obs - len(indices)),
+                    "constant",
+                )
+                mag_data = np.pad(
+                    mag_data[indices],
+                    (0, self.n_max_obs - len(indices)),
+                    "constant",
+                )
+
+                # Normalise time if there is anything to normalise
+                if sum(mask) != 0:
+                    time_data[mask] = time_data[mask] - np.min(time_data[mask])
+
                 data += list(mag_data)
                 time += list(time_data)
+                mask_concat += list(mask)
 
-        return torch.tensor(time), torch.tensor(data)
+        return torch.tensor(time).float(), torch.tensor(data).float(), torch.tensor(mask_concat).bool()
