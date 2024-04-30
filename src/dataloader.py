@@ -435,7 +435,7 @@ def load_lightcurves(
             for band in bands:
                 df_band = light_curve_df[light_curve_df["band"] == band]
 
-                indices, mask = make_padding_mask(df_band["mag"], n_max_obs)
+                indices, mask = make_padding_mask(len(df_band["mag"]), n_max_obs)
             
                 time = np.pad(
                     df_band["time"].iloc[indices],
