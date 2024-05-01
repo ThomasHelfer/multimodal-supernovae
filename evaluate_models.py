@@ -90,7 +90,8 @@ data_dirs = [
 ]
 spectra_dir = get_valid_dir(data_dirs)
 
-max_spectral_data_len = 1000
+max_spectral_data_len = 1024
+spectral_rescalefactor = 1e14
 
 # Spectral data is cut to this length
 dataset, nband, _ = load_data(
@@ -98,6 +99,7 @@ dataset, nband, _ = load_data(
     spectra_dir,
     max_data_len_spec=max_spectral_data_len,
     combinations=["host_galaxy", "lightcurve", "spectral"],
+    spectral_rescalefactor = spectral_rescalefactor
 )
 
 # Default to 1 if the environment variable is not set
@@ -114,6 +116,7 @@ for output, label in zip(models, labels):
 
     # Making sure that spectral lengths are the same
     assert max_spectral_data_len == cfg_extra_args["max_spectral_data_len"]
+    assert spectral_rescalefactor == cfg_extra_args["spectral_rescalefactor"]
 
     val_fraction = cfg_extra_args["val_fraction"]
     # Iterate over data

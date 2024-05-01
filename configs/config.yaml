@@ -27,3 +27,4 @@ classification: False
 max_spectral_data_len: 1024
 val_fraction: 0.05 # train test split
 patience: 99999999  # Parameter for early stopping 
+spectral_rescalefactor: 1e14 # rescaling spectral values by a fixed amout to avoid floating point issues

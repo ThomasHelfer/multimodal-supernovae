@@ -272,6 +272,7 @@ if __name__ == "__main__":
         max_data_len_spec=max_spectral_data_len,
         combinations=combinations,
         n_classes=n_classes,
+        spectral_rescalefactor = cfg["extra_args"]['spectral_rescalefactor'],
     )
 
     wandb.agent(
