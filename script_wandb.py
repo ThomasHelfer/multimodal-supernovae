@@ -158,7 +158,11 @@ def train_sweep(config=None):
             dirpath=path_run, save_top_k=2, monitor="val_loss"
         )
         early_stop_callback = EarlyStopping(
-            monitor="val_loss", min_delta=0.00, patience=cfg.patience, verbose=False, mode="min"
+            monitor="val_loss",
+            min_delta=0.00,
+            patience=cfg.patience,
+            verbose=False,
+            mode="min",
         )
 
         trainer = pl.Trainer(
@@ -180,7 +184,9 @@ def train_sweep(config=None):
         )
 
         if (not regression) and (not classification):
-            wandb.run.summary["best_auc"] = np.max(loss_tracking_callback.auc_val_history)
+            wandb.run.summary["best_auc"] = np.max(
+                loss_tracking_callback.auc_val_history
+            )
             wandb.run.summary["best_val_loss"] = np.min(
                 loss_tracking_callback.val_loss_history
             )
@@ -229,8 +235,7 @@ if __name__ == "__main__":
     data_dirs = [
         "/home/thelfer1/scr4_tedwar42/thelfer1/ZTFBTS/",
         "ZTFBTS/",
-        "data/ZTFBTS/"
-        "/ocean/projects/phy230064p/shared/ZTFBTS/",
+        "data/ZTFBTS/" "/ocean/projects/phy230064p/shared/ZTFBTS/",
         "/n/home02/gemzhang/repos/Multimodal-hackathon-2024/data/ZTFBTS/",
     ]
 
@@ -243,7 +248,7 @@ if __name__ == "__main__":
     classification = cfg["extra_args"]["classification"]
 
     if classification:
-        n_classes = cfg['extra_args']['n_classes']
+        n_classes = cfg["extra_args"]["n_classes"]
     else:
         n_classes = 5
 
@@ -266,7 +271,7 @@ if __name__ == "__main__":
         spectra_dir,
         max_data_len_spec=max_spectral_data_len,
         combinations=combinations,
-        n_classes=n_classes
+        n_classes=n_classes,
     )
 
     wandb.agent(

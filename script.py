@@ -65,7 +65,7 @@ if __name__ == "__main__":
     regression = cfg["regression"]
     classification = cfg["classification"]
     if classification:
-        n_classes = cfg['n_classes']
+        n_classes = cfg["n_classes"]
     else:
         n_classes = 5
 
@@ -89,11 +89,11 @@ if __name__ == "__main__":
         spectra_dir,
         max_data_len_spec=max_spectral_data_len,
         combinations=combinations,
-        n_classes=n_classes
+        n_classes=n_classes,
     )
 
     number_of_samples = len(dataset)
-    
+
     set_seed(cfg["seed"])
 
     val_fraction = cfg["val_fraction"]
@@ -124,8 +124,6 @@ if __name__ == "__main__":
         pin_memory=True,
         combinations=combinations,
     )
-
-
 
     # Create custom noisy data loaders
     train_loader = NoisyDataLoader(
@@ -206,7 +204,11 @@ if __name__ == "__main__":
     )
 
     early_stop_callback = EarlyStopping(
-        monitor="val_loss", min_delta=0.00, patience=cfg["patience"], verbose=False, mode="min"
+        monitor="val_loss",
+        min_delta=0.00,
+        patience=cfg["patience"],
+        verbose=False,
+        mode="min",
     )
 
     trainer = pl.Trainer(
@@ -227,7 +229,7 @@ if __name__ == "__main__":
         path_base=save_dir,
     )
 
-    if len(set(combinations)) > 1: 
+    if len(set(combinations)) > 1:
         # Get embeddings for all images and light curves
         embs_train = get_embs(clip_model, train_loader_no_aug, combinations)
         embs_val = get_embs(clip_model, val_loader_no_aug, combinations)

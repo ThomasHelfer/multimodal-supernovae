@@ -35,7 +35,7 @@ from src.models_multimodal import (
     ConvMixer,
     TransformerWithTimeEmbeddings,
     LightCurveImageCLIP,
-    load_model
+    load_model,
 )
 from src.transformer_utils import Transformer
 from src.utils import (
@@ -67,12 +67,11 @@ set_seed(0)
 paths = ["analysis/1fscimab/radiant-sweep-1/epoch=1995-step=39920.ckpt"]
 labels = ["test_model_1"]
 models = []
-for i,path in enumerate(paths):
-    print(f'loading {labels[i]}')
+for i, path in enumerate(paths):
+    print(f"loading {labels[i]}")
     models.append(load_model(path))
 
-print('finished loading models')
-
+print("finished loading models")
 
 
 # Data preprocessing
@@ -108,22 +107,22 @@ cpus_per_task = int(os.getenv("SLURM_CPUS_PER_TASK", 1))
 num_workers = max(1, cpus_per_task - 1)
 print(f"Using {num_workers} workers for data loading", flush=True)
 
-for output,label in zip(models,labels):
-    model, combinations, regression, cfg, cfg_extra_args = (output)
+for output, label in zip(models, labels):
+    model, combinations, regression, cfg, cfg_extra_args = output
 
     set_seed(cfg["seed"])
 
     # Making sure that spectral lengths are the same
-    assert(max_spectral_data_len == cfg_extra_args["max_spectral_data_len"])
+    assert max_spectral_data_len == cfg_extra_args["max_spectral_data_len"]
 
     val_fraction = cfg_extra_args["val_fraction"]
-    # Iterate over data 
+    # Iterate over data
     number_of_samples = len(dataset)
     n_samples_val = int(val_fraction * number_of_samples)
     dataset_train, dataset_val = random_split(
         dataset, [number_of_samples - n_samples_val, n_samples_val]
     )
-    
+
     val_loader_no_aug = NoisyDataLoader(
         dataset_val,
         batch_size=cfg["batchsize"],
@@ -133,7 +132,7 @@ for output,label in zip(models,labels):
         num_workers=num_workers,
         pin_memory=True,
         combinations=["host_galaxy", "lightcurve", "spectral"],
-    ) 
+    )
 
     model = model.to(device)
 
@@ -158,15 +157,10 @@ for output,label in zip(models,labels):
             y_pred_val.append(x.detach().cpu().flatten())
             y_true_val.append(redshift)
 
-    #Calculate R2
+    # Calculate R2
 
     y_true = torch.cat(y_true_val, dim=0)
     y_pred = torch.cat(y_pred_val, dim=0)
-    r2 = (
-        1
-        - (y_true - y_pred).pow(2).sum() / (y_true - y_true.mean()).pow(2).sum()
-    )
+    r2 = 1 - (y_true - y_pred).pow(2).sum() / (y_true - y_true.mean()).pow(2).sum()
 
-    print(f'We find our model as an R2 value of {r2}')
-
-    
+    print(f"We find our model as an R2 value of {r2}")
