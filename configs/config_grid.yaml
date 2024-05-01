@@ -53,6 +53,7 @@ parameters:
 extra_args:
   combinations: ["lightcurve", "host_galaxy"] 
   regression: True
+  classification: False
   nruns: 20
   max_spectral_data_len: 1024
   val_fraction: 0.05  # train test split
