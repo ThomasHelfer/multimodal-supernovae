@@ -50,7 +50,7 @@ if __name__ == "__main__":
 
     save_dir, cfg = get_savedir(args)
 
-    set_seed(cfg["seed"])
+    set_seed(0)
 
     # Data preprocessing
     data_dirs = [
@@ -93,6 +93,8 @@ if __name__ == "__main__":
     )
 
     number_of_samples = len(dataset)
+    
+    set_seed(cfg["seed"])
 
     val_fraction = 0.05
     batch_size = cfg["batchsize"]
@@ -122,6 +124,7 @@ if __name__ == "__main__":
         pin_memory=True,
         combinations=combinations,
     )
+
 
     # Define the noise levels for images and magnitude (multiplied by magerr)
     noise_level_img = 1  # Adjust as needed

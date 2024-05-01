@@ -152,6 +152,8 @@ class LossTrackingCallback(Callback):
         self.val_loss_history = []
         self.epoch_train_loss = []
         self.auc_val_history = []
+        self.R2_val_history = []
+        self.R2_train_history = []
 
     def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx):
         # Accumulate training loss for each batch
@@ -162,6 +164,7 @@ class LossTrackingCallback(Callback):
         # Append average training loss after each epoch
         epoch_loss = sum(self.epoch_train_loss) / len(self.epoch_train_loss)
         self.train_loss_history.append(epoch_loss)
+        self.R2_train_history.append(trainer.callback_metrics.get("R2_train"))
         # Reset the list for the next epoch
         self.epoch_train_loss = []
 
@@ -174,6 +177,7 @@ class LossTrackingCallback(Callback):
     def on_validation_end(self, trainer: Trainer, pl_module: LightningModule) -> None:
         auc_val = trainer.callback_metrics.get("AUC_val")
         auc_val1 = trainer.callback_metrics.get("AUC_val1")
+        self.R2_val_history.append(trainer.callback_metrics.get("R2_val"))
         if auc_val or auc_val1:
             if auc_val is None:
                 auc_val = (

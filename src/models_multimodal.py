@@ -1,15 +1,23 @@
-import torch.nn as nn
-from src.transformer_utils import Transformer
-import pytorch_lightning as pl
-from torchmetrics.classification import MulticlassFBetaScore
-from typing import Dict, Optional, Tuple
-import torch
+# Standard library imports
 import math
+import os
 import sys
-from src.loss import sigmoid_loss_multimodal, clip_loss_multimodal
-from src.utils import get_AUC
-import wandb
 
+# Third-party imports
+import pytorch_lightning as pl
+import torch
+import torch.nn as nn
+from ruamel.yaml import YAML
+import wandb
+from torchmetrics.classification import MulticlassFBetaScore
+
+# Local application imports
+from src.loss import sigmoid_loss_multimodal, clip_loss_multimodal
+from src.transformer_utils import Transformer
+from src.utils import get_AUC
+
+# Typing imports
+from typing import Any, Dict, Optional, Tuple
 
 class Residual(nn.Module):
     """
@@ -568,3 +576,91 @@ class LightCurveImageCLIP(pl.LightningModule):
 
             # Delete the embeddings to free up memory
             self.embs_list = None
+
+
+ 
+
+def load_model(path: str, combinations: Optional[Any] = None, regression: Optional[Any] = None) -> LightCurveImageCLIP:
+    """
+    Load a trained LightCurveImageCLIP model from a checkpoint file.
+
+    Args:
+        path (str): Path to the checkpoint file (.ckpt).
+        combinations (Optional[Any]): Combination parameters for the model. If not provided, it will be loaded from the sweep configuration.
+        regression (Optional[Bool]): Regression bolean, if True the model is a regression model. If not provided, it will be loaded from the sweep configuration.
+
+    Returns:
+        LightCurveImageCLIP: The loaded and configured model.
+        combinations: Combination parameters for the model.
+        regression: 
+        cfg: dictonary containing yaml 
+    """
+    # Load the sweep configuration file
+    config_dir = os.path.dirname(path)
+    sweep_config_dir = os.path.dirname(config_dir)
+    if combinations is None or regression is None:
+        cfg_extra_args: Dict[str, Any] = YAML(typ="safe").load(open(f"{sweep_config_dir}/sweep_config.yaml"))
+
+    if combinations is None:
+        combinations =  cfg_extra_args['extra_args']['combinations']
+    if regression is None:
+        regression =  cfg_extra_args['extra_args']['regression']
+    
+    # Load the main configuration file
+    cfg: Dict[str, Any] = YAML(typ="safe").load(open(f"{config_dir}/config.yaml"))
+
+    # Setting parameters for the transformer
+    transformer_kwargs = {
+        "n_out": cfg["n_out"],
+        "emb": cfg["emb"],
+        "heads": cfg["heads"],
+        "depth": cfg["transformer_depth"],
+        "dropout": cfg["dropout"],
+        "time_norm": cfg["time_norm"],
+    }
+
+    # Setting parameters for the spectral transformer
+    transformer_spectral_kwargs = {
+        "n_out": cfg["n_out"],
+        "emb": cfg["emb_spectral"],
+        "heads": cfg["heads"],
+        "depth": cfg["transformer_depth_spectral"],
+        "dropout": cfg["dropout"],
+        "time_norm": cfg["time_norm_spectral"],
+    }
+
+    # Setting parameters for the convolutional model
+    conv_kwargs = {
+        "dim": 32,
+        "depth": cfg["cnn_depth"],
+        "channels": 3,
+        "kernel_size": 5,
+        "patch_size": 10,
+        "n_out": cfg["n_out"],
+        "dropout_prob": cfg["dropout"],
+    }
+    # Create the model instance
+    model = LightCurveImageCLIP(
+        logit_scale=cfg["logit_scale"],
+        lr=cfg["lr"],
+        nband=2,
+        loss="softmax",
+        transformer_kwargs=transformer_kwargs,
+        transformer_spectral_kwargs=transformer_spectral_kwargs,
+        conv_kwargs=conv_kwargs,
+        optimizer_kwargs={},
+        combinations=combinations,
+        regression=regression
+    )
+    
+    # Set the model to the appropriate device (CPU/GPU)
+    model.to(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
+
+    # Load the model state from the checkpoint file
+    model.load_state_dict(torch.load(path, map_location=torch.device("cpu"))["state_dict"])
+
+    # Set the model to evaluation mode
+    model.eval()
+
+    return model, combinations, regression, cfg, cfg_extra_args['extra_args']
+
