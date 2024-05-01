@@ -43,22 +43,24 @@ def clip_loss_multimodal(
     logit_scales=1.0,
     logit_biases=0.0,
 ):
-    loss_total = 0 
+    loss_total = 0
     n_embeddings = len(embeddings)
 
     if logit_scales.dim() == 0:
-        logit_scales = logit_scales.repeat(n_embeddings*(n_embeddings-1)//2)
+        logit_scales = logit_scales.repeat(n_embeddings * (n_embeddings - 1) // 2)
     if logit_biases.dim() == 0:
-        logit_biases = logit_biases.repeat(n_embeddings*(n_embeddings-1)//2)
+        logit_biases = logit_biases.repeat(n_embeddings * (n_embeddings - 1) // 2)
 
     # Compute the loss for each pair of embeddings
-    count = 0 
+    count = 0
     for i in range(n_embeddings - 1):
         for j in range(i + 1, n_embeddings):
             logit_scale = logit_scales[count]
             logit_bias = logit_biases[count]
-            loss_total += clip_loss(embeddings[i], embeddings[j], logit_scale, logit_bias)
-            count += 1 
+            loss_total += clip_loss(
+                embeddings[i], embeddings[j], logit_scale, logit_bias
+            )
+            count += 1
 
     return loss_total
 
@@ -80,17 +82,18 @@ def sigmoid_loss(embs1, embs2, logit_scale=1.0, logit_bias=2.73):
 
     return loss
 
+
 def sigmoid_loss_multimodal(embeds, logit_scales=1.0, logit_biases=2.73):
-    loss_total = 0 
+    loss_total = 0
     n_embeds = len(embeds)
 
     if logit_scales.dim() == 0:
-        logit_scales = logit_scales.repeat(n_embeds*(n_embeds-1)//2)
+        logit_scales = logit_scales.repeat(n_embeds * (n_embeds - 1) // 2)
     if logit_biases.dim() == 0:
-        logit_biases = logit_biases.repeat(n_embeds*(n_embeds-1)//2)
+        logit_biases = logit_biases.repeat(n_embeds * (n_embeds - 1) // 2)
 
     # Compute the loss for each pair of embeddings
-    count = 0 
+    count = 0
     for i in range(n_embeds - 1):
         emb1 = embeds[i]
         for j in range(i + 1, n_embeds):
@@ -98,7 +101,7 @@ def sigmoid_loss_multimodal(embeds, logit_scales=1.0, logit_biases=2.73):
             logit_scale = logit_scales[count]
             logit_bias = logit_biases[count]
             loss = sigmoid_loss(emb1, emb2, logit_scale, logit_bias)
-            loss_total += loss 
-            count += 1 
+            loss_total += loss
+            count += 1
 
     return loss_total

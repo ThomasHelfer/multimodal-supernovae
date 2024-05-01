@@ -166,7 +166,15 @@ class NoisyDataLoader(DataLoader):
 
             elif self.combinations == set(["host_galaxy", "spectral"]):
                 # Add random noise to images and time-magnitude tensors
-                host_imgs, spec, freq, maskspec, specerr, redshift, classification = batch
+                (
+                    host_imgs,
+                    spec,
+                    freq,
+                    maskspec,
+                    specerr,
+                    redshift,
+                    classification,
+                ) = batch
 
                 # Calculate the range for the random noise based on the max_noise_intensity
                 noise_range = self.max_noise_intensity * torch.std(host_imgs)
@@ -350,7 +358,10 @@ def load_redshifts(data_dir: str, filenames: List[str] = None) -> np.ndarray:
     print("Finished loading redshift")
     return redshifts, filenames_redshift
 
-def load_classes(data_dir: str, n_classes: int=5, filenames: List[str] = None) -> np.ndarray:
+
+def load_classes(
+    data_dir: str, n_classes: int = 5, filenames: List[str] = None
+) -> np.ndarray:
     """
     Load classification values from a CSV file in the specified directory.
 
@@ -368,25 +379,25 @@ def load_classes(data_dir: str, n_classes: int=5, filenames: List[str] = None) -
     df = pd.read_csv(f"{data_dir}/ZTFBTS_TransientTable.csv")
     df = df.dropna(subset=["type"])
 
-    #only consider five-way classification
-    df.loc[df['type'] == 'SN Ib', 'type'] = 'SN Ibc'
-    df.loc[df['type'] == 'SN Ic', 'type'] = 'SN Ibc'
-    df.loc[df['type'] == 'SN Ib/c', 'type'] = 'SN Ibc'
-    df.loc[df['type'] == 'SN IIP', 'type'] = 'SN II'
+    # only consider five-way classification
+    df.loc[df["type"] == "SN Ib", "type"] = "SN Ibc"
+    df.loc[df["type"] == "SN Ic", "type"] = "SN Ibc"
+    df.loc[df["type"] == "SN Ib/c", "type"] = "SN Ibc"
+    df.loc[df["type"] == "SN IIP", "type"] = "SN II"
 
     if n_classes == 5:
-        df = df[df['type'].isin(['SN Ia', 'SN Ibc', 'SLSN-I', 'SN II', 'SN IIn'])]
+        df = df[df["type"].isin(["SN Ia", "SN Ibc", "SLSN-I", "SN II", "SN IIn"])]
     elif n_classes == 3:
-        df = df[df['type'].isin(['SN Ia', 'SN Ibc', 'SN II'])]
+        df = df[df["type"].isin(["SN Ia", "SN Ibc", "SN II"])]
 
     # Use the Series to map the names to types
-    class_types = df['type'].values
-    df['type_factorized'] = (pd.factorize(class_types, sort=True)[0])
-    #factorized types for 5-class will be as follows: 
+    class_types = df["type"].values
+    df["type_factorized"] = pd.factorize(class_types, sort=True)[0]
+    # factorized types for 5-class will be as follows:
     #    'SLSN-I', 'SN II', 'SN IIn', 'SN Ia', 'SN Ibc'
-    #factorized types for 3-class will be:
+    # factorized types for 3-class will be:
     #    'SN II', 'SN Ia', 'SN Ibc'
-    
+
     if filenames is None:
         classifications = df["type_factorized"].values
         filenames_class = df["ZTFID"].values
@@ -398,23 +409,22 @@ def load_classes(data_dir: str, n_classes: int=5, filenames: List[str] = None) -
     print("Finished loading transient classes.")
     return classifications, filenames_class
 
+
 def make_padding_mask(n_obs: int, n_max_obs: int) -> np.ndarray:
-    '''
-    Args: 
+    """
+    Args:
     n_obs (int): number of observations in the light curve
-    n_max_obs (int): maximum number of observations to pad to/filter 
+    n_max_obs (int): maximum number of observations to pad to/filter
 
     Returns:
-    Tuple[np.ndarray, np.ndarray]: indices of the observations to 
+    Tuple[np.ndarray, np.ndarray]: indices of the observations to
                     keep and mask for the observations
-    
-    '''
+
+    """
 
     if n_obs > n_max_obs:
         # Sample n_max_obs observations randomly (note order doesn't matter and the replace flag guarantees no double datapoints)
-        indices = np.random.choice(
-            n_obs, n_max_obs, replace=False
-        )
+        indices = np.random.choice(n_obs, n_max_obs, replace=False)
         mask = np.ones(n_max_obs, dtype=bool)
     else:
         # Pad the arrays with zeros and create a mask
@@ -485,7 +495,7 @@ def load_lightcurves(
                 df_band = light_curve_df[light_curve_df["band"] == band]
 
                 indices, mask = make_padding_mask(len(df_band["mag"]), n_max_obs)
-            
+
                 time = np.pad(
                     df_band["time"].iloc[indices],
                     (0, n_max_obs - len(indices)),
@@ -731,6 +741,7 @@ def load_data(
     max_data_len_spec: int = 1000,
     combinations: List = ["host_galaxy", "lightcurve"],
     n_classes: int = 5,
+    spectral_rescalefactor: float = 1e14,
 ) -> Tuple[TensorDataset, int]:
     """
     Load data from specified directories, handling both images and light curves or spectra.
@@ -741,6 +752,8 @@ def load_data(
     max_data_len_lc (int, optional): Maximum length of the light curve arrays to load. Default is 100.
     max_data_len_spec (int, optional): Maximum length of the spectra arrays to load. Default is 1000.
     combinations (List[str], optional): List of modalities to load. Default is ["host_galaxy", "lightcurve"].
+    spectral_rescalefactor (int) default 1e14: factor to rescale the spectrum data
+
 
     Returns:
     dataset (TensorDataset): A TensorDataset containing the loaded data.
@@ -799,7 +812,12 @@ def load_data(
             specerr_ary,
             maskspec_ary,
             filenames_spectra,
-        ) = load_spectras(spectra_dir, n_max_obs=max_data_len_spec, filenames=filenames)
+        ) = load_spectras(
+            spectra_dir,
+            n_max_obs=max_data_len_spec,
+            rescalefactor=spectral_rescalefactor,
+            filenames=filenames,
+        )
 
         if filenames is not None:
             _, filenames, data = filter_files(filenames_spectra, filenames, data)
@@ -828,14 +846,16 @@ def load_data(
     redshifts = torch.from_numpy(redshifts).float()
     data += [redshifts]
 
-    # Load transient types 
-    classifications, filenames_classifications = load_classes(f"{data_dir}", n_classes, filenames)
+    # Load transient types
+    classifications, filenames_classifications = load_classes(
+        f"{data_dir}", n_classes, filenames
+    )
     _, filenames, data = filter_files(filenames_classifications, filenames, data)
 
     # Prepare dataset with spectra data
     classifications = torch.from_numpy(classifications).float()
     data += [classifications]
-    
+
     data = TensorDataset(*data)
 
     return data, nband, filenames
@@ -863,7 +883,7 @@ class SimulationLightcurveDataset(Dataset):
         hdf5_path: str,
         transient_types: Optional[List[str]] = None,
         bands: List[str] = ["r"],
-        n_max_obs = 100, 
+        n_max_obs=100,
     ) -> None:
         """
         Initializes the dataset object by opening the HDF5 file and precalculating indices for quick access.
@@ -896,7 +916,7 @@ class SimulationLightcurveDataset(Dataset):
 
     def __len__(self) -> int:
         """Returns the number of entries in the dataset."""
-        return 5000 #len(self.index_map)
+        return 5000  # len(self.index_map)
 
     def __getitem__(self, idx: int) -> Tuple[List[float], List[float]]:
         """
@@ -923,7 +943,7 @@ class SimulationLightcurveDataset(Dataset):
                 mag_data = transient_model[f"mag_{band}"][entry_idx]
 
                 indices, mask = make_padding_mask(len(time_data), self.n_max_obs)
-            
+
                 time_data = np.pad(
                     time_data[indices],
                     (0, self.n_max_obs - len(indices)),
@@ -943,4 +963,8 @@ class SimulationLightcurveDataset(Dataset):
                 time += list(time_data)
                 mask_concat += list(mask)
 
-        return torch.tensor(time).float(), torch.tensor(data).float(), torch.tensor(mask_concat).bool()
+        return (
+            torch.tensor(time).float(),
+            torch.tensor(data).float(),
+            torch.tensor(mask_concat).bool(),
+        )

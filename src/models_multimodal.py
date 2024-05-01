@@ -19,6 +19,7 @@ from src.utils import get_AUC
 # Typing imports
 from typing import Any, Dict, Optional, Tuple
 
+
 class Residual(nn.Module):
     """
     A residual block that adds the input to the output of a function.
@@ -226,7 +227,7 @@ class LightCurveImageCLIP(pl.LightningModule):
         optimizer_kwargs: Dict = {},
         lr: float = 1e-4,
         loss: str = "sigmoid",
-        regression: bool = False, 
+        regression: bool = False,
         classification: bool = False,
         n_classes: int = 5,
     ):
@@ -282,7 +283,7 @@ class LightCurveImageCLIP(pl.LightningModule):
             self.image_projection = nn.Linear(conv_kwargs["n_out"], enc_dim)
 
         self.loss = loss
-        self.linear_out = 1 #for regression
+        self.linear_out = 1  # for regression
         if self.classification:
             self.linear_out = self.n_classes
 
@@ -311,7 +312,7 @@ class LightCurveImageCLIP(pl.LightningModule):
         Returns:
         List[torch.Tensor] : Array of embeddings.
         """
-        if self.regression or self.classification: 
+        if self.regression or self.classification:
             x = []
             if "host_galaxy" in self.combinations:
                 x_img = self.image_encoder(x_img)
@@ -370,7 +371,17 @@ class LightCurveImageCLIP(pl.LightningModule):
         return {"optimizer": optimizer}
 
     def training_step(self, batch, batch_idx):
-        x_img, x_lc, t_lc, mask_lc, x_sp, t_sp, mask_sp, redshift, classification = batch
+        (
+            x_img,
+            x_lc,
+            t_lc,
+            mask_lc,
+            x_sp,
+            t_sp,
+            mask_sp,
+            redshift,
+            classification,
+        ) = batch
         x = self(x_img, x_lc, t_lc, mask_lc, x_sp, t_sp, mask_sp)
 
         if self.regression:
@@ -381,16 +392,20 @@ class LightCurveImageCLIP(pl.LightningModule):
             self.y_true.append(redshift)
 
         elif self.classification:
-            #matching the (rough) class breakdown of ZTF BTS 
+            # matching the (rough) class breakdown of ZTF BTS
             if self.n_classes == 5:
-                class_weights = torch.tensor([0.3, 0.08, 1.0, 0.01, 0.2]).to(x.device).float()
+                class_weights = (
+                    torch.tensor([0.3, 0.08, 1.0, 0.01, 0.2]).to(x.device).float()
+                )
             elif self.n_classes == 3:
                 class_weights = torch.tensor([0.33, 0.06, 1.0]).to(x.device).float()
             else:
-                #if we can't figure out the classification don't reweight
+                # if we can't figure out the classification don't reweight
                 class_weights = torch.ones(self.n_classes).to(x.device).float()
 
-            loss = nn.CrossEntropyLoss(weight=class_weights)(x.squeeze(), classification.long())
+            loss = nn.CrossEntropyLoss(weight=class_weights)(
+                x.squeeze(), classification.long()
+            )
 
             self.y_pred.append(x)
             self.y_true.append(classification)
@@ -439,14 +454,17 @@ class LightCurveImageCLIP(pl.LightningModule):
             y_pred = torch.cat(self.y_pred, dim=0)
 
             y_pred = torch.argmax(y_pred, dim=1)
-            
+
             y_pred = y_pred.int()  # Ensure it's an integer tensor
             y_true = y_true.int()  # Ensure it's an integer tensor
 
-            #beta is the weighting between precision and recall. For now use beta=1, equal weight.
-            f1 = MulticlassFBetaScore(beta=1.0, num_classes=self.n_classes).to(y_pred.device)(y_pred.int(), y_true)
-            self.log("f1_train",
-                f1.cpu(), 
+            # beta is the weighting between precision and recall. For now use beta=1, equal weight.
+            f1 = MulticlassFBetaScore(beta=1.0, num_classes=self.n_classes).to(
+                y_pred.device
+            )(y_pred.int(), y_true)
+            self.log(
+                "f1_train",
+                f1.cpu(),
                 on_epoch=True,
                 on_step=False,
                 prog_bar=True,
@@ -464,7 +482,17 @@ class LightCurveImageCLIP(pl.LightningModule):
             self.y_true_val = []
 
     def validation_step(self, batch, batch_idx):
-        x_img, x_lc, t_lc, mask_lc, x_sp, t_sp, mask_sp, redshift, classification = batch
+        (
+            x_img,
+            x_lc,
+            t_lc,
+            mask_lc,
+            x_sp,
+            t_sp,
+            mask_sp,
+            redshift,
+            classification,
+        ) = batch
         x = self(x_img, x_lc, t_lc, mask_lc, x_sp, t_sp, mask_sp)
 
         if self.regression:
@@ -475,16 +503,20 @@ class LightCurveImageCLIP(pl.LightningModule):
             self.y_true_val.append(redshift)
 
         elif self.classification:
-            #matching the (rough) class breakdown of ZTF BTS - lower for more common classes
+            # matching the (rough) class breakdown of ZTF BTS - lower for more common classes
             if self.n_classes == 5:
-                class_weights = torch.tensor([0.3, 0.08, 1.0, 0.01, 0.2]).to(x.device).float()
+                class_weights = (
+                    torch.tensor([0.3, 0.08, 1.0, 0.01, 0.2]).to(x.device).float()
+                )
             elif self.n_classes == 3:
                 class_weights = torch.tensor([0.33, 0.06, 1.0]).to(x.device).float()
             else:
-                #if we can't figure out the classification don't reweight
+                # if we can't figure out the classification don't reweight
                 class_weights = torch.ones(self.n_classes).to(x.device).float()
 
-            loss = nn.CrossEntropyLoss(weight=class_weights)(x.squeeze(), classification.long())
+            loss = nn.CrossEntropyLoss(weight=class_weights)(
+                x.squeeze(), classification.long()
+            )
 
             self.y_pred_val.append(x)
             self.y_true_val.append(classification)
@@ -537,7 +569,9 @@ class LightCurveImageCLIP(pl.LightningModule):
             y_pred = y_pred.int()  # Ensure it's an integer tensor
             y_true = y_true.int()  # Ensure it's an integer tensor
 
-            f1 = MulticlassFBetaScore(beta=1.0, num_classes=self.n_classes).to(y_pred.device)(y_pred, y_true)
+            f1 = MulticlassFBetaScore(beta=1.0, num_classes=self.n_classes).to(
+                y_pred.device
+            )(y_pred, y_true)
             self.log(
                 "f1_val",
                 f1.cpu(),
@@ -578,9 +612,9 @@ class LightCurveImageCLIP(pl.LightningModule):
             self.embs_list = None
 
 
- 
-
-def load_model(path: str, combinations: Optional[Any] = None, regression: Optional[Any] = None) -> LightCurveImageCLIP:
+def load_model(
+    path: str, combinations: Optional[Any] = None, regression: Optional[Any] = None
+) -> LightCurveImageCLIP:
     """
     Load a trained LightCurveImageCLIP model from a checkpoint file.
 
@@ -592,20 +626,22 @@ def load_model(path: str, combinations: Optional[Any] = None, regression: Option
     Returns:
         LightCurveImageCLIP: The loaded and configured model.
         combinations: Combination parameters for the model.
-        regression: 
-        cfg: dictonary containing yaml 
+        regression:
+        cfg: dictonary containing yaml
     """
     # Load the sweep configuration file
     config_dir = os.path.dirname(path)
     sweep_config_dir = os.path.dirname(config_dir)
     if combinations is None or regression is None:
-        cfg_extra_args: Dict[str, Any] = YAML(typ="safe").load(open(f"{sweep_config_dir}/sweep_config.yaml"))
+        cfg_extra_args: Dict[str, Any] = YAML(typ="safe").load(
+            open(f"{sweep_config_dir}/sweep_config.yaml")
+        )
 
     if combinations is None:
-        combinations =  cfg_extra_args['extra_args']['combinations']
+        combinations = cfg_extra_args["extra_args"]["combinations"]
     if regression is None:
-        regression =  cfg_extra_args['extra_args']['regression']
-    
+        regression = cfg_extra_args["extra_args"]["regression"]
+
     # Load the main configuration file
     cfg: Dict[str, Any] = YAML(typ="safe").load(open(f"{config_dir}/config.yaml"))
 
@@ -650,17 +686,18 @@ def load_model(path: str, combinations: Optional[Any] = None, regression: Option
         conv_kwargs=conv_kwargs,
         optimizer_kwargs={},
         combinations=combinations,
-        regression=regression
+        regression=regression,
     )
-    
+
     # Set the model to the appropriate device (CPU/GPU)
     model.to(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
 
     # Load the model state from the checkpoint file
-    model.load_state_dict(torch.load(path, map_location=torch.device("cpu"))["state_dict"])
+    model.load_state_dict(
+        torch.load(path, map_location=torch.device("cpu"))["state_dict"]
+    )
 
     # Set the model to evaluation mode
     model.eval()
 
-    return model, combinations, regression, cfg, cfg_extra_args['extra_args']
-
+    return model, combinations, regression, cfg, cfg_extra_args["extra_args"]
