@@ -82,8 +82,8 @@ def train_sweep(config=None):
         train_loader = NoisyDataLoader(
             dataset_train,
             batch_size=cfg.batchsize,
-            noise_level_img=noise_level_img,
-            noise_level_mag=noise_level_mag,
+            noise_level_img=1,
+            noise_level_mag=1,
             shuffle=True,
             num_workers=num_workers,
             pin_memory=True,
@@ -92,8 +92,8 @@ def train_sweep(config=None):
         val_loader = NoisyDataLoader(
             dataset_val,
             batch_size=cfg.batchsize,
-            noise_level_img=val_noise,
-            noise_level_mag=val_noise,
+            noise_level_img=0,
+            noise_level_mag=0,
             shuffle=False,
             num_workers=num_workers,
             pin_memory=True,
@@ -223,11 +223,7 @@ if __name__ == "__main__":
     set_seed(0)
     # define constants
     val_fraction = 0.05
-    # Define the noise levels for images and magnitude (multiplied by magerr)
-    noise_level_img = 1  # Adjust as needed
-    noise_level_mag = 1  # Adjust as needed
 
-    val_noise = 0
 
     # Data preprocessing
 

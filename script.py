@@ -126,18 +126,13 @@ if __name__ == "__main__":
     )
 
 
-    # Define the noise levels for images and magnitude (multiplied by magerr)
-    noise_level_img = 1  # Adjust as needed
-    noise_level_mag = 1  # Adjust as needed
-
-    val_noise = 0
 
     # Create custom noisy data loaders
     train_loader = NoisyDataLoader(
         dataset_train,
         batch_size=batch_size,
-        noise_level_img=noise_level_img,
-        noise_level_mag=noise_level_mag,
+        noise_level_img=1,
+        noise_level_mag=1,
         shuffle=True,
         num_workers=1,
         pin_memory=True,
@@ -146,8 +141,8 @@ if __name__ == "__main__":
     val_loader = NoisyDataLoader(
         dataset_val,
         batch_size=batch_size,
-        noise_level_img=val_noise,
-        noise_level_mag=val_noise,
+        noise_level_img=0,
+        noise_level_mag=0,
         shuffle=False,
         num_workers=1,
         pin_memory=True,
