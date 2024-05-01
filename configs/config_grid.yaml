@@ -47,9 +47,12 @@ parameters:
     values: [20.]
   seed:
     values: [0]
+  patience:    # Parameter for early stopping 
+    values: [99999999]
 # Options are 'lightcurve' 'spectral' and 'host_galaxy' -- order does not matter 
 extra_args:
   combinations: ["lightcurve", "host_galaxy"] 
   regression: True
   nruns: 20
   max_spectral_data_len: 1024
+  val_fraction: 0.05  # train test split

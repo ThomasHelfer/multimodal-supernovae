@@ -73,12 +73,7 @@ for i,path in enumerate(paths):
 
 print('finished loading models')
 
-val_fraction = 0.05
-# Define the noise levels for images and magnitude (multiplied by magerr)
-noise_level_img = 1  # Adjust as needed
-noise_level_mag = 1  # Adjust as needed
 
-val_noise = 0
 
 # Data preprocessing
 
@@ -121,13 +116,14 @@ for output,label in zip(models,labels):
     # Making sure that spectral lengths are the same
     assert(max_spectral_data_len == cfg_extra_args["max_spectral_data_len"])
 
+    val_fraction = cfg_extra_args["val_fraction"]
     # Iterate over data 
     number_of_samples = len(dataset)
     n_samples_val = int(val_fraction * number_of_samples)
     dataset_train, dataset_val = random_split(
         dataset, [number_of_samples - n_samples_val, n_samples_val]
     )
-
+    
     val_loader_no_aug = NoisyDataLoader(
         dataset_val,
         batch_size=cfg["batchsize"],

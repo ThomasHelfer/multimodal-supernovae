@@ -22,7 +22,8 @@ lr: 0.0001
 weight_decay: 0.01
 # Options are 'lightcurve' 'spectral' and 'host_galaxy' -- order does not matter 
 combinations: ['spectral','lightcurve']
-
 regression: False
 classification: False
 max_spectral_data_len: 1024
+val_fraction: 0.05 # train test split
+patience: 99999999  # Parameter for early stopping 

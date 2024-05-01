@@ -96,7 +96,7 @@ if __name__ == "__main__":
     
     set_seed(cfg["seed"])
 
-    val_fraction = 0.05
+    val_fraction = cfg["val_fraction"]
     batch_size = cfg["batchsize"]
     n_samples_val = int(val_fraction * number_of_samples)
 
@@ -206,7 +206,7 @@ if __name__ == "__main__":
     )
 
     early_stop_callback = EarlyStopping(
-        monitor="val_loss", min_delta=0.00, patience=100, verbose=False, mode="min"
+        monitor="val_loss", min_delta=0.00, patience=cfg["patience"], verbose=False, mode="min"
     )
 
     trainer = pl.Trainer(

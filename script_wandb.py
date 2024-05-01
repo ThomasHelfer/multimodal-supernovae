@@ -158,7 +158,7 @@ def train_sweep(config=None):
             dirpath=path_run, save_top_k=2, monitor="val_loss"
         )
         early_stop_callback = EarlyStopping(
-            monitor="val_loss", min_delta=0.00, patience=9999999999, verbose=False, mode="min"
+            monitor="val_loss", min_delta=0.00, patience=cfg.patience, verbose=False, mode="min"
         )
 
         trainer = pl.Trainer(
@@ -167,7 +167,7 @@ def train_sweep(config=None):
             callbacks=[
                 loss_tracking_callback,
                 checkpoint_callback,
-                #early_stop_callback,
+                early_stop_callback,
             ],
             logger=wandb_logger,
             enable_progress_bar=False,
@@ -222,8 +222,7 @@ if __name__ == "__main__":
 
     set_seed(0)
     # define constants
-    val_fraction = 0.05
-
+    val_fraction = cfg["extra_args"]["val_fraction"]
 
     # Data preprocessing
 
