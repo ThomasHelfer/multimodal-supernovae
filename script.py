@@ -56,12 +56,19 @@ if __name__ == "__main__":
     data_dirs = [
         "/home/thelfer1/scr4_tedwar42/thelfer1/ZTFBTS/",
         "ZTFBTS/",
+        "data/ZTFBTS/",
         "/ocean/projects/phy230064p/shared/ZTFBTS/",
         "/n/home02/gemzhang/repos/Multimodal-hackathon-2024/data/ZTFBTS/",
     ]
 
     combinations = cfg["combinations"]
     regression = cfg["regression"]
+    classification = cfg["classification"]
+    if classification:
+        n_classes = cfg['n_classes']
+    else:
+        n_classes = 5
+
     print(f"Using combinations: {combinations}")
 
     # Get the first valid directory
@@ -82,6 +89,7 @@ if __name__ == "__main__":
         spectra_dir,
         max_data_len_spec=max_spectral_data_len,
         combinations=combinations,
+        n_classes=n_classes
     )
 
     number_of_samples = len(dataset)
@@ -185,7 +193,9 @@ if __name__ == "__main__":
         conv_kwargs=conv_kwargs,
         optimizer_kwargs=optimizer_kwargs,
         combinations=combinations,
+        classification=classification,
         regression=regression,
+        n_classes=n_classes,
     )
 
     # Custom call back for tracking loss

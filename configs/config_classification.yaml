@@ -1,0 +1,28 @@
+seed: 0
+batchsize: 256
+dropout: 0
+logit_scale: 2.4319243932138925
+n_out: 32
+# Parameter for lightcurve transformer
+emb: 32
+transformer_depth: 1
+heads: 2
+time_norm: 10000
+agg: "mean"
+cnn_depth: 2 #not used; only for galaxy images
+# Parameter for spectra transformer
+emb_spectral: 32 
+transformer_depth_spectral: 1 
+heads_spectral: 2
+time_norm_spectral: 10000
+agg_spectral: "mean"
+# Optimiser
+epochs: 500
+lr: 0.0001
+weight_decay: 0.01
+# Options are 'lightcurve' 'spectral' and 'host_galaxy' -- order does not matter 
+combinations: ['spectral']
+classification: True
+n_classes: 5
+regression: False
+max_spectral_data_len: 1024

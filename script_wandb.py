@@ -140,6 +140,8 @@ def train_sweep(config=None):
             optimizer_kwargs=optimizer_kwargs,
             combinations=combinations,
             regression=regression,
+            classification=classification,
+            n_classes=n_classes,
         )
 
         # Custom call back for tracking loss
@@ -177,7 +179,7 @@ def train_sweep(config=None):
             model=clip_model, train_dataloaders=train_loader, val_dataloaders=val_loader
         )
 
-        if not regression:
+        if (not regression) and (not classification):
             wandb.run.summary["best_auc"] = np.max(loss_tracking_callback.auc_val_history)
             wandb.run.summary["best_val_loss"] = np.min(
                 loss_tracking_callback.val_loss_history
@@ -231,6 +233,7 @@ if __name__ == "__main__":
     data_dirs = [
         "/home/thelfer1/scr4_tedwar42/thelfer1/ZTFBTS/",
         "ZTFBTS/",
+        "data/ZTFBTS/"
         "/ocean/projects/phy230064p/shared/ZTFBTS/",
         "/n/home02/gemzhang/repos/Multimodal-hackathon-2024/data/ZTFBTS/",
     ]
@@ -241,11 +244,18 @@ if __name__ == "__main__":
     # Get what data combinations are used
     combinations = cfg["extra_args"]["combinations"]
     regression = cfg["extra_args"]["regression"]
+    classification = cfg["extra_args"]["classification"]
+
+    if classification:
+        n_classes = cfg['extra_args']['n_classes']
+    else:
+        n_classes = 5
 
     # Check if the config file has a spectra key
     if "spectral" in combinations:
         data_dirs = [
             "ZTFBTS_spectra/",
+            "data/ZTFBTS_spectra/",
             "/n/home02/gemzhang/Storage/multimodal/ZTFBTS_spectra/",
         ]
         spectra_dir = get_valid_dir(data_dirs)
@@ -260,6 +270,7 @@ if __name__ == "__main__":
         spectra_dir,
         max_data_len_spec=max_spectral_data_len,
         combinations=combinations,
+        n_classes=n_classes
     )
 
     wandb.agent(

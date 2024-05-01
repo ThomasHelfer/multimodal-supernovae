@@ -1,6 +1,7 @@
 import torch.nn as nn
 from src.transformer_utils import Transformer
 import pytorch_lightning as pl
+from torchmetrics.classification import MulticlassFBetaScore
 from typing import Dict, Optional, Tuple
 import torch
 import math
@@ -217,7 +218,9 @@ class LightCurveImageCLIP(pl.LightningModule):
         optimizer_kwargs: Dict = {},
         lr: float = 1e-4,
         loss: str = "sigmoid",
-        regression: bool = False,
+        regression: bool = False, 
+        classification: bool = False,
+        n_classes: int = 5,
     ):
         """
         Initialize the LightCurveImageCLIP module.
@@ -239,6 +242,9 @@ class LightCurveImageCLIP(pl.LightningModule):
         self.enc_dim = enc_dim
         self.combinations = set(combinations)
         self.regression = regression
+        self.classification = classification
+        if self.classification:
+            self.n_classes = n_classes
 
         # Parameters
         self.logit_scale = nn.Parameter(
@@ -268,7 +274,11 @@ class LightCurveImageCLIP(pl.LightningModule):
             self.image_projection = nn.Linear(conv_kwargs["n_out"], enc_dim)
 
         self.loss = loss
-        self.linear = nn.Linear(enc_dim * len(self.combinations), 1)
+        self.linear_out = 1 #for regression
+        if self.classification:
+            self.linear_out = self.n_classes
+
+        self.linear = nn.Linear(enc_dim * len(self.combinations), self.linear_out)
 
     def forward(
         self,
@@ -293,7 +303,7 @@ class LightCurveImageCLIP(pl.LightningModule):
         Returns:
         List[torch.Tensor] : Array of embeddings.
         """
-        if self.regression:
+        if self.regression or self.classification: 
             x = []
             if "host_galaxy" in self.combinations:
                 x_img = self.image_encoder(x_img)
@@ -352,14 +362,30 @@ class LightCurveImageCLIP(pl.LightningModule):
         return {"optimizer": optimizer}
 
     def training_step(self, batch, batch_idx):
-        x_img, x_lc, t_lc, mask_lc, x_sp, t_sp, mask_sp, redshift = batch
+        x_img, x_lc, t_lc, mask_lc, x_sp, t_sp, mask_sp, redshift, classification = batch
         x = self(x_img, x_lc, t_lc, mask_lc, x_sp, t_sp, mask_sp)
 
         if self.regression:
             loss = nn.MSELoss()(x.squeeze(), redshift)
+
             # Store the predictions and true values for R2 calculation
             self.y_pred.append(x.flatten())
             self.y_true.append(redshift)
+
+        elif self.classification:
+            #matching the (rough) class breakdown of ZTF BTS 
+            if self.n_classes == 5:
+                class_weights = torch.tensor([0.3, 0.08, 1.0, 0.01, 0.2]).to(x.device).float()
+            elif self.n_classes == 3:
+                class_weights = torch.tensor([0.33, 0.06, 1.0]).to(x.device).float()
+            else:
+                #if we can't figure out the classification don't reweight
+                class_weights = torch.ones(self.n_classes).to(x.device).float()
+
+            loss = nn.CrossEntropyLoss(weight=class_weights)(x.squeeze(), classification.long())
+
+            self.y_pred.append(x)
+            self.y_true.append(classification)
 
         elif self.loss == "sigmoid":
             loss = sigmoid_loss_multimodal(x, self.logit_scale, self.logit_bias).mean()
@@ -376,7 +402,7 @@ class LightCurveImageCLIP(pl.LightningModule):
         return loss
 
     def on_train_epoch_start(self):
-        if self.regression:
+        if self.regression or self.classification:
             # Initialize empty lists to store predictions and true values
             self.y_true = []
             self.y_pred = []
@@ -399,25 +425,62 @@ class LightCurveImageCLIP(pl.LightningModule):
                 logger=True,
             )
 
+        elif self.classification:
+            # Compute F2 score (weighted harmonic mean between precision and recall)
+            y_true = torch.cat(self.y_true, dim=0)
+            y_pred = torch.cat(self.y_pred, dim=0)
+
+            y_pred = torch.argmax(y_pred, dim=1)
+            
+            y_pred = y_pred.int()  # Ensure it's an integer tensor
+            y_true = y_true.int()  # Ensure it's an integer tensor
+
+            #beta is the weighting between precision and recall. For now use beta=1, equal weight.
+            f1 = MulticlassFBetaScore(beta=1.0, num_classes=self.n_classes).to(y_pred.device)(y_pred.int(), y_true)
+            self.log("f1_train",
+                f1.cpu(), 
+                on_epoch=True,
+                on_step=False,
+                prog_bar=True,
+                logger=True,
+            )
+
     def on_validation_start(self) -> None:
         """
         Called at the beginning of the validation loop.
         """
         # Initialize an empty list to store embeddings
         self.embs_list = [[] for i in range(len(self.combinations))]
-        if self.regression:
+        if self.regression or self.classification:
             self.y_pred_val = []
             self.y_true_val = []
 
     def validation_step(self, batch, batch_idx):
-        x_img, x_lc, t_lc, mask_lc, x_sp, t_sp, mask_sp, redshift = batch
+        x_img, x_lc, t_lc, mask_lc, x_sp, t_sp, mask_sp, redshift, classification = batch
         x = self(x_img, x_lc, t_lc, mask_lc, x_sp, t_sp, mask_sp)
 
         if self.regression:
             loss = nn.MSELoss()(x.squeeze(), redshift)
+
             # Store the predictions and true values for R2 calculation
             self.y_pred_val.append(x.flatten())
             self.y_true_val.append(redshift)
+
+        elif self.classification:
+            #matching the (rough) class breakdown of ZTF BTS - lower for more common classes
+            if self.n_classes == 5:
+                class_weights = torch.tensor([0.3, 0.08, 1.0, 0.01, 0.2]).to(x.device).float()
+            elif self.n_classes == 3:
+                class_weights = torch.tensor([0.33, 0.06, 1.0]).to(x.device).float()
+            else:
+                #if we can't figure out the classification don't reweight
+                class_weights = torch.ones(self.n_classes).to(x.device).float()
+
+            loss = nn.CrossEntropyLoss(weight=class_weights)(x.squeeze(), classification.long())
+
+            self.y_pred_val.append(x)
+            self.y_true_val.append(classification)
+
         elif self.loss == "sigmoid":
             for i in range(len(x)):
                 self.embs_list[i].append(x[i])
@@ -451,6 +514,25 @@ class LightCurveImageCLIP(pl.LightningModule):
             self.log(
                 "R2_val",
                 r2.cpu(),
+                on_epoch=True,
+                on_step=False,
+                prog_bar=True,
+                logger=True,
+            )
+        elif self.classification:
+            # Compute R2 Value if regression
+            y_true = torch.cat(self.y_true_val, dim=0)
+            y_pred = torch.cat(self.y_pred_val, dim=0)
+
+            y_pred = torch.argmax(y_pred, dim=1)
+
+            y_pred = y_pred.int()  # Ensure it's an integer tensor
+            y_true = y_true.int()  # Ensure it's an integer tensor
+
+            f1 = MulticlassFBetaScore(beta=1.0, num_classes=self.n_classes).to(y_pred.device)(y_pred, y_true)
+            self.log(
+                "f1_val",
+                f1.cpu(),
                 on_epoch=True,
                 on_step=False,
                 prog_bar=True,

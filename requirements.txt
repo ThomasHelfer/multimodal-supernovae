@@ -5,6 +5,7 @@ matplotlib
 tqdm
 einops
 pytorch_lightning
+torchmetrics
 torchvision
 black
 wandb

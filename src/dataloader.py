@@ -55,20 +55,20 @@ class NoisyDataLoader(DataLoader):
         self.combinations = set(combinations)
 
         # Checking if we get the right output
-        if len(next(iter(dataset))) == 9:
+        if len(next(iter(dataset))) == 10:
             assert "lightcurve" in self.combinations
             assert "host_galaxy" not in self.combinations
             assert "spectral" in self.combinations
-        elif len(next(iter(dataset))) == 10:
+        elif len(next(iter(dataset))) == 11:
             assert "lightcurve" in self.combinations
             assert "host_galaxy" in self.combinations
             assert "spectral" in self.combinations
-        elif len(next(iter(dataset))) == 6:
+        elif len(next(iter(dataset))) == 7:
             assert "lightcurve" in self.combinations or "spectral" in self.combinations
             assert "host_galaxy" in self.combinations
-        elif len(next(iter(dataset))) == 2:
+        elif len(next(iter(dataset))) == 3:
             assert "host_galaxy" in self.combinations and len(self.combinations) == 1
-        elif len(next(iter(dataset))) == 5:
+        elif len(next(iter(dataset))) == 6:
             assert (
                 "lightcurve" in self.combinations or "spectral" in self.combinations
             ) and len(self.combinations) == 1
@@ -83,7 +83,7 @@ class NoisyDataLoader(DataLoader):
         for batch in super().__iter__():
             if self.combinations == set(["host_galaxy"]):
                 # Add random noise to images
-                host_imgs, redshift = batch
+                host_imgs, redshift, classification = batch
 
                 # Calculate the range for the random noise based on the max_noise_intensity
                 noise_range = self.max_noise_intensity * torch.std(host_imgs)
@@ -108,21 +108,21 @@ class NoisyDataLoader(DataLoader):
                 rotated_imgs = torch.stack(rotated_imgs)
 
                 # Return the noisy batch (and Nones to keep outputlength the same)
-                yield rotated_imgs, None, None, None, None, None, None, redshift
+                yield rotated_imgs, None, None, None, None, None, None, redshift, classification
 
             elif self.combinations == set(["lightcurve"]):
                 # Add random noise to time-magnitude tensors
-                mag, time, mask, magerr, redshift = batch
+                mag, time, mask, magerr, redshift, classification = batch
 
                 # Add Gaussian noise to mag using magerr
                 noisy_mag = mag + torch.randn_like(mag) * magerr * self.noise_level_mag
 
                 # Return the noisy batch (and Nones to keep outputlength the same)
-                yield None, noisy_mag, time, mask, None, None, None, redshift
+                yield None, noisy_mag, time, mask, None, None, None, redshift, classification
 
             elif self.combinations == set(["spectral"]):
                 # Add random noise to spectra tensors
-                spec, freq, maskspec, specerr, redshift = batch
+                spec, freq, maskspec, specerr, redshift, classification = batch
 
                 # Add Gaussian noise to spec using specerr
                 noisy_spec = (
@@ -130,11 +130,11 @@ class NoisyDataLoader(DataLoader):
                 )
 
                 # Return the noisy batch (and Nones to keep outputlength the same)
-                yield None, None, None, None, noisy_spec, freq, maskspec, redshift
+                yield None, None, None, None, noisy_spec, freq, maskspec, redshift, classification
 
             elif self.combinations == set(["host_galaxy", "lightcurve"]):
                 # Add random noise to images and time-magnitude tensors
-                host_imgs, mag, time, mask, magerr, redshift = batch
+                host_imgs, mag, time, mask, magerr, redshift, classification = batch
 
                 # Calculate the range for the random noise based on the max_noise_intensity
                 noise_range = self.max_noise_intensity * torch.std(host_imgs)
@@ -162,11 +162,11 @@ class NoisyDataLoader(DataLoader):
                 rotated_imgs = torch.stack(rotated_imgs)
 
                 # Return the noisy batch (and Nones to keep outputlength the same)
-                yield rotated_imgs, noisy_mag, time, mask, None, None, None, redshift
+                yield rotated_imgs, noisy_mag, time, mask, None, None, None, redshift, classification
 
             elif self.combinations == set(["host_galaxy", "spectral"]):
                 # Add random noise to images and time-magnitude tensors
-                host_imgs, spec, freq, maskspec, specerr, redshift = batch
+                host_imgs, spec, freq, maskspec, specerr, redshift, classification = batch
 
                 # Calculate the range for the random noise based on the max_noise_intensity
                 noise_range = self.max_noise_intensity * torch.std(host_imgs)
@@ -196,7 +196,7 @@ class NoisyDataLoader(DataLoader):
                 rotated_imgs = torch.stack(rotated_imgs)
 
                 # Return the noisy batch (and Nones to keep outputlength the same)
-                yield rotated_imgs, None, None, None, noisy_spec, freq, maskspec, redshift
+                yield rotated_imgs, None, None, None, noisy_spec, freq, maskspec, redshift, classification
 
             elif self.combinations == set(["spectral", "lightcurve"]):
                 # Add random noise to images and time-magnitude tensors
@@ -210,6 +210,7 @@ class NoisyDataLoader(DataLoader):
                     maskspec,
                     specerr,
                     redshift,
+                    classification,
                 ) = batch
 
                 # Add Gaussian noise to mag using magerr
@@ -221,7 +222,7 @@ class NoisyDataLoader(DataLoader):
                 )
 
                 # Return the noisy batch (and Nones to keep outputlength the same)
-                yield None, noisy_mag, time, mask, noisy_spec, freq, maskspec, redshift
+                yield None, noisy_mag, time, mask, noisy_spec, freq, maskspec, redshift, classification
 
             elif self.combinations == set(["host_galaxy", "spectral", "lightcurve"]):
                 # Add random noise to images and time-magnitude tensors
@@ -236,6 +237,7 @@ class NoisyDataLoader(DataLoader):
                     maskspec,
                     specerr,
                     redshift,
+                    classification,
                 ) = batch
 
                 # Calculate the range for the random noise based on the max_noise_intensity
@@ -268,7 +270,7 @@ class NoisyDataLoader(DataLoader):
                 # Stack the rotated images back into a tensor
                 rotated_imgs = torch.stack(rotated_imgs)
 
-                yield rotated_imgs, noisy_mag, time, mask, noisy_spec, freq, maskspec, redshift
+                yield rotated_imgs, noisy_mag, time, mask, noisy_spec, freq, maskspec, redshift, classification
 
 
 def load_images(data_dir: str, filenames: List[str] = None) -> torch.Tensor:
@@ -348,6 +350,53 @@ def load_redshifts(data_dir: str, filenames: List[str] = None) -> np.ndarray:
     print("Finished loading redshift")
     return redshifts, filenames_redshift
 
+def load_classes(data_dir: str, n_classes: int=5, filenames: List[str] = None) -> np.ndarray:
+    """
+    Load classification values from a CSV file in the specified directory.
+
+    Args:
+    data_dir (str): Directory path containing the class CSV file.
+    filenames (List[str]): List of filenames corresponding to the loaded data; default is None.
+
+    Returns:
+    np.ndarray: Array of transient classes values.
+    filenames (List[str]): List of filenames corresponding to the returned data.
+    """
+    print("Loading transient classes...")
+
+    # Load values from the CSV file
+    df = pd.read_csv(f"{data_dir}/ZTFBTS_TransientTable.csv")
+    df = df.dropna(subset=["type"])
+
+    #only consider five-way classification
+    df.loc[df['type'] == 'SN Ib', 'type'] = 'SN Ibc'
+    df.loc[df['type'] == 'SN Ic', 'type'] = 'SN Ibc'
+    df.loc[df['type'] == 'SN Ib/c', 'type'] = 'SN Ibc'
+    df.loc[df['type'] == 'SN IIP', 'type'] = 'SN II'
+
+    if n_classes == 5:
+        df = df[df['type'].isin(['SN Ia', 'SN Ibc', 'SLSN-I', 'SN II', 'SN IIn'])]
+    elif n_classes == 3:
+        df = df[df['type'].isin(['SN Ia', 'SN Ibc', 'SN II'])]
+
+    # Use the Series to map the names to types
+    class_types = df['type'].values
+    df['type_factorized'] = (pd.factorize(class_types, sort=True)[0])
+    #factorized types for 5-class will be as follows: 
+    #    'SLSN-I', 'SN II', 'SN IIn', 'SN Ia', 'SN Ibc'
+    #factorized types for 3-class will be:
+    #    'SN II', 'SN Ia', 'SN Ibc'
+    
+    if filenames is None:
+        classifications = df["type_factorized"].values
+        filenames_class = df["ZTFID"].values
+    else:
+        # Filter classifications based on the filenames
+        classifications = df[df["ZTFID"].isin(filenames)]["type_factorized"].values
+        filenames_class = df[df["ZTFID"].isin(filenames)]
+
+    print("Finished loading transient classes.")
+    return classifications, filenames_class
 
 def make_padding_mask(n_obs: int, n_max_obs: int) -> np.ndarray:
     '''
@@ -681,6 +730,7 @@ def load_data(
     max_data_len_lc: int = 100,
     max_data_len_spec: int = 1000,
     combinations: List = ["host_galaxy", "lightcurve"],
+    n_classes: int = 5,
 ) -> Tuple[TensorDataset, int]:
     """
     Load data from specified directories, handling both images and light curves or spectra.
@@ -778,6 +828,14 @@ def load_data(
     redshifts = torch.from_numpy(redshifts).float()
     data += [redshifts]
 
+    # Load transient types 
+    classifications, filenames_classifications = load_classes(f"{data_dir}", n_classes, filenames)
+    _, filenames, data = filter_files(filenames_classifications, filenames, data)
+
+    # Prepare dataset with spectra data
+    classifications = torch.from_numpy(classifications).float()
+    data += [classifications]
+    
     data = TensorDataset(*data)
 
     return data, nband, filenames
