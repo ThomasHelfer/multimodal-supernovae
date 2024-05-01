@@ -52,4 +52,4 @@ extra_args:
   combinations: ["lightcurve", "host_galaxy"] 
   regression: True
   nruns: 20
-  max_spectral_data_len: 1000
+  max_spectral_data_len: 1024
