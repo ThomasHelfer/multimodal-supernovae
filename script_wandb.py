@@ -119,11 +119,11 @@ def train_sweep(config=None):
             "agg": cfg.agg_spectral,
         }
         conv_kwargs = {
-            "dim": 32,
+            "dim": cfg.cnn_dim, 
             "depth": cfg.cnn_depth,
-            "channels": 3,
-            "kernel_size": 5,
-            "patch_size": 10,
+            "channels": cfg.cnn_channels,
+            "kernel_size": cfg.cnn_kernel_size, 
+            "patch_size": cfg.cnn_patch_size, 
             "n_out": cfg.n_out,
             "dropout_prob": cfg.dropout,
         }

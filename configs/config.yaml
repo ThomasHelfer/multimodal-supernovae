@@ -9,6 +9,11 @@ transformer_depth: 1
 heads: 2
 time_norm: 10000
 agg: "mean"
+# CNN parameters
+cnn_dim: 32
+cnn_channels: 3
+cnn_kernel_size:  5
+cnn_patch_size: 10
 cnn_depth: 2 #not used; only for galaxy images
 # Parameter for spectra transformer
 emb_spectral: 32 
