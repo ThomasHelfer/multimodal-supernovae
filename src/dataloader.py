@@ -942,6 +942,9 @@ class SimulationLightcurveDataset(Dataset):
                 time_data = transient_model["MJD"][entry_idx]
                 mag_data = transient_model[f"mag_{band}"][entry_idx]
 
+                time_data = time_data[mag_data < 98]
+                mag_data = mag_data[mag_data < 98]
+
                 indices, mask = make_padding_mask(len(time_data), self.n_max_obs)
 
                 time_data = np.pad(
