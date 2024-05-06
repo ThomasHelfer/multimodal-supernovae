@@ -943,7 +943,7 @@ class SimulationLightcurveDataset(Dataset):
                 mag_data = transient_model[f"mag_{band}"][entry_idx]
 
                 time_data = time_data[mag_data < 98]
-                mag_data = mag_data[mag_data < 98]
+                mag_data = (mag_data[mag_data < 98] - 23.74)/1.6
 
                 indices, mask = make_padding_mask(len(time_data), self.n_max_obs)
 
