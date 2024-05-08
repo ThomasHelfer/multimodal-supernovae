@@ -102,7 +102,7 @@ if __name__ == "__main__":
     n_samples_val = int(val_fraction * number_of_samples)
 
     dataset_train, dataset_val = random_split(
-        dataset, [number_of_samples - n_samples_val, n_samples_val]
+        dataset, [number_of_samples - n_samples_val, n_samples_val], generator=torch.Generator().manual_seed(cfg['seed'])
     )
 
     train_loader_no_aug = NoisyDataLoader(
