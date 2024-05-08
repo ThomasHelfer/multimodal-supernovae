@@ -18,3 +18,4 @@ pyarrow
 h5py 
 astropy 
 pzflow
+scikit-learn
