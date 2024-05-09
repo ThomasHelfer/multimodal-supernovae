@@ -186,7 +186,8 @@ class LightCurveImageCLIP(pl.LightningModule):
         if self.classification:
             self.linear_out = self.n_classes
 
-        self.linear = nn.Linear(enc_dim * len(self.combinations), self.linear_out)
+        if self.regression or self.classification: 
+            self.linear = nn.Linear(enc_dim * len(self.combinations), self.linear_out)
 
     def forward(
         self,
@@ -534,12 +535,13 @@ def load_model(
     if combinations is None or regression is None:
         cfg_extra_args: Dict[str, Any] = YAML(typ="safe").load(
             open(f"{sweep_config_dir}/sweep_config.yaml")
-        )
+        )["extra_args"]
+    else: cfg_extra_args = {}
 
     if combinations is None:
-        combinations = cfg_extra_args["extra_args"]["combinations"]
+        combinations = cfg_extra_args["combinations"]
     if regression is None:
-        regression = cfg_extra_args["extra_args"]["regression"]
+        regression = cfg_extra_args.get("regression", False)
 
     # Load the main configuration file
     cfg: Dict[str, Any] = YAML(typ="safe").load(open(f"{config_dir}/config.yaml"))
@@ -552,6 +554,7 @@ def load_model(
         "depth": cfg["transformer_depth"],
         "dropout": cfg["dropout"],
         "time_norm": cfg["time_norm"],
+        "agg": cfg["agg"],
     }
 
     # Setting parameters for the spectral transformer
@@ -562,15 +565,16 @@ def load_model(
         "depth": cfg["transformer_depth_spectral"],
         "dropout": cfg["dropout"],
         "time_norm": cfg["time_norm_spectral"],
+        "agg": cfg["agg_spectral"],
     }
 
     # Setting parameters for the convolutional model
     conv_kwargs = {
-        "dim": cfg["cnn_dim"],
-        "depth": cfg["cnn_depth"],
-        "channels": cfg["cnn_channels"],
-        "kernel_size": cfg["cnn_kernel_size"],
-        "patch_size": cfg["cnn_patch_size"],
+        "dim": cfg.get("cnn_dim", 32),
+        "depth": cfg.get("cnn_depth", 2),
+        "channels": cfg.get("cnn_channels", 3),
+        "kernel_size": cfg.get("cnn_kernel_size", 5),
+        "patch_size": cfg.get("cnn_patch_size", 10),
         "n_out": cfg["n_out"],
         "dropout_prob": cfg["dropout"],
     }
@@ -599,4 +603,4 @@ def load_model(
     # Set the model to evaluation mode
     model.eval()
 
-    return model, combinations, regression, cfg, cfg_extra_args["extra_args"]
+    return model, combinations, regression, cfg, cfg_extra_args
