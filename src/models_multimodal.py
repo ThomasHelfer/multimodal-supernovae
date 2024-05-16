@@ -532,11 +532,9 @@ def load_model(
     # Load the sweep configuration file
     config_dir = os.path.dirname(path)
     sweep_config_dir = os.path.dirname(config_dir)
-    if combinations is None or regression is None:
-        cfg_extra_args: Dict[str, Any] = YAML(typ="safe").load(
+    cfg_extra_args: Dict[str, Any] = YAML(typ="safe").load(
             open(f"{sweep_config_dir}/sweep_config.yaml")
-        )["extra_args"]
-    else: cfg_extra_args = {}
+            )["extra_args"]
 
     if combinations is None:
         combinations = cfg_extra_args["combinations"]

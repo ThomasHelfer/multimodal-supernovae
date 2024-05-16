@@ -598,7 +598,7 @@ def load_spectras(
     mask_list, spec_list, specerr_list, freq_list, filenames_loaded = [], [], [], [], []
 
     for filename in tqdm(filenames):
-        if filename.endswith(".csv"):
+        if filename.endswith(".csv") and not filename.startswith('.'):
             spectra_df = open_spectra_csv(filename)
             max_columns = spectra_df.shape[1]
 
