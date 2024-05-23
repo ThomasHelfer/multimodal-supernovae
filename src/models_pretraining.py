@@ -1,15 +1,20 @@
-
 import torch
 import torch.nn as nn
+from torch.nn import Module
+
+from torch.utils.data import DataLoader
 import pytorch_lightning as pl
 from torch import Tensor
 
+from matplotlib import pyplot as plt
 from src.transformer_utils import TransformerWithTimeEmbeddings
 
 from typing import Dict, Tuple
 
 
-def get_random_mask(padding_mask: Tensor, f_mask: float = 0.15) -> Tuple[Tensor, Tensor]:
+def get_random_mask(
+    padding_mask: Tensor, f_mask: float = 0.15
+) -> Tuple[Tensor, Tensor]:
     """
     Generates random contiguous masks for the input sequence.
 
@@ -23,8 +28,12 @@ def get_random_mask(padding_mask: Tensor, f_mask: float = 0.15) -> Tuple[Tensor,
             - mask_pred: A tensor indicating which parts of the input were masked out.
     """
     # Initialize masks with the same shape as padding_mask
-    mask = torch.ones_like(padding_mask)  # Mask indicating the parts of the sequence to be kept
-    mask_pred = torch.ones_like(padding_mask)  # Mask indicating the parts to be predicted
+    mask = torch.ones_like(
+        padding_mask
+    )  # Mask indicating the parts of the sequence to be kept
+    mask_pred = torch.ones_like(
+        padding_mask
+    )  # Mask indicating the parts to be predicted
 
     # Process each sample in the batch
     for i in range(padding_mask.shape[0]):
@@ -48,7 +57,6 @@ def get_random_mask(padding_mask: Tensor, f_mask: float = 0.15) -> Tuple[Tensor,
     return mask, mask_pred
 
 
-
 class MaskedLightCurveEncoder(pl.LightningModule):
     """
     A PyTorch Lightning module for training and evaluating a Transformer-based model for masked light curve encoding.
@@ -66,7 +74,7 @@ class MaskedLightCurveEncoder(pl.LightningModule):
         f_mask: float = 0.2,
         transformer_kwargs: Dict = {"n_out": 1, "emb": 128, "heads": 2, "depth": 4},
         optimizer_kwargs: Dict = {},
-        lr: float = 1e-3
+        lr: float = 1e-3,
     ) -> None:
         """
         Initializes the MaskedLightCurveEncoder module.
@@ -108,10 +116,14 @@ class MaskedLightCurveEncoder(pl.LightningModule):
         Returns:
             Dict[str, torch.optim.Optimizer]: Dictionary containing the optimizer.
         """
-        optimizer = torch.optim.RAdam(self.parameters(), lr=self.lr, **self.optimizer_kwargs)
+        optimizer = torch.optim.RAdam(
+            self.parameters(), lr=self.lr, **self.optimizer_kwargs
+        )
         return {"optimizer": optimizer}
 
-    def masked_pred(self, x: Tensor, t: Tensor, padding_mask: Tensor, f_mask: float = 0.15) -> Tuple[Tensor, Tensor]:
+    def masked_pred(
+        self, x: Tensor, t: Tensor, padding_mask: Tensor, f_mask: float = 0.15
+    ) -> Tuple[Tensor, Tensor]:
         """
         Make predictions on the unmasked parts of the input.
 
@@ -130,7 +142,9 @@ class MaskedLightCurveEncoder(pl.LightningModule):
         x_pred = self(x_masked, t, mask=padding_mask)
         return x[mask_pred], x_pred[mask_pred]
 
-    def training_step(self, batch: Tuple[Tensor, Tensor, Tensor], batch_idx: int) -> Tensor:
+    def training_step(
+        self, batch: Tuple[Tensor, Tensor, Tensor], batch_idx: int
+    ) -> Tensor:
         """
         Perform a training step.
 
@@ -147,7 +161,9 @@ class MaskedLightCurveEncoder(pl.LightningModule):
         self.log("train_loss", loss, on_epoch=True, on_step=False, prog_bar=True)
         return loss
 
-    def validation_step(self, batch: Tuple[Tensor, Tensor, Tensor], batch_idx: int) -> Tensor:
+    def validation_step(
+        self, batch: Tuple[Tensor, Tensor, Tensor], batch_idx: int
+    ) -> Tensor:
         """
         Perform a validation step.
 
@@ -163,3 +179,91 @@ class MaskedLightCurveEncoder(pl.LightningModule):
         loss = nn.MSELoss()(x, x_pred)
         self.log("val_loss", loss, on_epoch=True, on_step=False, prog_bar=True)
         return loss
+
+
+def plot_masked_pretraining_model(
+    model: Module, loader: DataLoader, path: str = None
+) -> None:
+    """
+    Plot and compare predictions from a model against ground truths from a dataset.
+
+    This function takes a model and a data loader, generates predictions for a batch
+    of data, and plots these predictions against the true values. It optionally saves
+    the plot to a file.
+
+    Parameters:
+        model (Module): The machine learning model to evaluate.
+        loader (DataLoader): DataLoader containing the dataset to plot.
+        path (str, optional): Path to save the plot image file. If None, the plot is not saved.
+
+    """
+    # Set model to evaluation mode and move it to CPU
+    model = model.eval()
+    model.cpu()
+
+    # Load a batch of data
+    time_test, mag_test, mask_test = next(iter(loader))
+    fig, ax = plt.subplots(4, 2, figsize=(12, 12))
+
+    for i in range(4):
+        for j in range(2):
+            ii = i * 2 + j
+
+            # Define range to mask
+            fill_min, fill_max = 2, 7
+
+            # Prepare masks and data
+            mask_tofill = mask_test[ii : ii + 1].clone()
+            mag_truth = mag_test[ii : ii + 1].clone()[mask_test[ii : ii + 1]]
+            mag_test_in = mag_test[ii : ii + 1].clone()[mask_test[ii : ii + 1]]
+            time_test_in = time_test[ii : ii + 1].clone()[mask_test[ii : ii + 1]]
+
+            # Sort data by time
+            inds_sort = torch.argsort(time_test_in)
+            mag_truth = mag_truth[inds_sort]
+            mag_test_in = mag_test_in[inds_sort]
+            time_test_in = time_test_in[inds_sort]
+
+            # Apply mask
+            mask_tofill[:, fill_min : fill_max + 1] = False
+            mag_test_in[fill_min : fill_max + 1] = 0
+
+            # Make predictions
+            mag_pred = (
+                model(
+                    mag_test_in[None, ...],
+                    time_test_in[None, ...],
+                    mask_test[ii : ii + 1],
+                )[0]
+                .detach()
+                .numpy()[fill_min : fill_max + 1]
+            )
+
+            # Plot predictions and truths
+            ax[i, j].scatter(
+                time_test_in[fill_min : fill_max + 1], mag_pred, label="pred"
+            )
+            ax[i, j].scatter(time_test_in, mag_truth, label="truth")
+
+            # Adjust the masked area if necessary
+            fill_min = min(fill_min, len(time_test_in) - 1)
+            fill_max = min(fill_max, len(time_test_in) - 1)
+
+            # Highlight the masked region
+            ax[i, j].axvspan(
+                time_test_in[fill_min],
+                time_test_in[fill_max],
+                alpha=0.1,
+                color="red",
+                label="masked",
+            )
+            ax[i, j].legend()
+
+            # Set axis labels and limits
+            ax[i, j].set_xlabel("time")
+            ax[i, j].set_ylabel("mag")
+            ax[i, j].set_ylim([-2, 2])
+
+    # Save the plot if a path is specified
+    if path:
+        plt.savefig(path)

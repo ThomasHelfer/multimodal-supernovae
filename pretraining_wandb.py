@@ -27,7 +27,10 @@ from src.dataloader import (
     SimulationLightcurveDataset,
 )
 
-from src.models_pretraining import MaskedLightCurveEncoder
+from src.models_pretraining import (
+    MaskedLightCurveEncoder,
+    plot_masked_pretraining_model,
+)
 
 from src.wandb_utils import continue_sweep, schedule_sweep
 
@@ -147,6 +150,10 @@ def train_sweep(config=None):
             loss_tracking_callback.train_loss_history,
             loss_tracking_callback.val_loss_history,
             path_base=path_run,
+        )
+
+        plot_masked_pretraining_model(
+            model, val_loader, path_run + "/masked_pretraining.png"
         )
 
         wandb.finish()
