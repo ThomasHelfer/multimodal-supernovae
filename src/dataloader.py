@@ -916,7 +916,7 @@ class SimulationLightcurveDataset(Dataset):
 
     def __len__(self) -> int:
         """Returns the number of entries in the dataset."""
-        return 5000  # len(self.index_map)
+        return 40000 #len(self.index_map)
 
     def __getitem__(self, idx: int) -> Tuple[List[float], List[float]]:
         """

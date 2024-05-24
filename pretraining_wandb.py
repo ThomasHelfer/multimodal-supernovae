@@ -45,7 +45,7 @@ def train_sweep(config=None):
         set_seed(cfg.seed)
 
         # For the moment hardcoded to a single band
-        bands = ["g"]
+        bands = [ "r","g"]
         nband = len(bands)
         n_max_obs = 80
         mask_ratio = 0.15
@@ -107,6 +107,7 @@ def train_sweep(config=None):
             lr=cfg.lr,
             transformer_kwargs=transformer_kwargs,
             optimizer_kwargs=optimizer_kwargs,
+            nband = nband,
         )
 
         # Custom call back for tracking loss

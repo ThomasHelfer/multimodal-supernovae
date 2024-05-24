@@ -72,6 +72,7 @@ class MaskedLightCurveEncoder(pl.LightningModule):
     def __init__(
         self,
         f_mask: float = 0.2,
+        nband: int = 1, 
         transformer_kwargs: Dict = {"n_out": 1, "emb": 128, "heads": 2, "depth": 4},
         optimizer_kwargs: Dict = {},
         lr: float = 1e-3,
@@ -81,6 +82,7 @@ class MaskedLightCurveEncoder(pl.LightningModule):
 
         Args:
             f_mask (float): Fraction of the input to be masked during training.
+            nband (int): Number of bands in the input data.
             transformer_kwargs (Dict): Configuration arguments for the Transformer model.
             optimizer_kwargs (Dict): Configuration arguments for the optimizer.
             lr (float): Learning rate for the optimizer.
@@ -88,10 +90,12 @@ class MaskedLightCurveEncoder(pl.LightningModule):
         super().__init__()
 
         self.optimizer_kwargs = optimizer_kwargs
+        # nbands are concatenated, so we need to adapt nout
+        transformer_kwargs["n_out"] = transformer_kwargs["n_out"]*nband
         self.lr = lr
         self.f_mask = f_mask
 
-        self.net = TransformerWithTimeEmbeddings(**transformer_kwargs)
+        self.net = TransformerWithTimeEmbeddings(nband = nband, **transformer_kwargs)
 
     def forward(self, x: Tensor, t: Tensor, mask: Tensor = None) -> Tensor:
         """
