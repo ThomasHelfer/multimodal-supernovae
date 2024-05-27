@@ -229,7 +229,6 @@ class TransformerWithTimeEmbeddings(nn.Module):
                 self.band_emb(onehot).unsqueeze(0).repeat((x.shape[0], 1, 1))
             )  # (T, D) -> (B, T, D)
             x = x + b_emb
-
         x = self.transformer(x, mask)  # (B, T, D)
 
         # Zero out the masked values
@@ -246,6 +245,9 @@ class TransformerWithTimeEmbeddings(nn.Module):
             k = v = x
             x, _ = self.agg_attn(q, k, v)
             x = x.squeeze(1)  # (B, 1, D) -> (B, D)
+        if self.agg == "pretraining":
+            return x
 
         x = self.projection(x)
+
         return x

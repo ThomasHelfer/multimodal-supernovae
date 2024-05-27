@@ -45,7 +45,7 @@ def train_sweep(config=None):
         set_seed(cfg.seed)
 
         # For the moment hardcoded to a single band
-        bands = [ "r","g"]
+        bands = ["r", "g"]
         nband = len(bands)
         n_max_obs = 80
         mask_ratio = 0.15
@@ -107,8 +107,14 @@ def train_sweep(config=None):
             lr=cfg.lr,
             transformer_kwargs=transformer_kwargs,
             optimizer_kwargs=optimizer_kwargs,
-            nband = nband,
+            nband=nband,
         )
+
+        # Calculate the total number of trainable parameters
+        total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+
+        # Log to wandb
+        wandb.log({"total_trainable_params": total_params})
 
         # Custom call back for tracking loss
         loss_tracking_callback = LossTrackingCallback()
@@ -145,6 +151,10 @@ def train_sweep(config=None):
         print("made it to fit")
         trainer.fit(
             model=model, train_dataloaders=train_loader, val_dataloaders=val_loader
+        )
+
+        wandb.run.summary["best_val_loss"] = np.min(
+            loss_tracking_callback.val_loss_history
         )
 
         plot_loss_history(

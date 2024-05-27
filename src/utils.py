@@ -258,7 +258,10 @@ def cosine_similarity(a, b, temperature=1):
 
 
 def get_embs(
-    clip_model: torch.nn.Module, dataloader: DataLoader, combinations: List[str], ret_combs: bool = False
+    clip_model: torch.nn.Module,
+    dataloader: DataLoader,
+    combinations: List[str],
+    ret_combs: bool = False,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     """
     Computes and concatenates embeddings for light curves and images from a DataLoader.
@@ -279,7 +282,7 @@ def get_embs(
     embs_list = [[] for i in range(len(combinations))]
 
     # gives combination names corresponding each emb in embs_list
-    combs_all = ['host_galaxy', 'lightcurve', 'spectral']
+    combs_all = ["host_galaxy", "lightcurve", "spectral"]
     combs = np.array(combs_all)[np.isin(combs_all, combinations)]
 
     # Iterate through the DataLoader
@@ -318,8 +321,9 @@ def get_embs(
     # Concatenate all embeddings into single tensors
     for i in range(len(embs_list)):
         embs_list[i] = torch.cat(embs_list[i], dim=0)
-    
-    if not ret_combs: return embs_list
+
+    if not ret_combs:
+        return embs_list
     return embs_list, combs
 
 

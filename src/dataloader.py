@@ -598,7 +598,7 @@ def load_spectras(
     mask_list, spec_list, specerr_list, freq_list, filenames_loaded = [], [], [], [], []
 
     for filename in tqdm(filenames):
-        if filename.endswith(".csv") and not filename.startswith('.'):
+        if filename.endswith(".csv") and not filename.startswith("."):
             spectra_df = open_spectra_csv(filename)
             max_columns = spectra_df.shape[1]
 
@@ -916,7 +916,7 @@ class SimulationLightcurveDataset(Dataset):
 
     def __len__(self) -> int:
         """Returns the number of entries in the dataset."""
-        return 40000 #len(self.index_map)
+        return 40000  # len(self.index_map)
 
     def __getitem__(self, idx: int) -> Tuple[List[float], List[float]]:
         """
@@ -943,7 +943,7 @@ class SimulationLightcurveDataset(Dataset):
                 mag_data = transient_model[f"mag_{band}"][entry_idx]
 
                 time_data = time_data[mag_data < 98]
-                mag_data = (mag_data[mag_data < 98] - 23.74)/1.6
+                mag_data = (mag_data[mag_data < 98] - 23.74) / 1.6
 
                 indices, mask = make_padding_mask(len(time_data), self.n_max_obs)
 

@@ -7,7 +7,7 @@ import pytorch_lightning as pl
 from torch import Tensor
 
 from matplotlib import pyplot as plt
-from src.transformer_utils import TransformerWithTimeEmbeddings
+from src.transformer_utils import TransformerWithTimeEmbeddings, Transformer
 
 from typing import Dict, Tuple
 
@@ -72,7 +72,7 @@ class MaskedLightCurveEncoder(pl.LightningModule):
     def __init__(
         self,
         f_mask: float = 0.2,
-        nband: int = 1, 
+        nband: int = 1,
         transformer_kwargs: Dict = {"n_out": 1, "emb": 128, "heads": 2, "depth": 4},
         optimizer_kwargs: Dict = {},
         lr: float = 1e-3,
@@ -91,11 +91,15 @@ class MaskedLightCurveEncoder(pl.LightningModule):
 
         self.optimizer_kwargs = optimizer_kwargs
         # nbands are concatenated, so we need to adapt nout
-        transformer_kwargs["n_out"] = transformer_kwargs["n_out"]*nband
+        transformer_kwargs["n_out"] = transformer_kwargs["n_out"] * nband
         self.lr = lr
         self.f_mask = f_mask
 
-        self.net = TransformerWithTimeEmbeddings(nband = nband, **transformer_kwargs)
+        self.net = TransformerWithTimeEmbeddings(
+            nband=nband, agg="pretraining", **transformer_kwargs
+        )
+        # addional removable layer
+        self.last_layer = nn.Linear(transformer_kwargs["emb"], 1)
 
     def forward(self, x: Tensor, t: Tensor, mask: Tensor = None) -> Tensor:
         """
@@ -111,6 +115,9 @@ class MaskedLightCurveEncoder(pl.LightningModule):
         """
         x = x[..., None]  # Add an additional dimension to x
         x = self.net(x, t, mask)  # Pass through the Transformer model
+        x = self.last_layer(x)  # Pass through the last layer
+        x = x.squeeze(2)
+
         return x
 
     def configure_optimizers(self) -> Dict[str, torch.optim.Optimizer]:

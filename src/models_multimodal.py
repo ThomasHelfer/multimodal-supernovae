@@ -186,7 +186,7 @@ class LightCurveImageCLIP(pl.LightningModule):
         if self.classification:
             self.linear_out = self.n_classes
 
-        if self.regression or self.classification: 
+        if self.regression or self.classification:
             self.linear = nn.Linear(enc_dim * len(self.combinations), self.linear_out)
 
     def forward(
@@ -533,8 +533,8 @@ def load_model(
     config_dir = os.path.dirname(path)
     sweep_config_dir = os.path.dirname(config_dir)
     cfg_extra_args: Dict[str, Any] = YAML(typ="safe").load(
-            open(f"{sweep_config_dir}/sweep_config.yaml")
-            )["extra_args"]
+        open(f"{sweep_config_dir}/sweep_config.yaml")
+    )["extra_args"]
 
     if combinations is None:
         combinations = cfg_extra_args["combinations"]
