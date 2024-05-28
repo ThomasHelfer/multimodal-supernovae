@@ -91,7 +91,6 @@ class MaskedLightCurveEncoder(pl.LightningModule):
 
         self.optimizer_kwargs = optimizer_kwargs
         # nbands are concatenated, so we need to adapt nout
-        transformer_kwargs["n_out"] = transformer_kwargs["n_out"] * nband
         self.lr = lr
         self.f_mask = f_mask
 

@@ -883,7 +883,8 @@ class SimulationLightcurveDataset(Dataset):
         hdf5_path: str,
         transient_types: Optional[List[str]] = None,
         bands: List[str] = ["r"],
-        n_max_obs=100,
+        n_max_obs: int=100,
+        dataset_length: Optional[int]  = None,
     ) -> None:
         """
         Initializes the dataset object by opening the HDF5 file and precalculating indices for quick access.
@@ -893,10 +894,13 @@ class SimulationLightcurveDataset(Dataset):
             transient_types (Optional[List[str]]): List of transient types in the HDF5 file. If None,
                 defaults to using all keys available in the file.
             bands (List[str]): List of bands of interest (e.g., ['r', 'g', 'b']).
+            n_max_obs (int): Maximum number length of observation
+            dataset_legnth (Optional[int]): if None, we take the whole dataset, if not, we take the first dataset_length entries
         """
         self.hdf5_path = hdf5_path
         self.bands = bands
         self.n_max_obs = n_max_obs
+        self.dataset_length = dataset_length
 
         # Open the HDF5 file
         with h5py.File(self.hdf5_path, "r") as file:
@@ -913,10 +917,14 @@ class SimulationLightcurveDataset(Dataset):
                     num_entries = len(transients[t_type][model]["MJD"])
                     for i in range(num_entries):
                         self.index_map.append((t_type, model, i))
+        print(len(self.index_map))
 
     def __len__(self) -> int:
         """Returns the number of entries in the dataset."""
-        return 40000  # len(self.index_map)
+        if self.dataset_length is None:
+            return len(self.index_map)
+        else:
+            return self.dataset_length
 
     def __getitem__(self, idx: int) -> Tuple[List[float], List[float]]:
         """

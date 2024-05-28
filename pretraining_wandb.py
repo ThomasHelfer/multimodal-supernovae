@@ -96,8 +96,7 @@ def train_sweep(config=None):
             "heads": cfg.heads,
             "depth": cfg.transformer_depth,
             "dropout": cfg.dropout,
-            "time_norm": cfg.time_norm,
-            "agg": cfg.agg,
+            "time_norm": cfg.time_norm
         }
 
         optimizer_kwargs = {"weight_decay": cfg.weight_decay}
@@ -108,6 +107,7 @@ def train_sweep(config=None):
             transformer_kwargs=transformer_kwargs,
             optimizer_kwargs=optimizer_kwargs,
             nband=nband,
+            dataset_length = cfg.dataset_length
         )
 
         # Calculate the total number of trainable parameters

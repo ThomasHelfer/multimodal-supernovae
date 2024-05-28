@@ -48,7 +48,7 @@ parameters:
   batchsize:
     values: [256]
   epochs:
-    values: [2000]
+    values: [60]
   weight_decay:
     values: [0]
   logit_scale:
@@ -57,6 +57,8 @@ parameters:
     values: [0]
   patience:    # Parameter for early stopping 
     values: [99999999]
+  dataset_length:
+    values: [100,1000,10000,50000,100000,500000,1000000]
 # Options are 'lightcurve' 'spectral' and 'host_galaxy' -- order does not matter 
 extra_args:
   combinations: ['spectral'] 
