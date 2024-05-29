@@ -1,5 +1,5 @@
 import os
-from typing import List
+from typing import List, Optional
 from pytorch_lightning import LightningModule, Trainer
 from pytorch_lightning.callbacks import Callback
 import torch
@@ -8,6 +8,8 @@ from torch.utils.data import DataLoader
 from typing import Tuple, List
 from matplotlib import pyplot as plt
 from ruamel.yaml import YAML
+from sklearn.linear_model import LinearRegression
+from sklearn.neighbors import KNeighborsRegressor
 
 
 def filter_files(filenames_avail, filenames_to_filter, data_to_filter=None):
@@ -434,3 +436,57 @@ def plot_ROC_curves(
     # Adjust layout to prevent overlapping
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     plt.savefig(os.path.join(path_base, "ROC_curves.png"))
+
+
+def get_linearR2(
+    X: torch.Tensor,
+    Y: torch.Tensor,
+    X_val: Optional[torch.Tensor] = None,
+    Y_val: Optional[torch.Tensor] = None,
+) -> float:
+    """
+    Calculate the R^2 score using a linear regression model.
+
+    Parameters:
+    X (torch.Tensor): The input features for training.
+    Y (torch.Tensor): The target values for training.
+    X_val (Optional[torch.Tensor]): The input features for validation (default is None).
+    Y_val (Optional[torch.Tensor]): The target values for validation (default is None).
+
+    Returns:
+    float: The R^2 score of the model trained on training data or validation data if provided.
+    """
+    if len(Y.shape) == 1:
+        Y = Y[:, np.newaxis]
+    reg = LinearRegression().fit(X.cpu().detach().numpy(), Y)
+    if X_val is None or Y_val is None:
+        return reg.score(X.cpu().detach().numpy(), Y)
+    return reg.score(X_val.cpu().detach().numpy(), Y_val)
+
+
+def get_knnR2(
+    X: torch.Tensor,
+    Y: torch.Tensor,
+    X_val: Optional[torch.Tensor] = None,
+    Y_val: Optional[torch.Tensor] = None,
+    k: int = 5,
+) -> float:
+    """
+    Calculate the R^2 score using a k-nearest neighbors regression model.
+
+    Parameters:
+    X (torch.Tensor): The input features for training.
+    Y (torch.Tensor): The target values for training.
+    X_val (Optional[torch.Tensor]): The input features for validation (default is None).
+    Y_val (Optional[torch.Tensor]): The target values for validation (default is None).
+    k (int): The number of neighbors to use for k-nearest neighbors.
+
+    Returns:
+    float: The R^2 score of the model trained on training data or validation data if provided.
+    """
+    if len(Y.shape) == 1:
+        Y = Y[:, np.newaxis]
+    reg = KNeighborsRegressor(n_neighbors=k).fit(X.cpu().detach().numpy(), Y)
+    if X_val is None or Y_val is None:
+        return reg.score(X.cpu().detach().numpy(), Y)
+    return reg.score(X_val.cpu().detach().numpy(), Y_val)
