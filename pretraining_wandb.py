@@ -55,6 +55,7 @@ def train_sweep(config=None):
             transient_types=None,
             bands=bands,
             n_max_obs=n_max_obs,
+            dataset_length = cfg.dataset_length
         )
 
         number_of_samples = len(dataset)
@@ -107,7 +108,6 @@ def train_sweep(config=None):
             transformer_kwargs=transformer_kwargs,
             optimizer_kwargs=optimizer_kwargs,
             nband=nband,
-            dataset_length = cfg.dataset_length
         )
 
         # Calculate the total number of trainable parameters
