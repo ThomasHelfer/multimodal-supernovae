@@ -55,7 +55,7 @@ def train_sweep(config=None):
             transient_types=None,
             bands=bands,
             n_max_obs=n_max_obs,
-            dataset_length = cfg.dataset_length
+            dataset_length=cfg.dataset_length,
         )
 
         number_of_samples = len(dataset)
@@ -92,12 +92,12 @@ def train_sweep(config=None):
         )
 
         transformer_kwargs = {
-            "n_out": n_max_obs,
+            "n_out": cfg.n_out,
             "emb": cfg.emb,
             "heads": cfg.heads,
             "depth": cfg.transformer_depth,
             "dropout": cfg.dropout,
-            "time_norm": cfg.time_norm
+            "time_norm": cfg.time_norm,
         }
 
         optimizer_kwargs = {"weight_decay": cfg.weight_decay}
