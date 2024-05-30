@@ -934,7 +934,7 @@ class SimulationLightcurveDataset(Dataset):
             idx (int): The index of the data entry to retrieve.
 
         Returns:
-            Tuple[List[float], List[float]]: A tuple containing time and magnitude data for the requested entry.
+            Tuple: A tuple containing time and magnitude data, mask for the requested entry.
         """
         t_type, model, entry_idx = self.index_map[idx]
 
@@ -979,3 +979,165 @@ class SimulationLightcurveDataset(Dataset):
             torch.tensor(data).float(),
             torch.tensor(mask_concat).bool(),
         )
+
+
+class SimulationDataset(Dataset):
+    """
+    A dataset class for handling transient astronomical data stored in HDF5 files.
+
+    Attributes:
+        hdf5_path (str): The path to the HDF5 file containing transient data.
+        transient_types (Optional[List[str]]): A list of transient event types to load from the file.
+            If None, all available types in the file are loaded.
+        bands (List[str]): The list of photometric bands to retrieve data for (e.g., ['r', 'g']).
+        n_max_obs (int): The maximum number of lightcurve observations to pad to.
+        n_max_obs_spec (int): The maximum number of spectral observations to pad to.
+        combinations (List[str]): The list of data combinations to load (e.g., ['lightcurve', 'spectral']).
+        index_map (List[Tuple[str, str, int]]): A list of tuples where each tuple contains the
+            transient type, model, and entry index for quick data retrieval.
+        file (h5py.File): The opened HDF5 file containing the transient data.
+
+    Methods:
+        __len__: Returns the number of entries in the dataset.
+        __getitem__: Retrieves a dataset entry by index, loading data from the file as needed.
+    """
+
+    def __init__(
+        self,
+        hdf5_path: str,
+        transient_types: Optional[List[str]] = None,
+        bands: List[str] = ["r"],
+        n_max_obs=100,
+        n_max_obs_spec=220, 
+        combinations=['lightcurve'],
+        dataset_length: Optional[int]  = None,
+    ) -> None:
+        """
+        Initializes the dataset object by opening the HDF5 file and precalculating indices for quick access.
+
+        Args:
+            hdf5_path (str): The path to the HDF5 file containing transient data.
+            transient_types (Optional[List[str]]): A list of transient event types to load from the file.
+                If None, all available types in the file are loaded.
+            bands (List[str]): The list of photometric bands to retrieve data for (e.g., ['r', 'g']).
+            n_max_obs (int): The maximum number of lightcurve observations to pad to; default is 100.
+            n_max_obs_spec (int): The maximum number of spectral observations to pad to; default is 220.
+            combinations (List[str]): The list of data combinations to load (e.g., ['lightcurve', 'spectral']).
+        """
+        self.hdf5_path = hdf5_path
+        self.bands = bands
+        self.n_max_obs = n_max_obs
+        self.n_max_obs_spec = n_max_obs_spec
+        self.combinations = combinations
+        self.dataset_length = dataset_length
+
+        # Open the HDF5 file
+        file = h5py.File(self.hdf5_path, "r")
+        self.file = file 
+
+        transients = file["Photometry"]
+        # Default to using all keys if no specific types are provided
+        if transient_types is None:
+            transient_types = list(transients.keys())
+        self.transient_types = transient_types
+
+        # Pre-calculate indices for each entry
+        self.index_map = []
+        for t_type in self.transient_types:
+            for model in transients[t_type].keys():
+                num_entries = len(transients[t_type][model]["mjd"])
+                for i in range(num_entries):
+                    self.index_map.append((t_type, model, i))
+
+    def __len__(self) -> int:
+        """Returns the number of entries in the dataset."""
+        if self.dataset_length is None:
+            return len(self.index_map)
+        else:
+            return self.dataset_length
+
+    def __getitem__(self, idx: int) -> Tuple[List[float], List[float]]:
+        """
+        Retrieves an entry from the dataset by its index, dynamically loading data from the HDF5 file.
+
+        Args:
+            idx (int): The index of the data entry to retrieve.
+
+        Returns:
+            Tuple: A tuple containing: mag, time, mask, magerr, spec, freq, maskspec, redshift
+        """
+        t_type, model, entry_idx = self.index_map[idx]
+        mag, time, mask, magerr, spec, freq, maskspec, redshift = None, None, None, None, None, None, None, None
+
+        # Access the HDF5 file for each item
+        
+        if 'lightcurve' in self.combinations:
+            transient_model = self.file["Photometry"][t_type][model]
+
+            # Append data from multiple bands
+            data = []
+            time = []
+            mask_concat = []
+
+            id_lc = transient_model['TID'][entry_idx]
+            redshift = torch.tensor(transient_model["z"][entry_idx])
+            # the 'filter' key in the 'Photometry' file contains integers -- 1 for ZTF-g and 2 for ZTF-R.
+            for band in self.bands:
+                iband = 1 if band == 'g' else 2
+                filt = transient_model["filter"][entry_idx]
+                time_data = transient_model["mjd"][entry_idx][filt == iband]
+                mag_data = transient_model[f"mag_obs"][entry_idx][filt == iband]
+                #magerr_data = transient_model[f"mag_obs_err"][entry_idx][filt == iband]
+
+                indices, mask = make_padding_mask(len(time_data), self.n_max_obs)
+
+                time_data = np.pad(
+                    time_data[indices],
+                    (0, self.n_max_obs - len(indices)),
+                    "constant",
+                )
+                mag_data = np.pad(
+                    mag_data[indices],
+                    (0, self.n_max_obs - len(indices)),
+                    "constant",
+                )
+
+                # Normalise time if there is anything to normalise
+                if sum(mask) != 0:
+                    time_data[mask] = time_data[mask] - np.min(time_data[mask])
+
+                data += list(mag_data)
+                time += list(time_data)
+                mask_concat += list(mask)
+
+            time = torch.tensor(time).float()
+            mag = torch.tensor(data).float()
+            mask = torch.tensor(mask_concat).bool()
+
+        if 'spectral' in self.combinations:
+            transient_model = self.file["Spectroscopy"][t_type][model]
+
+            assert transient_model['TID'][entry_idx] == id_lc, "Lightcurve and Spectra ID should match"
+
+            freq_data = transient_model["wavelength"][entry_idx]
+            spec_data = transient_model["flux_obs"][entry_idx]
+
+            indices, mask = make_padding_mask(len(freq_data), self.n_max_obs_spec)
+
+            freq_data = np.pad(
+                freq_data[indices],
+                (0, self.n_max_obs_spec - len(indices)),
+                "constant",
+            )
+            spec_data = np.pad(
+                spec_data[indices],
+                (0, self.n_max_obs_spec - len(indices)),
+                "constant",
+            )
+
+            freq = torch.tensor(freq_data).float()
+            spec = torch.tensor(spec_data).float()
+            maskspec = torch.tensor(mask).bool()
+
+
+        return mag, time, mask, magerr, spec, freq, maskspec, redshift
