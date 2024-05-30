@@ -6,11 +6,11 @@ cnn_depth: 16
 cnn_dim: 32
 cnn_kernel_size: 5
 cnn_patch_size: 10
-dataset_length: 100000
+dataset_length: 1000
 dropout: 0.0001988
 emb: 32
 emb_spectral: 32
-epochs: 500
+epochs: 50
 heads: 2
 heads_spectral: 2
 logit_scale: 20
