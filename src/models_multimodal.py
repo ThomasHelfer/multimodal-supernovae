@@ -602,3 +602,40 @@ def load_model(
     model.eval()
 
     return model, combinations, regression, cfg, cfg_extra_args
+
+
+def load_pretrain_lc_model(
+    pretrain_lc_path: Optional[str], clip_model: nn.Module, freeze_backbone_lc: bool
+) -> None:
+    """
+    Loads a pretrained lightcurve model from a specified path, modifies its state dictionary,
+    loads it into a specific component of a given model, and optionally freezes all
+    parameters except for specified ones in the model's encoder.
+
+    Args:
+    pretrain_lc_path (Optional[str]): Path to the pretrained model's state dict file. If None, no loading is done.
+    clip_model (nn.Module): The main model which contains the encoder to be loaded and optionally frozen.
+    freeze_backbone_lc (bool): If True, freezes all parameters in the encoder except for 'projection.weight' and 'projection.bias'.
+
+    Returns:
+    None
+    """
+    # Loading up pretrained models
+    if pretrain_lc_path:
+        pre = torch.load(pretrain_lc_path)
+        # Preparing data to be processed by the model
+        new_dict = {
+            k.replace("net.", ""): v
+            for k, v in pre["state_dict"].items()
+            if "net." in k
+        }
+        # Writing the new state dict for the encoder
+        clip_model.lightcurve_encoder.load_state_dict(new_dict)
+
+        # Freezing pretrained backbone if required
+        if freeze_backbone_lc:
+            for name, param in clip_model.lightcurve_encoder.named_parameters():
+                if name not in ["projection.weight", "projection.bias"]:
+                    param.requires_grad = False
+                else:
+                    param.requires_grad = True

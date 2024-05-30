@@ -48,7 +48,7 @@ parameters:
   batchsize:
     values: [256]
   epochs:
-    values: [60]
+    values: [50]
   weight_decay:
     values: [0]
   logit_scale:
@@ -58,13 +58,16 @@ parameters:
   patience:    # Parameter for early stopping 
     values: [99999999]
   dataset_length:
-    values: [100,1000,10000,50000,100000,500000,1000000]
+    values: [1000]
 # Options are 'lightcurve' 'spectral' and 'host_galaxy' -- order does not matter 
 extra_args:
-  combinations: ['spectral'] 
+  combinations: ['lightcurve'] 
   regression: True
   nruns: 20
   max_spectral_data_len: 1024
   val_fraction: 0.05  # train test split
   classification: False
   spectral_rescalefactor: 1 # rescaling spectral values by a fixed amout to avoid floating point issues
+  # Loading up pretrained weights for lc
+  pretrain_lc_path: 'models/pretrained_sim_lc/autumn-sweep-1/epoch=49-step=200.ckpt'
+  freeze_backbone_lc: True

@@ -12,7 +12,7 @@ import pytorch_lightning as pl
 
 from torch.utils.data import TensorDataset, DataLoader, random_split
 
-from src.models_multimodal import LightCurveImageCLIP
+from src.models_multimodal import LightCurveImageCLIP, load_pretrain_lc_model
 from src.utils import (
     set_seed,
     get_valid_dir,
@@ -42,7 +42,9 @@ def train_sweep(config=None):
         n_samples_val = int(val_fraction * number_of_samples)
 
         dataset_train, dataset_val = random_split(
-            dataset, [number_of_samples - n_samples_val, n_samples_val], generator=torch.Generator().manual_seed(cfg.seed)
+            dataset,
+            [number_of_samples - n_samples_val, n_samples_val],
+            generator=torch.Generator().manual_seed(cfg.seed),
         )
 
         # dump config
@@ -109,6 +111,7 @@ def train_sweep(config=None):
             "time_norm": cfg.time_norm,
             "agg": cfg.agg,
         }
+
         transformer_spectral_kwargs = {
             "n_out": cfg.n_out,
             "emb": cfg.emb_spectral,
@@ -119,11 +122,11 @@ def train_sweep(config=None):
             "agg": cfg.agg_spectral,
         }
         conv_kwargs = {
-            "dim": cfg.cnn_dim, 
+            "dim": cfg.cnn_dim,
             "depth": cfg.cnn_depth,
             "channels": cfg.cnn_channels,
-            "kernel_size": cfg.cnn_kernel_size, 
-            "patch_size": cfg.cnn_patch_size, 
+            "kernel_size": cfg.cnn_kernel_size,
+            "patch_size": cfg.cnn_patch_size,
             "n_out": cfg.n_out,
             "dropout_prob": cfg.dropout,
         }
@@ -143,6 +146,10 @@ def train_sweep(config=None):
             classification=classification,
             n_classes=n_classes,
         )
+
+        # Loading up pretrained models
+        if pretrain_lc_path:
+            load_pretrain_lc_model(pretrain_lc_path, clip_model, freeze_backbone_lc)
 
         # Custom call back for tracking loss
         loss_tracking_callback = LossTrackingCallback()
@@ -253,12 +260,12 @@ if __name__ == "__main__":
     else:
         n_classes = 5
 
+    pretrain_lc_path = cfg["extra_args"].get("pretrain_lc_path")
+    freeze_backbone_lc = cfg["extra_args"].get("freeze_backbone_lc")
+
     # Check if the config file has a spectra key
     if "spectral" in combinations:
-        data_dirs = [
-            "ZTFBTS_spectra/",
-            "data/ZTFBTS_spectra/"
-        ]
+        data_dirs = ["ZTFBTS_spectra/", "data/ZTFBTS_spectra/"]
         spectra_dir = get_valid_dir(data_dirs)
     else:
         spectra_dir = None
@@ -272,7 +279,7 @@ if __name__ == "__main__":
         max_data_len_spec=max_spectral_data_len,
         combinations=combinations,
         n_classes=n_classes,
-        spectral_rescalefactor = cfg["extra_args"]['spectral_rescalefactor'],
+        spectral_rescalefactor=cfg["extra_args"]["spectral_rescalefactor"],
     )
 
     wandb.agent(
