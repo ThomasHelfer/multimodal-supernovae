@@ -1067,7 +1067,7 @@ class SimulationDataset(Dataset):
             Tuple: A tuple containing: mag, time, mask, magerr, spec, freq, maskspec, redshift
         """
         t_type, model, entry_idx = self.index_map[idx]
-        mag, time, mask, magerr, spec, freq, maskspec, redshift = None, None, None, None, None, None, None, None
+        mag, time, mask, magerr, spec, freq, maskspec, redshift = [], [], [], [], [], [], [], []
 
         # Access the HDF5 file for each item
         
@@ -1122,7 +1122,7 @@ class SimulationDataset(Dataset):
             freq_data = transient_model["wavelength"][entry_idx]
             spec_data = transient_model["flux_obs"][entry_idx]
 
-            indices, mask = make_padding_mask(len(freq_data), self.n_max_obs_spec)
+            indices, maskspec = make_padding_mask(len(freq_data), self.n_max_obs_spec)
 
             freq_data = np.pad(
                 freq_data[indices],
@@ -1137,7 +1137,7 @@ class SimulationDataset(Dataset):
 
             freq = torch.tensor(freq_data).float()
             spec = torch.tensor(spec_data).float()
-            maskspec = torch.tensor(mask).bool()
+            maskspec = torch.tensor(maskspec).bool()
 
-
-        return mag, time, mask, magerr, spec, freq, maskspec, redshift
+        # first and last are placeholders for img and classifications which are needed for clip model
+        return [], mag, time, mask, spec, freq, maskspec, redshift, []
