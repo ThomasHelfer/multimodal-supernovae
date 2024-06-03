@@ -512,23 +512,17 @@ class LightCurveImageCLIP(pl.LightningModule):
             self.embs_list = None
 
 
-def load_model(
+def initialize_model(
     path: str, combinations: Optional[Any] = None, regression: Optional[Any] = None
 ) -> LightCurveImageCLIP:
-    """
-    Load a trained LightCurveImageCLIP model from a checkpoint file.
-
+    '''
+    Initialize the model with the configuration parameters from the config file stored in path.
+    
     Args:
-        path (str): Path to the checkpoint file (.ckpt).
+        path (str): Path to the checkpoint file (.ckpt) or the config file (.yaml).
         combinations (Optional[Any]): Combination parameters for the model. If not provided, it will be loaded from the sweep configuration.
         regression (Optional[Bool]): Regression bolean, if True the model is a regression model. If not provided, it will be loaded from the sweep configuration.
-
-    Returns:
-        LightCurveImageCLIP: The loaded and configured model.
-        combinations: Combination parameters for the model.
-        regression:
-        cfg: dictonary containing yaml
-    """
+    '''
     # Load the sweep configuration file
     config_dir = os.path.dirname(path)
     sweep_config_dir = os.path.dirname(config_dir)
@@ -590,12 +584,41 @@ def load_model(
         regression=regression,
     )
 
+    return model, combinations, regression, cfg, cfg_extra_args
+    
+
+def load_model(
+    path: str, path_statedict: Optional[str] = None, combinations: Optional[Any] = None, regression: Optional[Any] = None
+) -> LightCurveImageCLIP:
+    """
+    Load a trained LightCurveImageCLIP model from a checkpoint file.
+
+    Args:
+        path (str): Path to the checkpoint file (.ckpt) or the config file (.yaml).
+        path_statedict (Optional[str]): Path to the model state dictionary file (.ckpt). If not provided, it will be loaded from path.
+        combinations (Optional[Any]): Combination parameters for the model. If not provided, it will be loaded from the sweep configuration.
+        regression (Optional[Bool]): Regression bolean, if True the model is a regression model. If not provided, it will be loaded from the sweep configuration.
+
+    Returns:
+        LightCurveImageCLIP: The loaded and configured model.
+        combinations: Combination parameters for the model.
+        regression:
+        cfg: dictonary containing yaml
+    """
+    model, combinations, regression, cfg, cfg_extra_args = initialize_model(
+        path, combinations, regression
+    )
+
     # Set the model to the appropriate device (CPU/GPU)
     model.to(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
 
+    path_ckpt = path_statedict if path_statedict else path
+
+    assert path_ckpt.endswith(".ckpt"), "The checkpoint file must have a .ckpt extension."
+
     # Load the model state from the checkpoint file
     model.load_state_dict(
-        torch.load(path, map_location=torch.device("cpu"))["state_dict"]
+        torch.load(path_ckpt, map_location=torch.device("cpu"))["state_dict"]
     )
 
     # Set the model to evaluation mode
@@ -639,3 +662,294 @@ def load_pretrain_lc_model(
                     param.requires_grad = False
                 else:
                     param.requires_grad = True
+
+
+
+def load_pretrain_clip_model(
+    pretrain_path: Optional[str], clip_model: nn.Module, freeze_backbone: bool
+) -> None:
+    """
+    Loads a pretrained lightcurve model from a specified path, modifies its state dictionary,
+    loads it into a specific component of a given model, and optionally freezes all
+    parameters except for specified ones in the model's encoder.
+
+    Args:
+    pretrain_lc_path (Optional[str]): Path to the pretrained model's state dict file. If None, no loading is done.
+    clip_model (nn.Module): The main model which contains the encoder to be loaded and optionally frozen.
+    freeze_backbone_lc (bool): If True, freezes all parameters in the encoder except for 'projection.weight' and 'projection.bias'.
+
+    Returns:
+    None
+    """
+    # Loading up pretrained models
+    if pretrain_path:
+        pre = torch.load(pretrain_path)
+        clip_model.load_state_dict(pre["state_dict"])
+
+        # Freezing pretrained backbone if required
+        if freeze_backbone:
+            for name, param in clip_model.lightcurve_encoder.named_parameters():
+                if name not in ["projection.weight", "projection.bias"]:
+                    param.requires_grad = False
+                else:
+                    param.requires_grad = True
+
+            for name, param in clip_model.spectral_encoder.named_parameters():
+                if name not in ["projection.weight", "projection.bias"]:
+                    param.requires_grad = False
+                else:
+                    param.requires_grad = True
+
+
+class MLP(nn.Module):
+    def __init__(self, input_dim, hidden_dim, output_dim, num_layers, dropout):
+        super(MLP, self).__init__()
+        self.input_dim = input_dim
+        self.hidden_dim = hidden_dim
+        self.output_dim = output_dim
+        self.num_layers = num_layers
+        self.dropout = dropout
+
+        self.layers = nn.ModuleList()
+        self.layers.append(nn.Linear(self.input_dim, self.hidden_dim))
+        self.layers.append(nn.ReLU())
+        self.layers.append(nn.Dropout(self.dropout))
+        for i in range(self.num_layers - 1):
+            self.layers.append(nn.Linear(self.hidden_dim, self.hidden_dim))
+            self.layers.append(nn.ReLU())
+            self.layers.append(nn.Dropout(self.dropout))
+        self.layers.append(nn.Linear(self.hidden_dim, self.output_dim))
+
+    def forward(self, x):
+        for layer in self.layers:
+            x = layer(x)
+        return x
+    
+
+class ClipMLP(nn.Module):
+    def __init__(self, clip_model, mlp_kwargs, optimizer_kwargs, lr, 
+                 combinations=['lightcurve'], 
+                 regression=True, 
+                 classification=False, 
+                 n_classes=5):
+        super(ClipMLP, self).__init__()
+        
+        enc_dim = 0 
+        if 'lightcurve' in combinations: enc_dim += clip_model.lightcurve_encoder.projection.out_features
+        if 'spectral' in combinations: enc_dim += clip_model.spectral_encoder.projection.out_features
+
+        mlp_kwargs['input_dim'] == enc_dim 
+
+        self.clip_model = clip_model
+        self.mlp_model = MLP(**mlp_kwargs)
+        self.optimizer_kwargs = optimizer_kwargs
+        self.lr = lr
+        self.combinations = combinations
+        self.regression = regression
+        self.classification = classification
+        self.n_classes = n_classes
+
+    def forward(self, x_lc=None, t_lc=None, mask_lc=None, x_sp=None, t_sp=None, mask_sp=None):
+        x = [] 
+        if 'lightcurve' in self.combinations:
+            x.append(self.clip_model.lightcurve_embeddings_with_projection(x_lc, t_lc, mask_lc)) 
+        if 'spectral' in self.combinations:
+            x.append(self.clip_model.spectral_embeddings_with_projection(x_sp, t_sp, mask_sp)) 
+
+        x = torch.cat(x, dim=-1)
+        x = self.mlp_model(x)
+        return x
+    
+    def configure_optimizers(self):
+        optimizer = torch.optim.RAdam(
+            self.parameters(), lr=self.lr, **self.optimizer_kwargs
+        )
+        return {"optimizer": optimizer}
+
+    def training_step(self, batch, batch_idx):
+        (
+            x_img,
+            x_lc,
+            t_lc,
+            mask_lc,
+            x_sp,
+            t_sp,
+            mask_sp,
+            redshift,
+            classification,
+        ) = batch
+        x = self(x_lc, t_lc, mask_lc, x_sp, t_sp, mask_sp)
+
+        if self.regression:
+            loss = nn.MSELoss()(x.squeeze(), redshift)
+
+            # Store the predictions and true values for R2 calculation
+            self.y_pred.append(x.flatten())
+            self.y_true.append(redshift)
+
+        elif self.classification:
+            # matching the (rough) class breakdown of ZTF BTS
+            if self.n_classes == 5:
+                class_weights = (
+                    torch.tensor([0.3, 0.08, 1.0, 0.01, 0.2]).to(x.device).float()
+                )
+            elif self.n_classes == 3:
+                class_weights = torch.tensor([0.33, 0.06, 1.0]).to(x.device).float()
+            else:
+                # if we can't figure out the classification don't reweight
+                class_weights = torch.ones(self.n_classes).to(x.device).float()
+
+            loss = nn.CrossEntropyLoss(weight=class_weights)(
+                x.squeeze(), classification.long()
+            )
+
+            self.y_pred.append(x)
+            self.y_true.append(classification)
+
+        self.log(
+            "train_loss", loss, on_epoch=True, on_step=False, prog_bar=True, logger=True
+        )
+        return loss
+
+    def on_train_epoch_start(self):
+        if self.regression or self.classification:
+            # Initialize empty lists to store predictions and true values
+            self.y_true = []
+            self.y_pred = []
+
+    def on_train_epoch_end(self) -> None:
+        if self.regression:
+            # Compute R2
+            y_true = torch.cat(self.y_true, dim=0)
+            y_pred = torch.cat(self.y_pred, dim=0)
+            r2 = (
+                1 - (y_true - y_pred).pow(2).sum() / (y_true - y_true.mean()).pow(2).sum()
+            )
+            self.log(
+                "R2_train",
+                r2.cpu(),
+                on_epoch=True,
+                on_step=False,
+                prog_bar=True,
+                logger=True,
+            )
+
+        elif self.classification:
+            # Compute F2 score (weighted harmonic mean between precision and recall)
+            y_true = torch.cat(self.y_true, dim=0)
+            y_pred = torch.cat(self.y_pred, dim=0)
+
+            y_pred = torch.argmax(y_pred, dim=1)
+
+            y_pred = y_pred.int()  # Ensure it's an integer tensor
+            y_true = y_true.int()  # Ensure it's an integer tensor
+
+            # beta is the weighting between precision and recall. For now use beta=1, equal weight.
+            f1 = MulticlassFBetaScore(beta=1.0, num_classes=self.n_classes).to(
+                y_pred.device
+            )(y_pred.int(), y_true)
+            self.log(
+                "f1_train",
+                f1.cpu(),
+                on_epoch=True,
+                on_step=False,
+                prog_bar=True,
+                logger=True,
+            )
+
+    def on_validation_start(self) -> None:
+        """
+        Called at the beginning of the validation loop.
+        """
+        # Initialize an empty list to store embeddings
+        if self.regression or self.classification:
+            self.y_pred_val = []
+            self.y_true_val = []
+
+    def validation_step(self, batch, batch_idx):
+        (
+            x_img,
+            x_lc,
+            t_lc,
+            mask_lc,
+            x_sp,
+            t_sp,
+            mask_sp,
+            redshift,
+            classification,
+        ) = batch
+        x = self(x_lc, t_lc, mask_lc, x_sp, t_sp, mask_sp)
+
+        if self.regression:
+            loss = nn.MSELoss()(x.squeeze(), redshift)
+
+            # Store the predictions and true values for R2 calculation
+            self.y_pred_val.append(x.flatten())
+            self.y_true_val.append(redshift)
+
+        elif self.classification:
+            # matching the (rough) class breakdown of ZTF BTS - lower for more common classes
+            if self.n_classes == 5:
+                class_weights = (
+                    torch.tensor([0.3, 0.08, 1.0, 0.01, 0.2]).to(x.device).float()
+                )
+            elif self.n_classes == 3:
+                class_weights = torch.tensor([0.33, 0.06, 1.0]).to(x.device).float()
+            else:
+                # if we can't figure out the classification don't reweight
+                class_weights = torch.ones(self.n_classes).to(x.device).float()
+
+            loss = nn.CrossEntropyLoss(weight=class_weights)(
+                x.squeeze(), classification.long()
+            )
+
+            self.y_pred_val.append(x)
+            self.y_true_val.append(classification)
+
+        self.log(
+            "val_loss", loss, on_epoch=True, on_step=False, prog_bar=True, logger=True
+        )
+        return loss
+
+    def on_validation_epoch_end(self) -> None:
+        """
+        Called at the end of the validation epoch.
+        """
+
+        if self.regression:
+            # Compute R2 Value if regression
+            y_true = torch.cat(self.y_true_val, dim=0)
+            y_pred = torch.cat(self.y_pred_val, dim=0)
+            r2 = (
+                1
+                - (y_true - y_pred).pow(2).sum() / (y_true - y_true.mean()).pow(2).sum()
+            )
+            self.log(
+                "R2_val",
+                r2.cpu(),
+                on_epoch=True,
+                on_step=False,
+                prog_bar=True,
+                logger=True,
+            )
+        elif self.classification:
+            # Compute R2 Value if regression
+            y_true = torch.cat(self.y_true_val, dim=0)
+            y_pred = torch.cat(self.y_pred_val, dim=0)
+
+            y_pred = torch.argmax(y_pred, dim=1)
+
+            y_pred = y_pred.int()  # Ensure it's an integer tensor
+            y_true = y_true.int()  # Ensure it's an integer tensor
+
+            f1 = MulticlassFBetaScore(beta=1.0, num_classes=self.n_classes).to(
+                y_pred.device
+            )(y_pred, y_true)
+            self.log(
+                "f1_val",
+                f1.cpu(),
+                on_epoch=True,
+                on_step=False,
+                prog_bar=True,
+                logger=True,
+            )
