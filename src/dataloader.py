@@ -1067,7 +1067,10 @@ class SimulationDataset(Dataset):
             Tuple: A tuple containing: mag, time, mask, magerr, spec, freq, maskspec, redshift
         """
         t_type, model, entry_idx = self.index_map[idx]
-        mag, time, mask, magerr, spec, freq, maskspec, redshift = [], [], [], [], [], [], [], []
+        mag, time, mask, magerr, spec, freq, maskspec, redshift = {
+            torch.empty(0), torch.empty(0), torch.empty(0), torch.empty(0), 
+            torch.empty(0), torch.empty(0), torch.empty(0), torch.empty(0)
+        }
 
         # Access the HDF5 file for each item
         
@@ -1140,4 +1143,4 @@ class SimulationDataset(Dataset):
             maskspec = torch.tensor(maskspec).bool()
 
         # first and last are placeholders for img and classifications which are needed for clip model
-        return [], mag, time, mask, spec, freq, maskspec, redshift, []
+        return torch.empty(0), mag, time, mask, spec, freq, maskspec, redshift, torch.empty(0)
