@@ -512,8 +512,32 @@ class LightCurveImageCLIP(pl.LightningModule):
             self.embs_list = None
 
 
+def load_config(path): 
+    '''
+    Load the configuration file from the path provided.
+    
+    Args:
+        path (str): Path to the model or the configuration file (.yaml).
+    
+    Returns:
+        cfg: dictonary containing dict from yaml 
+        cfg_extra_args: dictonary containing extra args not tracked by wandb 
+    '''
+    # Load the sweep configuration file
+    config_dir = os.path.dirname(path)
+    sweep_config_dir = os.path.dirname(config_dir)
+    cfg_extra_args = YAML(typ="safe").load(
+        open(f"{sweep_config_dir}/sweep_config.yaml")
+    )["extra_args"]
+
+    # Load the main configuration file
+    cfg: Dict[str, Any] = YAML(typ="safe").load(open(f"{config_dir}/config.yaml"))
+
+    return cfg, cfg_extra_args
+
+
 def initialize_model(
-    path: str, combinations: Optional[Any] = None, regression: Optional[Any] = None
+    path: str, optimizer_kwargs: Optional[dict] = {}, combinations: Optional[Any] = None, regression: Optional[Any] = None
 ) -> LightCurveImageCLIP:
     '''
     Initialize the model with the configuration parameters from the config file stored in path.
@@ -522,22 +546,23 @@ def initialize_model(
         path (str): Path to the checkpoint file (.ckpt) or the config file (.yaml).
         combinations (Optional[Any]): Combination parameters for the model. If not provided, it will be loaded from the sweep configuration.
         regression (Optional[Bool]): Regression bolean, if True the model is a regression model. If not provided, it will be loaded from the sweep configuration.
+    
+    Returns:
+        LightCurveImageCLIP: The loaded and configured model.
+        combinations: Combination parameters for the model.
+        regression: Regression bolean, if True the model is a regression model.
+        cfg: dictonary containing dict from yaml 
+        cfg_extra_args: dictonary containing extra args not tracked by wandb 
     '''
     # Load the sweep configuration file
-    config_dir = os.path.dirname(path)
-    sweep_config_dir = os.path.dirname(config_dir)
-    cfg_extra_args: Dict[str, Any] = YAML(typ="safe").load(
-        open(f"{sweep_config_dir}/sweep_config.yaml")
-    )["extra_args"]
+    cfg, cfg_extra_args = load_config(path)
+    
 
     if combinations is None:
         combinations = cfg_extra_args["combinations"]
     if regression is None:
         regression = cfg_extra_args.get("regression", False)
-
-    # Load the main configuration file
-    cfg: Dict[str, Any] = YAML(typ="safe").load(open(f"{config_dir}/config.yaml"))
-
+        
     # Setting parameters for the transformer
     transformer_kwargs = {
         "n_out": cfg["n_out"],
@@ -579,7 +604,7 @@ def initialize_model(
         transformer_kwargs=transformer_kwargs,
         transformer_spectral_kwargs=transformer_spectral_kwargs,
         conv_kwargs=conv_kwargs,
-        optimizer_kwargs={},
+        optimizer_kwargs=optimizer_kwargs,
         combinations=combinations,
         regression=regression,
     )
@@ -602,11 +627,12 @@ def load_model(
     Returns:
         LightCurveImageCLIP: The loaded and configured model.
         combinations: Combination parameters for the model.
-        regression:
-        cfg: dictonary containing yaml
+        regression: Regression bolean, if True the model is a regression model.
+        cfg: dictonary containing dict from yaml 
+        cfg_extra_args: dictonary containing extra args not tracked by wandb 
     """
     model, combinations, regression, cfg, cfg_extra_args = initialize_model(
-        path, combinations, regression
+        path, combinations=combinations, regression=regression
     )
 
     # Set the model to the appropriate device (CPU/GPU)
@@ -663,8 +689,6 @@ def load_pretrain_lc_model(
                 else:
                     param.requires_grad = True
 
-
-
 def load_pretrain_clip_model(
     pretrain_path: Optional[str], clip_model: nn.Module, freeze_backbone: bool
 ) -> None:
@@ -674,7 +698,7 @@ def load_pretrain_clip_model(
     parameters except for specified ones in the model's encoder.
 
     Args:
-    pretrain_lc_path (Optional[str]): Path to the pretrained model's state dict file. If None, no loading is done.
+    pretrain_path (Optional[str]): Path to the pretrained model's state dict file. If None, no loading is done.
     clip_model (nn.Module): The main model which contains the encoder to be loaded and optionally frozen.
     freeze_backbone_lc (bool): If True, freezes all parameters in the encoder except for 'projection.weight' and 'projection.bias'.
 
@@ -726,19 +750,33 @@ class MLP(nn.Module):
         return x
     
 
-class ClipMLP(nn.Module):
+class ClipMLP(pl.LightningModule):
     def __init__(self, clip_model, mlp_kwargs, optimizer_kwargs, lr, 
                  combinations=['lightcurve'], 
                  regression=True, 
                  classification=False, 
                  n_classes=5):
+        '''
+        A model that combines the CLIP model with an MLP for regression or classification.
+
+        Args:
+        clip_model (LightCurveImageCLIP): The CLIP model to use.
+        mlp_kwargs (dict): Keyword arguments for the MLP model.
+        optimizer_kwargs (dict): Keyword arguments for the optimizer.
+        lr (float): Learning rate.
+        combinations (list): List of data combinations to use.
+        regression (bool): If True, the model is a regression model.
+        classification (bool): If True, the model is a classification model.
+        n_classes (int): Number of classes for classification.
+        
+        '''
         super(ClipMLP, self).__init__()
         
         enc_dim = 0 
-        if 'lightcurve' in combinations: enc_dim += clip_model.lightcurve_encoder.projection.out_features
-        if 'spectral' in combinations: enc_dim += clip_model.spectral_encoder.projection.out_features
+        if 'lightcurve' in combinations: enc_dim += clip_model.lightcurve_projection.out_features
+        if 'spectral' in combinations: enc_dim += clip_model.spectral_projection.out_features
 
-        mlp_kwargs['input_dim'] == enc_dim 
+        mlp_kwargs['input_dim'] = enc_dim 
 
         self.clip_model = clip_model
         self.mlp_model = MLP(**mlp_kwargs)
