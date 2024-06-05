@@ -25,6 +25,7 @@ from src.dataloader import (
     load_data,
     NoisyDataLoader,
     SimulationLightcurveDataset,
+    SimulationDataset
 )
 
 from src.models_pretraining import (
@@ -57,6 +58,14 @@ def train_sweep(config=None):
             n_max_obs=n_max_obs,
             dataset_length=cfg.dataset_length,
         )
+
+        #dataset = SimulationDataset(
+        #    hdf5_path = 'sim_data/ZTF_Pretrain_5Class.hdf5',
+        #    bands = bands,
+        #    n_max_obs=n_max_obs,
+        #    combinations=['lightcurve'],
+        #    dataset_length =  cfg.dataset_length,
+        #)
 
         number_of_samples = len(dataset)
         n_samples_val = int(val_fraction * number_of_samples)
@@ -109,6 +118,9 @@ def train_sweep(config=None):
             optimizer_kwargs=optimizer_kwargs,
             nband=nband,
         )
+
+        if pretrain_lc_path:
+            model.load_state_dict(torch.load(pretrain_lc_path)['state_dict'] )
 
         # Calculate the total number of trainable parameters
         total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -188,6 +200,9 @@ if __name__ == "__main__":
 
     set_seed(0)
     # define constants
+
+
+    pretrain_lc_path = cfg["extra_args"].get("pretrain_lc_path")
 
     val_fraction = cfg["extra_args"]["val_fraction"]
 

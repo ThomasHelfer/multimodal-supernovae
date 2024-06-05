@@ -44,11 +44,11 @@ parameters:
     values: ["mean"]
   # Optimiser 
   lr:
-    values: [1e-4]
+    values: [1e-3]
   batchsize:
-    values: [256]
+    values: [8192]
   epochs:
-    values: [50]
+    values: [400]
   weight_decay:
     values: [0]
   logit_scale:
@@ -58,7 +58,7 @@ parameters:
   patience:    # Parameter for early stopping 
     values: [99999999]
   dataset_length:
-    values: [1000]
+    values: [100000]
 # Options are 'lightcurve' 'spectral' and 'host_galaxy' -- order does not matter 
 extra_args:
   combinations: ['lightcurve'] 
@@ -69,5 +69,5 @@ extra_args:
   classification: False
   spectral_rescalefactor: 1 # rescaling spectral values by a fixed amout to avoid floating point issues
   # Loading up pretrained weights for lc
-  pretrain_lc_path: 'models/pretrained_sim_lc/autumn-sweep-1/epoch=49-step=200.ckpt'
+  pretrain_lc_path: 'models/pretrained_sim_lc/crimson-sweep-1/epoch=198-step=2388.ckpt'
   freeze_backbone_lc: True

@@ -153,41 +153,54 @@ class MaskedLightCurveEncoder(pl.LightningModule):
         return x[mask_pred], x_pred[mask_pred]
 
     def training_step(
-        self, batch: Tuple[Tensor, Tensor, Tensor], batch_idx: int
+        self, batch: Tuple[Tensor, ...], batch_idx: int
     ) -> Tensor:
         """
         Perform a training step.
 
         Args:
-            batch (Tuple[Tensor, Tensor, Tensor]): A tuple containing input tensors (t, x, padding_mask).
+            batch (Tuple[Tensor, ...]): A tuple containing input tensors (t, x, padding_mask).
             batch_idx (int): Index of the batch.
 
         Returns:
             Tensor: Computed loss value.
         """
-        t, x, padding_mask = batch
-        x, x_pred = self.masked_pred(x, t, padding_mask, f_mask=self.f_mask)
-        loss = nn.MSELoss()(x, x_pred)
-        self.log("train_loss", loss, on_epoch=True, on_step=False, prog_bar=True)
+        if len(batch) == 3:
+            t, x, padding_mask = batch
+            x, x_pred = self.masked_pred(x, t, padding_mask, f_mask=self.f_mask)
+            loss = nn.MSELoss()(x, x_pred)
+            self.log("train_loss", loss, on_epoch=True, on_step=False, prog_bar=True)
+        else:
+            _ , x, t, padding_mask, spec, freq, maskspec, redshift, _ = batch
+            x, x_pred = self.masked_pred(x, t, padding_mask, f_mask=self.f_mask)
+            loss = nn.MSELoss()(x, x_pred)
+            self.log("train_loss", loss, on_epoch=True, on_step=False, prog_bar=True)
         return loss
 
     def validation_step(
-        self, batch: Tuple[Tensor, Tensor, Tensor], batch_idx: int
+        self, batch: Tuple[Tensor, ...], batch_idx: int
     ) -> Tensor:
         """
         Perform a validation step.
 
         Args:
-            batch (Tuple[Tensor, Tensor, Tensor]): A tuple containing input tensors (t, x, padding_mask).
+            batch (Tuple[Tensor, ...]): A tuple containing input tensors (t, x, padding_mask).
             batch_idx (int): Index of the batch.
 
         Returns:
             Tensor: Computed loss value.
         """
-        t, x, padding_mask = batch
-        x, x_pred = self.masked_pred(x, t, padding_mask, f_mask=self.f_mask)
-        loss = nn.MSELoss()(x, x_pred)
-        self.log("val_loss", loss, on_epoch=True, on_step=False, prog_bar=True)
+        # determining what datasource it is coming from
+        if len(batch) == 3:
+            t, x, padding_mask = batch
+            x, x_pred = self.masked_pred(x, t, padding_mask, f_mask=self.f_mask)
+            loss = nn.MSELoss()(x, x_pred)
+            self.log("val_loss", loss, on_epoch=True, on_step=False, prog_bar=True)
+        else:   
+            _ , x, t, padding_mask, spec, freq, maskspec, redshift, _ = batch
+            x, x_pred = self.masked_pred(x, t, padding_mask, f_mask=self.f_mask)
+            loss = nn.MSELoss()(x, x_pred)
+            self.log("val_loss", loss, on_epoch=True, on_step=False, prog_bar=True)   
         return loss
 
 
