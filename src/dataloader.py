@@ -917,7 +917,6 @@ class SimulationLightcurveDataset(Dataset):
                     num_entries = len(transients[t_type][model]["MJD"])
                     for i in range(num_entries):
                         self.index_map.append((t_type, model, i))
-        print(len(self.index_map))
 
     def __len__(self) -> int:
         """Returns the number of entries in the dataset."""
