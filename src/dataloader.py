@@ -1010,6 +1010,7 @@ class SimulationDataset(Dataset):
         n_max_obs_spec=220, 
         combinations=['lightcurve'],
         dataset_length: Optional[int]  = None,
+        noise=True, 
     ) -> None:
         """
         Initializes the dataset object by opening the HDF5 file and precalculating indices for quick access.
@@ -1022,6 +1023,8 @@ class SimulationDataset(Dataset):
             n_max_obs (int): The maximum number of lightcurve observations to pad to; default is 100.
             n_max_obs_spec (int): The maximum number of spectral observations to pad to; default is 220.
             combinations (List[str]): The list of data combinations to load (e.g., ['lightcurve', 'spectral']).
+            dataset_length (Optional[int]): if None, we take the whole dataset, if not, we take the first dataset_length entries
+            noise (bool): if True, load noisy data, if False, load perfect data
         """
         self.hdf5_path = hdf5_path
         self.bands = bands
@@ -1029,6 +1032,7 @@ class SimulationDataset(Dataset):
         self.n_max_obs_spec = n_max_obs_spec
         self.combinations = combinations
         self.dataset_length = dataset_length
+        self.noise = noise 
 
         # Open the HDF5 file
         file = h5py.File(self.hdf5_path, "r")
@@ -1088,7 +1092,8 @@ class SimulationDataset(Dataset):
                 iband = 1 if band == 'g' else 2
                 filt = transient_model["filter"][entry_idx]
                 time_data = transient_model["mjd"][entry_idx][filt == iband]
-                mag_data = transient_model[f"mag_obs"][entry_idx][filt == iband]
+                if self.noise: mag_data = transient_model[f"mag_obs"][entry_idx][filt == iband]
+                else: mag_data = transient_model[f"mag_perfect"][entry_idx][filt == iband]
                 #magerr_data = transient_model[f"mag_obs_err"][entry_idx][filt == iband]
 
                 indices, mask = make_padding_mask(len(time_data), self.n_max_obs)
@@ -1122,7 +1127,8 @@ class SimulationDataset(Dataset):
             assert transient_model['TID'][entry_idx] == id_lc, "Lightcurve and Spectra ID should match"
 
             freq_data = transient_model["wavelength"][entry_idx]
-            spec_data = transient_model["flux_obs"][entry_idx]
+            if self.noise: spec_data = transient_model["flux_obs"][entry_idx]
+            else: spec_data = transient_model["flux_perfect"][entry_idx]
 
             indices, maskspec = make_padding_mask(len(freq_data), self.n_max_obs_spec)
 
