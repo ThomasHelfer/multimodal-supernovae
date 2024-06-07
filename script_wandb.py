@@ -10,7 +10,8 @@ import numpy as np
 import torch
 import pytorch_lightning as pl
 
-from torch.utils.data import TensorDataset, DataLoader, random_split
+from torch.utils.data import TensorDataset, DataLoader, random_split, Subset
+from sklearn.model_selection import train_test_split
 
 from src.models_multimodal import LightCurveImageCLIP, load_pretrain_lc_model
 from src.utils import (
@@ -41,11 +42,23 @@ def train_sweep(config=None):
 
         n_samples_val = int(val_fraction * number_of_samples)
 
-        dataset_train, dataset_val = random_split(
-            dataset,
-            [number_of_samples - n_samples_val, n_samples_val],
-            generator=torch.Generator().manual_seed(cfg.seed),
+        # dataset_train, dataset_val = random_split(
+        #     dataset,
+        #     [number_of_samples - n_samples_val, n_samples_val],
+        #     generator=torch.Generator().manual_seed(cfg.seed),
+        # )
+
+        inds_train, inds_val = train_test_split(
+            range(number_of_samples),
+            test_size=val_fraction,
+            random_state=cfg.seed,
         )
+
+        dataset_train = Subset(dataset, inds_train)
+        dataset_val = Subset(dataset, inds_val)
+
+        # save val file names 
+        np.savetxt(os.path.join(path_run, "val_filenames.txt"), np.array(filenames)[inds_val], fmt="%s")
 
         # dump config
         config_dict = {k: v for k, v in cfg.items()}
@@ -233,7 +246,6 @@ if __name__ == "__main__":
 
     print("model path: " + model_path, flush=True)
 
-    set_seed(0)
     # define constants
     val_fraction = cfg["extra_args"]["val_fraction"]
 
@@ -273,7 +285,7 @@ if __name__ == "__main__":
     max_spectral_data_len = cfg["extra_args"][
         "max_spectral_data_len"
     ]  # Spectral data is cut to this length
-    dataset, nband, _ = load_data(
+    dataset, nband, filenames = load_data(
         data_dir,
         spectra_dir,
         max_data_len_spec=max_spectral_data_len,
