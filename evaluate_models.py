@@ -41,6 +41,8 @@ from src.utils import (
     get_valid_dir,
     set_seed,
     get_linearR2,
+    get_linear_predictions,
+    get_knn_predictions,
     get_knnR2,
     get_embs,
 )
@@ -203,9 +205,10 @@ for output, label in zip(models, labels):
     print(f"Using data modalities: {cfg_extra_args['combinations']}")
     if regression:
         y_pred = torch.cat(y_pred_val, dim=0)
-        # Calculating R2 value
-        r2 = 1 - (y_true - y_pred).pow(2).sum() / (y_true - y_true.mean()).pow(2).sum()
-        print(f"Model has an R2 value of {r2:.5f}")
+        # Calculating L1 value
+        print(
+            f"Model has an L1 value of {(torch.mean(torch.abs(y_true - y_pred))):.5f}"
+        )
     else:
         embs_list, combs = get_embs(
             model, val_loader_no_aug, cfg_extra_args["combinations"], ret_combs=True
@@ -214,12 +217,16 @@ for output, label in zip(models, labels):
         for i in range(len(embs_list)):
             # print(f"Train set linear regression R2 value for {combs[i]}: {get_linearR2(embs_list_train[i], y_true_train)}")
             print(f"---- {combs[i]} input ---- ")
-            print(
-                f"    Linear regression: {get_linearR2(embs_list_train[i], y_true_train, embs_list[i], y_true):.5f}"
+            y_pred = get_linear_predictions(
+                embs_list_train[i], y_true_train, embs_list[i], y_true
             )
             print(
-                f"    KNN: {get_knnR2(embs_list_train[i], y_true_train, embs_list[i], y_true):.5f}"
+                f"    Linear regression L1: {(torch.mean(torch.abs(y_true - y_pred))):.5f}"
             )
+            y_pred = get_knn_predictions(
+                embs_list_train[i], y_true_train, embs_list[i], y_true
+            )
+            print(f"    KNN L1 : {(torch.mean(torch.abs(y_true - y_pred))):.5f}")
 
         # for concatenated pairs of modalities
         for i in range(len(embs_list)):
@@ -227,10 +234,15 @@ for output, label in zip(models, labels):
                 emb_concat = torch.cat([embs_list[i], embs_list[j]], dim=1)
                 emb_train = torch.cat([embs_list_train[i], embs_list_train[j]], dim=1)
                 print(f"---- {combs[i]} and {combs[j]} input ---- ")
-                print(
-                    f"    Linear regression R2 : {get_linearR2(emb_train, y_true_train, emb_concat, y_true):.5f}"
+                y_pred = get_linear_predictions(
+                    emb_train, y_true_train, emb_concat, y_true
                 )
                 print(
-                    f"    KNN R2 : {get_knnR2(emb_train, y_true_train, emb_concat, y_true):.5f}"
+                    f"    Linear regression L1: {(torch.mean(torch.abs(y_true - y_pred))):.5f}"
                 )
+                y_pred = get_knn_predictions(
+                    emb_train, y_true_train, emb_concat, y_true
+                )
+                print(f"    KNN L1 : {(torch.mean(torch.abs(y_true - y_pred))):.5f}")
+
     print("===============================")
