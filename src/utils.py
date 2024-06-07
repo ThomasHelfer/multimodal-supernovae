@@ -290,15 +290,16 @@ def get_embs(
     # Iterate through the DataLoader
     for batch in dataloader:
         x_img, x_lc, t_lc, mask_lc, x_sp, t_sp, mask_sp, _, _ = batch
-        x_img, x_lc, t_lc, mask_lc, x_sp, t_sp, mask_sp = (
-            x_img.to(device),
-            x_lc.to(device),
-            t_lc.to(device),
-            mask_lc.to(device),
-            x_sp.to(device),
-            t_sp.to(device),
-            mask_sp.to(device),
-        )
+        if "host_galaxy" in combinations:
+            x_img = x_img.to(device)
+        if "lightcurve" in combinations:
+            x_lc = x_lc.to(device)
+            t_lc = t_lc.to(device)
+            mask_lc = mask_lc.to(device)
+        if "spectral" in combinations:
+            x_sp = x_sp.to(device)
+            t_sp = t_sp.to(device)
+            mask_sp = mask_sp.to(device)
 
         # Compute embeddings and detach from the computation graph
         with torch.no_grad():
