@@ -39,15 +39,7 @@ def train_sweep(config=None):
         set_seed(cfg.seed)
 
         number_of_samples = len(dataset)
-
-        n_samples_val = int(val_fraction * number_of_samples)
-
-        # dataset_train, dataset_val = random_split(
-        #     dataset,
-        #     [number_of_samples - n_samples_val, n_samples_val],
-        #     generator=torch.Generator().manual_seed(cfg.seed),
-        # )
-
+        
         inds_train, inds_val = train_test_split(
             range(number_of_samples),
             test_size=val_fraction,
@@ -59,6 +51,7 @@ def train_sweep(config=None):
 
         # save val file names 
         np.savetxt(os.path.join(path_run, "val_filenames.txt"), np.array(filenames)[inds_val], fmt="%s")
+        np.savetxt(os.path.join(path_run, "train_filenames.txt"), np.array(filenames)[inds_train], fmt="%s")
 
         # dump config
         config_dict = {k: v for k, v in cfg.items()}
