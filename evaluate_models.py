@@ -45,6 +45,7 @@ from src.utils import (
     get_knn_predictions,
     get_knnR2,
     get_embs,
+    is_subset,
 )
 
 import pandas as pd
@@ -78,11 +79,16 @@ def calculate_metrics(y_true, y_pred, label, combination):
     # Calculate L1 and L2 norms for the predictions
     l1 = torch.mean(torch.abs(y_true - y_pred)).item()
     l2 = torch.sqrt(torch.mean((y_true - y_pred) ** 2)).item()
-    R2 = 1 - (torch.sum((y_true - y_pred) ** 2) / torch.sum((y_true - torch.mean(y_true)) ** 2)).item()
+    R2 = (
+        1
+        - (
+            torch.sum((y_true - y_pred) ** 2)
+            / torch.sum((y_true - torch.mean(y_true)) ** 2)
+        ).item()
+    )
 
     # Calculate the residuals
     delta_z = y_true - y_pred
-
 
     # Outliers based on a fixed threshold
     outliers = torch.abs(delta_z) > 0.07
@@ -91,28 +97,30 @@ def calculate_metrics(y_true, y_pred, label, combination):
     # calulate the fraction of outliers
     OLF = torch.mean(outliers.float()).item()
 
-
     # Compile the results into a metrics dictionary
     metrics = {
-        'Model': label,
-        'Combination': combination,
-        'L1': l1,
-        'L2': l2,
-        'R2': R2,
-        'OLF': OLF,
+        "Model": label,
+        "Combination": combination,
+        "L1": l1,
+        "L2": l2,
+        "R2": R2,
+        "OLF": OLF,
     }
-    
+
     return metrics
+
 
 # Load models
 set_seed(0)
 
 paths = [
-    "models/unimodal_sp/stoic-sweep-1/epoch=397-step=56118.ckpt",
-    "models/unimodal_lc/honest-sweep-1/epoch=964-step=17370.ckpt",
-    "models/bimodal_clip_lcsp/skilled-sweep-1/epoch=377-step=52542.ckpt",
+    "/home/thelfer1/data_tedwar42/thelfer1/Multimodal-hackathon-2024/models/unimodal_lc_new/lunar-sweep-1/epoch=786-step=110967.ckpt",
+    "/home/thelfer1/data_tedwar42/thelfer1/Multimodal-hackathon-2024/models/bimodal_clip_lcsp_new/swept-sweep-1/epoch=340-step=47399.ckpt"
+    # "models/unimodal_sp/stoic-sweep-1/epoch=397-step=56118.ckpt",
+    # "models/unimodal_lc/honest-sweep-1/epoch=964-step=17370.ckpt",
+    # "models/bimodal_clip_lcsp/skilled-sweep-1/epoch=377-step=52542.ckpt",
 ]  # "models/spectra-lightcurve/flowing-sweep-36/epoch=472-s dtep=70950.ckpt",
-labels = ["ENDtoEND", "ENDtoEND", "CLIP"]
+labels = ["ENDtoEND", "CLIP"]
 combs_list = [["spectra-lightcurve", "spectral"], ["spectral"], ["lightcurve"]]
 regressions = [False, True]
 models = []
@@ -149,33 +157,52 @@ cpus_per_task = int(os.getenv("SLURM_CPUS_PER_TASK", 1))
 num_workers = max(1, cpus_per_task - 1)
 print(f"Using {num_workers} workers for data loading", flush=True)
 
-#Keeping track of all metrics
+# Keeping track of all metrics
 metrics_list = []
 
 
 for output, label in zip(models, labels):
-    model, combinations, regression, cfg, cfg_extra_args = output
+    (
+        model,
+        combinations,
+        regression,
+        cfg,
+        cfg_extra_args,
+        train_filenames,
+        val_filenames,
+    ) = output
 
     set_seed(cfg["seed"])
 
     # Spectral data is cut to this length
-    dataset, nband, _ = load_data(
+    dataset_train, nband, filenames_read = load_data(
         data_dir,
         spectra_dir,
         max_data_len_spec=cfg_extra_args["max_spectral_data_len"],
         combinations=cfg_extra_args["combinations"],
         spectral_rescalefactor=cfg_extra_args["spectral_rescalefactor"],
+        filenames=train_filenames,
     )
 
-    val_fraction = cfg_extra_args.get("val_fraction", cfg_extra_args["val_fraction"])
-    # Iterate over data
-    number_of_samples = len(dataset)
-    n_samples_val = int(val_fraction * number_of_samples)
-    dataset_train, dataset_val = random_split(
-        dataset,
-        [number_of_samples - n_samples_val, n_samples_val],
-        torch.Generator().manual_seed(cfg["seed"]),
+    # Check that the filenames read are a subset of the training filenames from the already trained models
+    assert is_subset(filenames_read, train_filenames)
+
+    dataset_val, nband, filenames_read = load_data(
+        data_dir,
+        spectra_dir,
+        max_data_len_spec=cfg_extra_args["max_spectral_data_len"],
+        combinations=cfg_extra_args["combinations"],
+        spectral_rescalefactor=cfg_extra_args["spectral_rescalefactor"],
+        filenames=val_filenames,
     )
+
+    # Check that the filenames read are a subset of the training filenames from the already trained models
+    assert is_subset(filenames_read, val_filenames)
+
+    # val_fraction = cfg_extra_args.get("val_fraction", cfg_extra_args["val_fraction"])
+    ## Iterate over data
+    # number_of_samples = len(dataset)
+    # n_samples_val = int(val_fraction * number_of_samples)
 
     train_loader_no_aug = NoisyDataLoader(
         dataset_train,
@@ -259,16 +286,18 @@ for output, label in zip(models, labels):
 
     def format_combinations(combinations):
         if len(combinations) > 1:
-            return ', '.join(combinations[:-1]) + ' and ' + combinations[-1]
+            return ", ".join(combinations[:-1]) + " and " + combinations[-1]
         elif combinations:
             return combinations[0]
-        return ''
+        return ""
 
     if regression:
         y_pred = torch.cat(y_pred_val, dim=0)
 
-        metrics = calculate_metrics(y_true, y_pred, label, format_combinations(cfg_extra_args['combinations']))        
-        
+        metrics = calculate_metrics(
+            y_true, y_pred, label, format_combinations(cfg_extra_args["combinations"])
+        )
+
         metrics_list.append(metrics)
 
     else:
@@ -287,10 +316,12 @@ for output, label in zip(models, labels):
                 embs_list_train[i], y_true_train, embs_list[i], y_true
             )
 
-            metrics = calculate_metrics(y_true, y_pred_linear, label+ '+Linear', combs[i])        
+            metrics = calculate_metrics(
+                y_true, y_pred_linear, label + "+Linear", combs[i]
+            )
             metrics_list.append(metrics)
 
-            metrics = calculate_metrics(y_true, y_pred_knn, label+ '+KNN', combs[i])        
+            metrics = calculate_metrics(y_true, y_pred_knn, label + "+KNN", combs[i])
             metrics_list.append(metrics)
 
         # for concatenated pairs of modalities
@@ -307,10 +338,17 @@ for output, label in zip(models, labels):
                     emb_train, y_true_train, emb_concat, y_true
                 )
 
-                metrics = calculate_metrics(y_true, y_pred_linear, label+ '+Linear', combs[i] + ' and ' + combs[j])        
+                metrics = calculate_metrics(
+                    y_true,
+                    y_pred_linear,
+                    label + "+Linear",
+                    combs[i] + " and " + combs[j],
+                )
                 metrics_list.append(metrics)
 
-                metrics = calculate_metrics(y_true, y_pred_knn, label+ '+KNN', combs[i] + ' and ' + combs[j])        
+                metrics = calculate_metrics(
+                    y_true, y_pred_knn, label + "+KNN", combs[i] + " and " + combs[j]
+                )
                 metrics_list.append(metrics)
     print("===============================")
 
@@ -318,19 +356,21 @@ for output, label in zip(models, labels):
 metrics_df = pd.DataFrame(metrics_list)
 
 # Save the DataFrame to a CSV file
-metrics_df.to_csv('model_metrics.csv', index=False)
+metrics_df.to_csv("model_metrics.csv", index=False)
 
 # Define formatters for the float columns to format them to three decimal places
-float_formatter = lambda x: f"{x:.4f}"
-float_formatter_R2 = lambda x: f"{x:.2f}"
+float_formatter = lambda x: f"{x:.6f}"
+float_formatter_R2 = lambda x: f"{x:.6f}"
 formatters = {
-    'L1': float_formatter,
-    'L2': float_formatter,
-    'R2': float_formatter_R2,
-    'OLF': float_formatter,
-    'MAD': float_formatter,
+    "L1": float_formatter,
+    "L2": float_formatter,
+    "R2": float_formatter_R2,
+    "OLF": float_formatter,
+    "MAD": float_formatter,
 }
 
-latex_code = metrics_df.to_latex(index=False,formatters=formatters, escape=False, na_rep='')
+latex_code = metrics_df.to_latex(
+    index=False, formatters=formatters, escape=False, na_rep=""
+)
 
 print(latex_code)

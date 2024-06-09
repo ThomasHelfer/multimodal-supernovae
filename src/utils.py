@@ -567,3 +567,22 @@ def get_knn_predictions(
     predictions_tensor = torch.from_numpy(predictions).flatten()
 
     return predictions_tensor
+
+
+def is_subset(subset: List[str], superset: List[str]) -> bool:
+    """
+    Check if a list of filenames (subset) is completely contained within another list of filenames (superset).
+
+    Args:
+    subset (List[str]): A list of filenames to be checked if they are contained within the superset.
+    superset (List[str]): A list of filenames that is expected to contain all elements of the subset.
+
+    Returns:
+    bool: Returns True if all elements in the subset are found in the superset, otherwise False.
+    """
+    # Convert lists to sets for efficient subset checking
+    subset_set = set(subset)
+    superset_set = set(superset)
+
+    # Check if subset is a subset of superset
+    return subset_set.issubset(superset_set)

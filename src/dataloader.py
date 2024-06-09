@@ -742,6 +742,7 @@ def load_data(
     combinations: List = ["host_galaxy", "lightcurve"],
     n_classes: int = 5,
     spectral_rescalefactor: float = 1e14,
+    filenames: List[str] = None,
 ) -> Tuple[TensorDataset, int]:
     """
     Load data from specified directories, handling both images and light curves or spectra.
@@ -769,7 +770,7 @@ def load_data(
     if spectra_dir is None:
         spectra_dir = data_dir
 
-    data, filenames = [], None
+    data = []
     nband = 1  # Default number of bands for spectra data
 
     if "host_galaxy" in combinations:
@@ -777,7 +778,10 @@ def load_data(
         host_imgs, filenames_host = load_images(data_dir)
 
         data.append(host_imgs)
-        filenames = filenames_host
+        if filenames is None:
+            filenames = filenames_host
+        else:
+            _, filenames, data = filter_files(filenames_host, filenames, data)
 
     if "lightcurve" in combinations:
         # Load light curves from data_dir if no spectra directory is provided
@@ -883,8 +887,8 @@ class SimulationLightcurveDataset(Dataset):
         hdf5_path: str,
         transient_types: Optional[List[str]] = None,
         bands: List[str] = ["r"],
-        n_max_obs: int=100,
-        dataset_length: Optional[int]  = None,
+        n_max_obs: int = 100,
+        dataset_length: Optional[int] = None,
     ) -> None:
         """
         Initializes the dataset object by opening the HDF5 file and precalculating indices for quick access.
@@ -1007,10 +1011,10 @@ class SimulationDataset(Dataset):
         transient_types: Optional[List[str]] = None,
         bands: List[str] = ["r"],
         n_max_obs=100,
-        n_max_obs_spec=220, 
-        combinations=['lightcurve'],
-        dataset_length: Optional[int]  = None,
-        noise=True, 
+        n_max_obs_spec=220,
+        combinations=["lightcurve"],
+        dataset_length: Optional[int] = None,
+        noise=True,
     ) -> None:
         """
         Initializes the dataset object by opening the HDF5 file and precalculating indices for quick access.
@@ -1032,11 +1036,11 @@ class SimulationDataset(Dataset):
         self.n_max_obs_spec = n_max_obs_spec
         self.combinations = combinations
         self.dataset_length = dataset_length
-        self.noise = noise 
+        self.noise = noise
 
         # Open the HDF5 file
         file = h5py.File(self.hdf5_path, "r")
-        self.file = file 
+        self.file = file
 
         transients = file["Photometry"]
         # Default to using all keys if no specific types are provided
@@ -1071,13 +1075,19 @@ class SimulationDataset(Dataset):
         """
         t_type, model, entry_idx = self.index_map[idx]
         mag, time, mask, magerr, spec, freq, maskspec, redshift = {
-            torch.empty(0), torch.empty(0), torch.empty(0), torch.empty(0), 
-            torch.empty(0), torch.empty(0), torch.empty(0), torch.empty(0)
+            torch.empty(0),
+            torch.empty(0),
+            torch.empty(0),
+            torch.empty(0),
+            torch.empty(0),
+            torch.empty(0),
+            torch.empty(0),
+            torch.empty(0),
         }
 
         # Access the HDF5 file for each item
-        
-        if 'lightcurve' in self.combinations:
+
+        if "lightcurve" in self.combinations:
             transient_model = self.file["Photometry"][t_type][model]
 
             # Append data from multiple bands
@@ -1085,16 +1095,18 @@ class SimulationDataset(Dataset):
             time = []
             mask_concat = []
 
-            id_lc = transient_model['TID'][entry_idx]
+            id_lc = transient_model["TID"][entry_idx]
             redshift = torch.tensor(transient_model["z"][entry_idx])
             # the 'filter' key in the 'Photometry' file contains integers -- 1 for ZTF-g and 2 for ZTF-R.
             for band in self.bands:
-                iband = 1 if band == 'g' else 2
+                iband = 1 if band == "g" else 2
                 filt = transient_model["filter"][entry_idx]
                 time_data = transient_model["mjd"][entry_idx][filt == iband]
-                if self.noise: mag_data = transient_model[f"mag_obs"][entry_idx][filt == iband]
-                else: mag_data = transient_model[f"mag_perfect"][entry_idx][filt == iband]
-                #magerr_data = transient_model[f"mag_obs_err"][entry_idx][filt == iband]
+                if self.noise:
+                    mag_data = transient_model[f"mag_obs"][entry_idx][filt == iband]
+                else:
+                    mag_data = transient_model[f"mag_perfect"][entry_idx][filt == iband]
+                # magerr_data = transient_model[f"mag_obs_err"][entry_idx][filt == iband]
 
                 indices, mask = make_padding_mask(len(time_data), self.n_max_obs)
 
@@ -1121,14 +1133,18 @@ class SimulationDataset(Dataset):
             mag = torch.tensor(data).float()
             mask = torch.tensor(mask_concat).bool()
 
-        if 'spectral' in self.combinations:
+        if "spectral" in self.combinations:
             transient_model = self.file["Spectroscopy"][t_type][model]
 
-            assert transient_model['TID'][entry_idx] == id_lc, "Lightcurve and Spectra ID should match"
+            assert (
+                transient_model["TID"][entry_idx] == id_lc
+            ), "Lightcurve and Spectra ID should match"
 
             freq_data = transient_model["wavelength"][entry_idx]
-            if self.noise: spec_data = transient_model["flux_obs"][entry_idx]
-            else: spec_data = transient_model["flux_perfect"][entry_idx]
+            if self.noise:
+                spec_data = transient_model["flux_obs"][entry_idx]
+            else:
+                spec_data = transient_model["flux_perfect"][entry_idx]
 
             indices, maskspec = make_padding_mask(len(freq_data), self.n_max_obs_spec)
 
@@ -1148,4 +1164,14 @@ class SimulationDataset(Dataset):
             maskspec = torch.tensor(maskspec).bool()
 
         # first and last are placeholders for img and classifications which are needed for clip model
-        return torch.empty(0), mag, time, mask, spec, freq, maskspec, redshift, torch.empty(0)
+        return (
+            torch.empty(0),
+            mag,
+            time,
+            mask,
+            spec,
+            freq,
+            maskspec,
+            redshift,
+            torch.empty(0),
+        )

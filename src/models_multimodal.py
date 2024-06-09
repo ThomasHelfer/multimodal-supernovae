@@ -5,6 +5,7 @@ import sys
 
 # Third-party imports
 import pytorch_lightning as pl
+import numpy as np
 import torch
 import torch.nn as nn
 from ruamel.yaml import YAML
@@ -647,10 +648,23 @@ def load_model(
         torch.load(path_ckpt, map_location=torch.device("cpu"))["state_dict"]
     )
 
+
+    config_dir = os.path.dirname(path_ckpt)
+    print(config_dir) 
+
+    # Load the CSV file as a NumPy array
+    train_filenames = np.loadtxt(f"{config_dir}/train_filenames.txt", dtype='str', delimiter=',')
+    val_filenames = np.loadtxt(f"{config_dir}/val_filenames.txt", dtype='str', delimiter=',')
+
+
+    # Since the file contains only one column of filenames, `data` will be a one-dimensional array
+    train_filenames = sorted(train_filenames.tolist())
+    val_filenames = sorted(val_filenames.tolist())
+
     # Set the model to evaluation mode
     model.eval()
 
-    return model, combinations, regression, cfg, cfg_extra_args
+    return model, combinations, regression, cfg, cfg_extra_args, train_filenames, val_filenames
 
 
 def load_pretrain_lc_model(
