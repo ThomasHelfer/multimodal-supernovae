@@ -47,6 +47,8 @@ from src.utils import (
     get_embs,
 )
 
+import pandas as pd
+
 # Typing imports
 from typing import Dict, Optional, Tuple
 
@@ -54,6 +56,53 @@ from typing import Dict, Optional, Tuple
 from IPython.display import Image as IPImage
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
+
+
+def calculate_metrics(y_true, y_pred, label, combination):
+    """
+    Calculate L1 and L2 norms to assess the accuracy of predictions against true values.
+
+    Parameters:
+    - y_true (torch.Tensor): The true values against which predictions are evaluated.
+    - y_pred (torch.Tensor): The predicted values to be evaluated.
+    - label (str): Label describing the model or configuration being evaluated.
+    - combination (str): Description of the data or feature combination used for the model.
+
+    Returns:
+    - dict: A dictionary containing the calculated metrics including L1 and L2 norms for the model predictions. Each key describes the metric:
+            - 'Model': The label of the model or configuration.
+            - 'Combination': Description of the feature or data combination.
+            - 'L1': The L1 norm (mean absolute error) of the prediction error.
+            - 'L2': The L2 norm (root mean squared error) of the prediction error.
+    """
+    # Calculate L1 and L2 norms for the predictions
+    l1 = torch.mean(torch.abs(y_true - y_pred)).item()
+    l2 = torch.sqrt(torch.mean((y_true - y_pred) ** 2)).item()
+    R2 = 1 - (torch.sum((y_true - y_pred) ** 2) / torch.sum((y_true - torch.mean(y_true)) ** 2)).item()
+
+    # Calculate the residuals
+    delta_z = y_true - y_pred
+
+
+    # Outliers based on a fixed threshold
+    outliers = torch.abs(delta_z) > 0.07
+    non_outliers = ~outliers
+
+    # calulate the fraction of outliers
+    OLF = torch.mean(outliers.float()).item()
+
+
+    # Compile the results into a metrics dictionary
+    metrics = {
+        'Model': label,
+        'Combination': combination,
+        'L1': l1,
+        'L2': l2,
+        'R2': R2,
+        'OLF': OLF,
+    }
+    
+    return metrics
 
 # Load models
 set_seed(0)
@@ -63,7 +112,7 @@ paths = [
     "models/unimodal_lc/honest-sweep-1/epoch=964-step=17370.ckpt",
     "models/bimodal_clip_lcsp/skilled-sweep-1/epoch=377-step=52542.ckpt",
 ]  # "models/spectra-lightcurve/flowing-sweep-36/epoch=472-s dtep=70950.ckpt",
-labels = ["unimodal_sp", "unimodal_lc", "bimodal_clip_lcsp"]
+labels = ["ENDtoEND", "ENDtoEND", "CLIP"]
 combs_list = [["spectra-lightcurve", "spectral"], ["spectral"], ["lightcurve"]]
 regressions = [False, True]
 models = []
@@ -99,6 +148,10 @@ cpus_per_task = int(os.getenv("SLURM_CPUS_PER_TASK", 1))
 # Assuming you want to leave one CPU for overhead
 num_workers = max(1, cpus_per_task - 1)
 print(f"Using {num_workers} workers for data loading", flush=True)
+
+#Keeping track of all metrics
+metrics_list = []
+
 
 for output, label in zip(models, labels):
     model, combinations, regression, cfg, cfg_extra_args = output
@@ -203,12 +256,21 @@ for output, label in zip(models, labels):
     print("===============================")
     print(f"Model: {label}")
     print(f"Using data modalities: {cfg_extra_args['combinations']}")
+
+    def format_combinations(combinations):
+        if len(combinations) > 1:
+            return ', '.join(combinations[:-1]) + ' and ' + combinations[-1]
+        elif combinations:
+            return combinations[0]
+        return ''
+
     if regression:
         y_pred = torch.cat(y_pred_val, dim=0)
-        # Calculating L1 value
-        print(
-            f"Model has an L1 value of {(torch.mean(torch.abs(y_true - y_pred))):.5f}"
-        )
+
+        metrics = calculate_metrics(y_true, y_pred, label, format_combinations(cfg_extra_args['combinations']))        
+        
+        metrics_list.append(metrics)
+
     else:
         embs_list, combs = get_embs(
             model, val_loader_no_aug, cfg_extra_args["combinations"], ret_combs=True
@@ -217,16 +279,19 @@ for output, label in zip(models, labels):
         for i in range(len(embs_list)):
             # print(f"Train set linear regression R2 value for {combs[i]}: {get_linearR2(embs_list_train[i], y_true_train)}")
             print(f"---- {combs[i]} input ---- ")
-            y_pred = get_linear_predictions(
+            y_pred_linear = get_linear_predictions(
                 embs_list_train[i], y_true_train, embs_list[i], y_true
             )
-            print(
-                f"    Linear regression L1: {(torch.mean(torch.abs(y_true - y_pred))):.5f}"
-            )
-            y_pred = get_knn_predictions(
+
+            y_pred_knn = get_knn_predictions(
                 embs_list_train[i], y_true_train, embs_list[i], y_true
             )
-            print(f"    KNN L1 : {(torch.mean(torch.abs(y_true - y_pred))):.5f}")
+
+            metrics = calculate_metrics(y_true, y_pred_linear, label+ '+Linear', combs[i])        
+            metrics_list.append(metrics)
+
+            metrics = calculate_metrics(y_true, y_pred_knn, label+ '+KNN', combs[i])        
+            metrics_list.append(metrics)
 
         # for concatenated pairs of modalities
         for i in range(len(embs_list)):
@@ -234,15 +299,38 @@ for output, label in zip(models, labels):
                 emb_concat = torch.cat([embs_list[i], embs_list[j]], dim=1)
                 emb_train = torch.cat([embs_list_train[i], embs_list_train[j]], dim=1)
                 print(f"---- {combs[i]} and {combs[j]} input ---- ")
-                y_pred = get_linear_predictions(
+                y_pred_linear = get_linear_predictions(
                     emb_train, y_true_train, emb_concat, y_true
                 )
-                print(
-                    f"    Linear regression L1: {(torch.mean(torch.abs(y_true - y_pred))):.5f}"
-                )
-                y_pred = get_knn_predictions(
-                    emb_train, y_true_train, emb_concat, y_true
-                )
-                print(f"    KNN L1 : {(torch.mean(torch.abs(y_true - y_pred))):.5f}")
 
+                y_pred_knn = get_knn_predictions(
+                    emb_train, y_true_train, emb_concat, y_true
+                )
+
+                metrics = calculate_metrics(y_true, y_pred_linear, label+ '+Linear', combs[i] + ' and ' + combs[j])        
+                metrics_list.append(metrics)
+
+                metrics = calculate_metrics(y_true, y_pred_knn, label+ '+KNN', combs[i] + ' and ' + combs[j])        
+                metrics_list.append(metrics)
     print("===============================")
+
+# Convert metrics list to a DataFrame
+metrics_df = pd.DataFrame(metrics_list)
+
+# Save the DataFrame to a CSV file
+metrics_df.to_csv('model_metrics.csv', index=False)
+
+# Define formatters for the float columns to format them to three decimal places
+float_formatter = lambda x: f"{x:.4f}"
+float_formatter_R2 = lambda x: f"{x:.2f}"
+formatters = {
+    'L1': float_formatter,
+    'L2': float_formatter,
+    'R2': float_formatter_R2,
+    'OLF': float_formatter,
+    'MAD': float_formatter,
+}
+
+latex_code = metrics_df.to_latex(index=False,formatters=formatters, escape=False, na_rep='')
+
+print(latex_code)
