@@ -10,7 +10,7 @@ dataset_length: 100000
 dropout: 0.0001988
 emb: 32
 emb_spectral: 32
-epochs: 200
+epochs: 400
 heads: 2
 heads_spectral: 2
 logit_scale: 20
