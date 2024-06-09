@@ -491,3 +491,79 @@ def get_knnR2(
     if X_val is None or Y_val is None:
         return reg.score(X.cpu().detach().numpy(), Y)
     return reg.score(X_val.cpu().detach().numpy(), Y_val)
+
+
+def get_linear_predictions(
+    X: torch.Tensor,
+    Y: torch.Tensor,
+    X_val: Optional[torch.Tensor] = None,
+    Y_val: Optional[torch.Tensor] = None,
+) -> torch.Tensor:
+    """
+    Calculate predictions using a linear regression model.
+
+    Parameters:
+    X (torch.Tensor): The input features for training.
+    Y (torch.Tensor): The target values for training.
+    X_val (Optional[torch.Tensor]): The input features for validation (default is None).
+    Y_val (Optional[torch.Tensor]): The target values for validation (default is None).
+
+    Returns:
+    torch.Tensor: The predictions of the model trained on training data or on validation data if provided.
+    """
+    # Ensure Y is 2D (necessary for sklearn)
+    if len(Y.shape) == 1:
+        Y = Y[:, np.newaxis]
+
+    # Convert tensors to numpy and fit the model
+    reg = LinearRegression().fit(X.cpu().detach().numpy(), Y)
+
+    # If validation data is provided, make predictions on that, otherwise on training data
+    if X_val is not None and Y_val is not None:
+        predictions = reg.predict(X_val.cpu().detach().numpy())
+    else:
+        predictions = reg.predict(X.cpu().detach().numpy())
+
+    # Convert numpy array back to PyTorch tensor
+    predictions_tensor = torch.from_numpy(predictions).flatten()
+
+    return predictions_tensor
+
+
+def get_knn_predictions(
+    X: torch.Tensor,
+    Y: torch.Tensor,
+    X_val: Optional[torch.Tensor] = None,
+    Y_val: Optional[torch.Tensor] = None,
+    k: int = 5,
+) -> torch.Tensor:
+    """
+    Calculate predictions using a k-nearest neighbors regression model.
+
+    Parameters:
+    X (torch.Tensor): The input features for training.
+    Y (torch.Tensor): The target values for training.
+    X_val (Optional[torch.Tensor]): The input features for validation (default is None).
+    Y_val (Optional[torch.Tensor]): The target values for validation (default is None).
+    k (int): The number of neighbors to use for k-nearest neighbors.
+
+    Returns:
+    torch.Tensor: The 1D predictions of the model trained on training data or on validation data if provided.
+    """
+    # Ensure Y is 2D (necessary for sklearn)
+    if len(Y.shape) == 1:
+        Y = Y[:, np.newaxis]
+
+    # Convert tensors to numpy and fit the model
+    reg = KNeighborsRegressor(n_neighbors=k).fit(X.cpu().detach().numpy(), Y)
+
+    # If validation data is provided, make predictions on that, otherwise on training data
+    if X_val is not None and Y_val is not None:
+        predictions = reg.predict(X_val.cpu().detach().numpy())
+    else:
+        predictions = reg.predict(X.cpu().detach().numpy())
+
+    # Convert numpy array back to PyTorch tensor and flatten to 1D
+    predictions_tensor = torch.from_numpy(predictions).flatten()
+
+    return predictions_tensor
