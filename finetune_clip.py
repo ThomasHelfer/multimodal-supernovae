@@ -10,7 +10,8 @@ import numpy as np
 import torch
 import pytorch_lightning as pl
 
-from torch.utils.data import TensorDataset, DataLoader, random_split
+from torch.utils.data import TensorDataset, DataLoader, random_split, Subset
+from sklearn.model_selection import train_test_split
 
 from src.models_multimodal import LightCurveImageCLIP, load_pretrain_clip_model, initialize_model, ClipMLP
 from src.utils import (
@@ -39,13 +40,18 @@ def train_sweep(config=None):
 
         number_of_samples = len(dataset)
 
-        n_samples_val = int(val_fraction * number_of_samples)
-
-        dataset_train, dataset_val = random_split(
-            dataset,
-            [number_of_samples - n_samples_val, n_samples_val],
-            generator=torch.Generator().manual_seed(cfg.seed),
+        inds_train, inds_val = train_test_split(
+            range(number_of_samples),
+            test_size=val_fraction,
+            random_state=cfg.seed,
         )
+
+        dataset_train = Subset(dataset, inds_train)
+        dataset_val = Subset(dataset, inds_val)
+
+        # save val file names 
+        np.savetxt(os.path.join(path_run, "val_filenames.txt"), np.array(filenames)[inds_val], fmt="%s")
+        np.savetxt(os.path.join(path_run, "train_filenames.txt"), np.array(filenames)[inds_train], fmt="%s")
 
         # dump config
         config_dict = {k: v for k, v in cfg.items()}
@@ -115,14 +121,17 @@ def train_sweep(config=None):
         # Loading up pretrained models
         load_pretrain_clip_model(pretrain_path, clip_model, freeze_backbone)
 
-        model = ClipMLP(clip_model, 
-                        mlp_kwargs, 
-                        optimizer_kwargs,
-                        cfg.lr, 
-                        combinations, 
-                        regression=regression, 
-                        classification=classification, 
-                        n_classes=n_classes)
+        if regression: 
+            model = ClipMLP(clip_model, 
+                            mlp_kwargs, 
+                            optimizer_kwargs,
+                            cfg.lr, 
+                            combinations, 
+                            regression=regression, 
+                            classification=classification, 
+                            n_classes=n_classes)
+        else: 
+            model = clip_model 
 
         # Custom call back for tracking loss
         loss_tracking_callback = LossTrackingCallback()
@@ -157,9 +166,37 @@ def train_sweep(config=None):
             enable_progress_bar=False,
         )
         
+        if len(combinations) == 2:
+            wandb.define_metric("AUC_val", summary="max")
+            
         trainer.fit(
             model=model, train_dataloaders=train_loader, val_dataloaders=val_loader
         )
+
+        if (not regression) and (not classification):
+            wandb.run.summary["best_auc"] = np.max(
+                loss_tracking_callback.auc_val_history
+            )
+            wandb.run.summary["best_val_loss"] = np.min(
+                loss_tracking_callback.val_loss_history
+            )
+            plot_loss_history(
+                loss_tracking_callback.train_loss_history,
+                loss_tracking_callback.val_loss_history,
+                path_base=path_run,
+            )
+
+            # Get embeddings for all images and light curves
+            embs_train = get_embs(clip_model, train_loader_no_aug, combinations)
+            embs_val = get_embs(clip_model, val_loader_no_aug, combinations)
+
+            plot_ROC_curves(
+                embs_train,
+                embs_val,
+                combinations,
+                path_base=path_run,
+            )
+
 
         wandb.finish()
 
@@ -220,7 +257,7 @@ if __name__ == "__main__":
     max_spectral_data_len = cfg["extra_args"][
         "max_spectral_data_len"
     ]  # Spectral data is cut to this length
-    dataset, nband, _ = load_data(
+    dataset, nband, filenames = load_data(
         data_dir,
         spectra_dir,
         max_data_len_spec=max_spectral_data_len,
