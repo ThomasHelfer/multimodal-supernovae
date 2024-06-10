@@ -221,6 +221,7 @@ if __name__ == "__main__":
         bands=['r', 'g'], 
         n_max_obs_spec=max_spectral_data_len,
         combinations=combinations, 
+        noise=cfg['extra_args']['noise'],
     )
 
     wandb.agent(
