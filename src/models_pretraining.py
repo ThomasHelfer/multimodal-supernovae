@@ -27,13 +27,9 @@ def get_random_mask(
             - mask: The modified mask after applying the mask fraction.
             - mask_pred: A tensor indicating which parts of the input were masked out.
     """
-    # Initialize masks with the same shape as padding_mask
-    mask = torch.ones_like(
-        padding_mask
-    )  # Mask indicating the parts of the sequence to be kept
-    mask_pred = torch.ones_like(
-        padding_mask
-    )  # Mask indicating the parts to be predicted
+
+    mask = padding_mask.clone()
+    mask_pred = padding_mask.clone()
 
     # Process each sample in the batch
     for i in range(padding_mask.shape[0]):
@@ -152,9 +148,7 @@ class MaskedLightCurveEncoder(pl.LightningModule):
         x_pred = self(x_masked, t, mask=padding_mask)
         return x[mask_pred], x_pred[mask_pred]
 
-    def training_step(
-        self, batch: Tuple[Tensor, ...], batch_idx: int
-    ) -> Tensor:
+    def training_step(self, batch: Tuple[Tensor, ...], batch_idx: int) -> Tensor:
         """
         Perform a training step.
 
@@ -171,15 +165,13 @@ class MaskedLightCurveEncoder(pl.LightningModule):
             loss = nn.MSELoss()(x, x_pred)
             self.log("train_loss", loss, on_epoch=True, on_step=False, prog_bar=True)
         else:
-            _ , x, t, padding_mask, spec, freq, maskspec, redshift, _ = batch
+            _, x, t, padding_mask, spec, freq, maskspec, redshift, _ = batch
             x, x_pred = self.masked_pred(x, t, padding_mask, f_mask=self.f_mask)
             loss = nn.MSELoss()(x, x_pred)
             self.log("train_loss", loss, on_epoch=True, on_step=False, prog_bar=True)
         return loss
 
-    def validation_step(
-        self, batch: Tuple[Tensor, ...], batch_idx: int
-    ) -> Tensor:
+    def validation_step(self, batch: Tuple[Tensor, ...], batch_idx: int) -> Tensor:
         """
         Perform a validation step.
 
@@ -196,11 +188,11 @@ class MaskedLightCurveEncoder(pl.LightningModule):
             x, x_pred = self.masked_pred(x, t, padding_mask, f_mask=self.f_mask)
             loss = nn.MSELoss()(x, x_pred)
             self.log("val_loss", loss, on_epoch=True, on_step=False, prog_bar=True)
-        else:   
-            _ , x, t, padding_mask, spec, freq, maskspec, redshift, _ = batch
+        else:
+            _, x, t, padding_mask, spec, freq, maskspec, redshift, _ = batch
             x, x_pred = self.masked_pred(x, t, padding_mask, f_mask=self.f_mask)
             loss = nn.MSELoss()(x, x_pred)
-            self.log("val_loss", loss, on_epoch=True, on_step=False, prog_bar=True)   
+            self.log("val_loss", loss, on_epoch=True, on_step=False, prog_bar=True)
         return loss
 
 
