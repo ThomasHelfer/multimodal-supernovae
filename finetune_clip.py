@@ -53,10 +53,6 @@ def train_sweep(config=None):
         np.savetxt(os.path.join(path_run, "val_filenames.txt"), np.array(filenames)[inds_val], fmt="%s")
         np.savetxt(os.path.join(path_run, "train_filenames.txt"), np.array(filenames)[inds_train], fmt="%s")
 
-        # dump config
-        config_dict = {k: v for k, v in cfg.items()}
-        with open(os.path.join(path_run, "config.yaml"), "w") as f:
-            YAML().dump(config_dict, f)
 
         # Default to 1 if the environment variable is not set
         cpus_per_task = int(os.getenv("SLURM_CPUS_PER_TASK", 1))
@@ -114,9 +110,15 @@ def train_sweep(config=None):
                       "num_layers": cfg.num_layers,
                       "dropout": cfg.dropout}
         
-        clip_model,_,_,_,_  = initialize_model(pretrain_path, 
+        clip_model,_,_,cfg_pre,_  = initialize_model(pretrain_path, 
                                                 optimizer_kwargs=optimizer_kwargs, 
                                                 combinations=combinations)
+
+        # dump config
+        config_dict = {k: v for k, v in cfg.items()}
+        cfg_pre.update(config_dict)
+        with open(os.path.join(path_run, "config.yaml"), "w") as f:
+            YAML().dump(cfg_pre, f)
 
         # Loading up pretrained models
         load_pretrain_clip_model(pretrain_path, clip_model, freeze_backbone)
