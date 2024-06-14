@@ -114,14 +114,12 @@ def calculate_metrics(y_true, y_pred, label, combination):
 set_seed(0)
 
 paths = [
-    "/home/thelfer1/data_tedwar42/thelfer1/Multimodal-hackathon-2024/models/unimodal_lc_new/lunar-sweep-1/epoch=786-step=110967.ckpt",
-    "/home/thelfer1/data_tedwar42/thelfer1/Multimodal-hackathon-2024/models/bimodal_clip_lcsp_new/swept-sweep-1/epoch=340-step=47399.ckpt"
-    # "models/unimodal_sp/stoic-sweep-1/epoch=397-step=56118.ckpt",
-    # "models/unimodal_lc/honest-sweep-1/epoch=964-step=17370.ckpt",
-    # "models/bimodal_clip_lcsp/skilled-sweep-1/epoch=377-step=52542.ckpt",
-]  # "models/spectra-lightcurve/flowing-sweep-36/epoch=472-s dtep=70950.ckpt",
-labels = ["ENDtoEND", "CLIP"]
-combs_list = [["spectra-lightcurve", "spectral"], ["spectral"], ["lightcurve"]]
+   # "/home/thelfer1/data_tedwar42/thelfer1/Multimodal-hackathon-2024/models/unimodal_lc/radiant-sweep-1/epoch=27-step=51968.ckpt",
+    "/home/thelfer1/data_tedwar42/thelfer1/Multimodal-hackathon-2024/models/pretrained_sim_lc_finetuned_lc/pleasant-sweep-1/epoch=2024-step=2025.ckpt",
+    "/home/thelfer1/data_tedwar42/thelfer1/Multimodal-hackathon-2024/models/clip-real/swept-sweep-1/epoch=347-step=48372.ckpt",
+    "/home/thelfer1/data_tedwar42/thelfer1/Multimodal-hackathon-2024/models/clip-simpretrain-clipreal/daily-sweep-7/epoch=35-step=5004.ckpt"
+]  #"ENDtoEND",
+labels = [ "masked-lc-pretraining", "clip-real","clip-simpretrain-clipreal"]
 regressions = [False, True]
 models = []
 for i, path in enumerate(paths):
@@ -359,8 +357,8 @@ metrics_df = pd.DataFrame(metrics_list)
 metrics_df.to_csv("model_metrics.csv", index=False)
 
 # Define formatters for the float columns to format them to three decimal places
-float_formatter = lambda x: f"{x:.6f}"
-float_formatter_R2 = lambda x: f"{x:.6f}"
+float_formatter = lambda x: f"{x:.3f}"
+float_formatter_R2 = lambda x: f"{x:.3f}"
 formatters = {
     "L1": float_formatter,
     "L2": float_formatter,
