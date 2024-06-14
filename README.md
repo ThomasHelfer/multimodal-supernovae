@@ -96,7 +96,7 @@ Before installing, ensure you have the following prerequisites:
    python script_wandb.py [sweep_id]
    ```
    or for pretraining the lightcurve encoder please use:
-      ```bash
+   ```bash
    python pretraining_wandb.py configs/config_grid.yaml
    ```
 6. #### API Key Configuration
@@ -107,3 +107,16 @@ Before installing, ensure you have the following prerequisites:
    ```
 7. #### View Results
    Monitor and analyze your experiment results on your Weights & Biases project page. [wand.ai](https://wandb.ai)
+
+### Running a k-fold cross-validation
+    We can run a k-fold cross validation by defining the variable 
+    ```yaml
+    extra_args
+      kfolds: 5 # for strat Crossvaildation
+    ```
+    as this can take serially very long, one can choose to split your runs for different submission by just choosing certain folds for each submission
+    ```yaml  
+      foldnumber:
+        values: [1,2,3]
+    ```
+
