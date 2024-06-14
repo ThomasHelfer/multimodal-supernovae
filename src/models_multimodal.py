@@ -513,16 +513,16 @@ class LightCurveImageCLIP(pl.LightningModule):
             self.embs_list = None
 
 
-def load_config(path): 
+def load_config(path):
     '''
     Load the configuration file from the path provided.
-    
+
     Args:
         path (str): Path to the model or the configuration file (.yaml).
-    
+
     Returns:
-        cfg: dictonary containing dict from yaml 
-        cfg_extra_args: dictonary containing extra args not tracked by wandb 
+        cfg: dictonary containing dict from yaml
+        cfg_extra_args: dictonary containing extra args not tracked by wandb
     '''
     # Load the sweep configuration file
     config_dir = os.path.dirname(path)
@@ -542,28 +542,28 @@ def initialize_model(
 ) -> LightCurveImageCLIP:
     '''
     Initialize the model with the configuration parameters from the config file stored in path.
-    
+
     Args:
         path (str): Path to the checkpoint file (.ckpt) or the config file (.yaml).
         combinations (Optional[Any]): Combination parameters for the model. If not provided, it will be loaded from the sweep configuration.
         regression (Optional[Bool]): Regression bolean, if True the model is a regression model. If not provided, it will be loaded from the sweep configuration.
-    
+
     Returns:
         LightCurveImageCLIP: The loaded and configured model.
         combinations: Combination parameters for the model.
         regression: Regression bolean, if True the model is a regression model.
-        cfg: dictonary containing dict from yaml 
-        cfg_extra_args: dictonary containing extra args not tracked by wandb 
+        cfg: dictonary containing dict from yaml
+        cfg_extra_args: dictonary containing extra args not tracked by wandb
     '''
     # Load the sweep configuration file
     cfg, cfg_extra_args = load_config(path)
-    
+
 
     if combinations is None:
         combinations = cfg_extra_args["combinations"]
     if regression is None:
         regression = cfg_extra_args.get("regression", False)
-        
+
     # Setting parameters for the transformer
     transformer_kwargs = {
         "n_out": cfg["n_out"],
@@ -611,7 +611,7 @@ def initialize_model(
     )
 
     return model, combinations, regression, cfg, cfg_extra_args
-    
+
 
 def load_model(
     path: str, path_statedict: Optional[str] = None, combinations: Optional[Any] = None, regression: Optional[Any] = None
@@ -629,8 +629,8 @@ def load_model(
         LightCurveImageCLIP: The loaded and configured model.
         combinations: Combination parameters for the model.
         regression: Regression bolean, if True the model is a regression model.
-        cfg: dictonary containing dict from yaml 
-        cfg_extra_args: dictonary containing extra args not tracked by wandb 
+        cfg: dictonary containing dict from yaml
+        cfg_extra_args: dictonary containing extra args not tracked by wandb
     """
     model, combinations, regression, cfg, cfg_extra_args = initialize_model(
         path, combinations=combinations, regression=regression
@@ -650,7 +650,7 @@ def load_model(
 
 
     config_dir = os.path.dirname(path_ckpt)
-    print(config_dir) 
+    print(config_dir)
 
     # Load the CSV file as a NumPy array
     train_filenames = np.loadtxt(f"{config_dir}/train_filenames.txt", dtype='str', delimiter=',')
@@ -762,13 +762,13 @@ class MLP(nn.Module):
         for layer in self.layers:
             x = layer(x)
         return x
-    
+
 
 class ClipMLP(pl.LightningModule):
-    def __init__(self, clip_model, mlp_kwargs, optimizer_kwargs, lr, 
-                 combinations=['lightcurve'], 
-                 regression=True, 
-                 classification=False, 
+    def __init__(self, clip_model, mlp_kwargs, optimizer_kwargs, lr,
+                 combinations=['lightcurve'],
+                 regression=True,
+                 classification=False,
                  n_classes=5):
         '''
         A model that combines the CLIP model with an MLP for regression or classification.
@@ -782,15 +782,15 @@ class ClipMLP(pl.LightningModule):
         regression (bool): If True, the model is a regression model.
         classification (bool): If True, the model is a classification model.
         n_classes (int): Number of classes for classification.
-        
+
         '''
         super(ClipMLP, self).__init__()
-        
-        enc_dim = 0 
+
+        enc_dim = 0
         if 'lightcurve' in combinations: enc_dim += clip_model.lightcurve_projection.out_features
         if 'spectral' in combinations: enc_dim += clip_model.spectral_projection.out_features
 
-        mlp_kwargs['input_dim'] = enc_dim 
+        mlp_kwargs['input_dim'] = enc_dim
 
         self.clip_model = clip_model
         self.mlp_model = MLP(**mlp_kwargs)
@@ -802,16 +802,16 @@ class ClipMLP(pl.LightningModule):
         self.n_classes = n_classes
 
     def forward(self, x_lc=None, t_lc=None, mask_lc=None, x_sp=None, t_sp=None, mask_sp=None):
-        x = [] 
+        x = []
         if 'lightcurve' in self.combinations:
-            x.append(self.clip_model.lightcurve_embeddings_with_projection(x_lc, t_lc, mask_lc)) 
+            x.append(self.clip_model.lightcurve_embeddings_with_projection(x_lc, t_lc, mask_lc))
         if 'spectral' in self.combinations:
-            x.append(self.clip_model.spectral_embeddings_with_projection(x_sp, t_sp, mask_sp)) 
+            x.append(self.clip_model.spectral_embeddings_with_projection(x_sp, t_sp, mask_sp))
 
         x = torch.cat(x, dim=-1)
         x = self.mlp_model(x)
         return x
-    
+
     def configure_optimizers(self):
         optimizer = torch.optim.RAdam(
             self.parameters(), lr=self.lr, **self.optimizer_kwargs

@@ -9,8 +9,8 @@ from typing import Tuple, List
 from matplotlib import pyplot as plt
 from ruamel.yaml import YAML
 from sklearn.linear_model import LinearRegression
-from sklearn.neighbors import KNeighborsRegressor
-
+from sklearn.svm import LinearSVC
+from sklearn.neighbors import KNeighborsRegressor, KNeighborsClassifier
 
 def filter_files(filenames_avail, filenames_to_filter, data_to_filter=None):
     """
@@ -443,7 +443,7 @@ def get_linearR2(
     X: torch.Tensor,
     Y: torch.Tensor,
     X_val: Optional[torch.Tensor] = None,
-    Y_val: Optional[torch.Tensor] = None,
+    Y_val: Optional[torch.Tensor] = None
 ) -> float:
     """
     Calculate the R^2 score using a linear regression model.
@@ -457,12 +457,19 @@ def get_linearR2(
     Returns:
     float: The R^2 score of the model trained on training data or validation data if provided.
     """
+
+    X = X.cpu().detach().numpy()
+    if X_val is not None:
+        X_val = X_val.cpu().detach().numpy()
+
     if len(Y.shape) == 1:
         Y = Y[:, np.newaxis]
-    reg = LinearRegression().fit(X.cpu().detach().numpy(), Y)
+
+    model = LinearRegression().fit(X, Y)
+
     if X_val is None or Y_val is None:
-        return reg.score(X.cpu().detach().numpy(), Y)
-    return reg.score(X_val.cpu().detach().numpy(), Y_val)
+        return model.score(X, Y)
+    return model.score(X_val, Y_val)
 
 
 def get_knnR2(
@@ -470,7 +477,7 @@ def get_knnR2(
     Y: torch.Tensor,
     X_val: Optional[torch.Tensor] = None,
     Y_val: Optional[torch.Tensor] = None,
-    k: int = 5,
+    k: int = 5
 ) -> float:
     """
     Calculate the R^2 score using a k-nearest neighbors regression model.
@@ -487,10 +494,19 @@ def get_knnR2(
     """
     if len(Y.shape) == 1:
         Y = Y[:, np.newaxis]
-    reg = KNeighborsRegressor(n_neighbors=k).fit(X.cpu().detach().numpy(), Y)
+
+    #convert to numpy arrays
+    X = X.cpu().detach().numpy()
+    if X_val is not None:
+        X_val = X_val.cpu().detach().numpy()
+
+    #run redshift regression or SN classification
+    model = KNeighborsRegressor(n_neighbors=k).fit(X, Y)
+
     if X_val is None or Y_val is None:
-        return reg.score(X.cpu().detach().numpy(), Y)
-    return reg.score(X_val.cpu().detach().numpy(), Y_val)
+        return model.score(X, Y)
+
+    return model.score(X_val, Y_val)
 
 
 def get_linear_predictions(
@@ -498,15 +514,17 @@ def get_linear_predictions(
     Y: torch.Tensor,
     X_val: Optional[torch.Tensor] = None,
     Y_val: Optional[torch.Tensor] = None,
+    task: str = 'redshift',
 ) -> torch.Tensor:
     """
-    Calculate predictions using a linear regression model.
+    Calculate predictions using a linear regression model (or a linear-kernel SVM, for classification).
 
     Parameters:
     X (torch.Tensor): The input features for training.
     Y (torch.Tensor): The target values for training.
     X_val (Optional[torch.Tensor]): The input features for validation (default is None).
     Y_val (Optional[torch.Tensor]): The target values for validation (default is None).
+    task (str): The downstream task ('redshift' or 'classification').
 
     Returns:
     torch.Tensor: The predictions of the model trained on training data or on validation data if provided.
@@ -515,14 +533,22 @@ def get_linear_predictions(
     if len(Y.shape) == 1:
         Y = Y[:, np.newaxis]
 
-    # Convert tensors to numpy and fit the model
-    reg = LinearRegression().fit(X.cpu().detach().numpy(), Y)
+    # Convert tensors to numpy
+    X = X.cpu().detach().numpy()
+    if X_val is not None:
+        X_val = X_val.cpu().detach().numpy()
+
+    # fit the model
+    if mode.lower() == 'redshift':
+        model = LinearRegression().fit(X, Y)
+    elif mode.lower() == 'classification':
+        model = LinearSVC().fit(X, Y)
 
     # If validation data is provided, make predictions on that, otherwise on training data
     if X_val is not None and Y_val is not None:
-        predictions = reg.predict(X_val.cpu().detach().numpy())
+        predictions = model.predict(X_val)
     else:
-        predictions = reg.predict(X.cpu().detach().numpy())
+        predictions = model.predict(X)
 
     # Convert numpy array back to PyTorch tensor
     predictions_tensor = torch.from_numpy(predictions).flatten()
@@ -536,6 +562,7 @@ def get_knn_predictions(
     X_val: Optional[torch.Tensor] = None,
     Y_val: Optional[torch.Tensor] = None,
     k: int = 5,
+    task: str = "redshift"
 ) -> torch.Tensor:
     """
     Calculate predictions using a k-nearest neighbors regression model.
@@ -546,6 +573,7 @@ def get_knn_predictions(
     X_val (Optional[torch.Tensor]): The input features for validation (default is None).
     Y_val (Optional[torch.Tensor]): The target values for validation (default is None).
     k (int): The number of neighbors to use for k-nearest neighbors.
+    task (str): The downstream task ('redshift' or 'classification').
 
     Returns:
     torch.Tensor: The 1D predictions of the model trained on training data or on validation data if provided.
@@ -554,14 +582,22 @@ def get_knn_predictions(
     if len(Y.shape) == 1:
         Y = Y[:, np.newaxis]
 
-    # Convert tensors to numpy and fit the model
-    reg = KNeighborsRegressor(n_neighbors=k).fit(X.cpu().detach().numpy(), Y)
+    # Convert tensors to numpy
+    X = X.cpu().detach().numpy()
+    if X_val is not None:
+        X_val = X_val.cpu().detach().numpy()
 
-    # If validation data is provided, make predictions on that, otherwise on training data
-    if X_val is not None and Y_val is not None:
-        predictions = reg.predict(X_val.cpu().detach().numpy())
-    else:
-        predictions = reg.predict(X.cpu().detach().numpy())
+    #fit the model
+    if mode.lower() == 'redshift':
+        model = KNeighborsRegressor(n_neighbors=k).fit(X, Y)
+    elif mode.lower() == 'classification':
+        model = KNeighborsClassifier(n_neighbors=k).fit(X, Y)
+
+        # If validation data is provided, make predictions on that, otherwise on training data
+        if X_val is not None and Y_val is not None:
+            predictions = model.predict(X_val)
+        else:
+            predictions = model.predict(X)
 
     # Convert numpy array back to PyTorch tensor and flatten to 1D
     predictions_tensor = torch.from_numpy(predictions).flatten()
