@@ -1,0 +1,46 @@
+method: random
+metric:
+  goal: minimize
+  name: best_val_loss
+entity: multimodal-supernovae
+project: multimodal
+parameters:
+  hidden_dim:
+    values: [32]
+  num_layers:
+    values: [2]
+  dropout:
+    distribution: log_uniform_values
+    min: 1e-3
+    max: 1e-2
+  # Optimiser 
+  lr:
+    distribution: log_uniform_values
+    min: 1e-5
+    max: 5e-4
+  batchsize:
+    values: [32, 64]
+  epochs:
+    values: [1000]
+  weight_decay:
+    distribution: log_uniform_values
+    min: 1e-5
+    max: 1e-3
+  seed:
+    values: [0]
+  patience:    # Parameter for early stopping 
+    values: [500]
+sweep:
+  id: ypnq0846
+# Options are 'lightcurve' 'spectral' and 'host_galaxy' -- order does not matter 
+extra_args:
+  pretrain_path: 
+    /n/home02/gemzhang/repos/Multimodal-hackathon-2024/analysis/5mogfhxc/scarlet-sweep-1/epoch=337-step=5016934.ckpt
+  freeze_backbone: false
+  combinations: [lightcurve, spectral]
+  regression: false
+  nruns: 20
+  max_spectral_data_len: 220
+  val_fraction: 0.05  # train test split
+  classification: false
+  spectral_rescalefactor: 1 # rescaling spectral values by a fixed amout to avoid floating point issues
