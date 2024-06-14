@@ -20,7 +20,7 @@ from torchvision.transforms import RandomRotation
 from torch.utils.data import DataLoader, TensorDataset, random_split
 from sklearn.linear_model import LinearRegression
 from sklearn.neighbors import KNeighborsRegressor
-from sklearn.metrics import f1_score, average_precision_score, accuracy_score, recall_score, balanced_accuracy_score
+from sklearn.metrics import f1_score, precision_score, accuracy_score, recall_score, balanced_accuracy_score
 
 # Local application imports
 from src.dataloader import (
@@ -139,7 +139,7 @@ def calculate_metrics(y_true, y_pred, label, combination, task='redshift'):
         micAcc = accuracy_score(y_true, y_pred, normalize=True)
 
         #macro f1-score
-        micF1 = f1_score(y_true, y_pred, average='macro')
+        macF1 = f1_score(y_true, y_pred, average='macro')
 
         #macro precision
         macPrec = precision_score(y_true, y_pred, average='macro')
