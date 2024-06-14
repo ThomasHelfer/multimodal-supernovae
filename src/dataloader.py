@@ -2,7 +2,7 @@ import os
 import torch
 import h5py
 import numpy as np
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Dict
 from PIL import Image
 
 import pandas as pd
@@ -16,6 +16,7 @@ from astropy.cosmology import Planck15 as cosmo  # Using Planck15 cosmology by d
 from typing import Tuple, List, Optional
 from torch.utils.data import TensorDataset
 from src.utils import filter_files, find_indices_in_arrays
+from sklearn.model_selection import StratifiedKFold
 
 
 # Custom data loader with noise augmentation using magerr
@@ -739,31 +740,37 @@ def load_data(
     spectra_dir: str = None,
     max_data_len_lc: int = 100,
     max_data_len_spec: int = 1000,
-    combinations: List = ["host_galaxy", "lightcurve"],
+    combinations: List[str] = ["host_galaxy", "lightcurve"],
     n_classes: int = 5,
     spectral_rescalefactor: float = 1e14,
     filenames: List[str] = None,
-) -> Tuple[TensorDataset, int]:
+    kfolds: int = 5,
+) -> Tuple[TensorDataset, int, List[str], List[Dict]]:
     """
-    Load data from specified directories, handling both images and light curves or spectra.
+    Load data from specified directories, handling images, light curves, and/or spectra as defined by combinations.
 
     Args:
-    data_dir (str): Directory containing images and possibly light curves.
-    spectra_dir (str, optional): Directory containing spectra data. If None, loads light curves instead.
-    max_data_len_lc (int, optional): Maximum length of the light curve arrays to load. Default is 100.
-    max_data_len_spec (int, optional): Maximum length of the spectra arrays to load. Default is 1000.
-    combinations (List[str], optional): List of modalities to load. Default is ["host_galaxy", "lightcurve"].
-    spectral_rescalefactor (int) default 1e14: factor to rescale the spectrum data
-
+        data_dir (str): Primary directory containing images and possibly light curves and redshift data.
+        spectra_dir (str, optional): Directory for spectra data. Defaults to `data_dir` if None.
+        max_data_len_lc (int, optional): Maximum length of light curve arrays. Defaults to 100.
+        max_data_len_spec (int, optional): Maximum length of spectra arrays. Defaults to 1000.
+        combinations (List[str], optional): Modalities to load. Defaults to ["host_galaxy", "lightcurve"].
+        n_classes (int): Number of classes for classification.
+        spectral_rescalefactor (float, optional): Factor to rescale spectrum data. Defaults to 1e14.
+        filenames (List[str], optional): List of filenames to filter data by. If None, load all available files.
+        kfolds (int, optional): Number of folds for stratified k-fold splitting. Defaults to 5.
 
     Returns:
-    dataset (TensorDataset): A TensorDataset containing the loaded data.
-    nband (int): Number of bands in the light curve data, or 1 if spectra are loaded.
-    filenames (List[str]): List of filenames corresponding to the loaded data.
+        dataset (TensorDataset): A TensorDataset containing the loaded data.
+        nband (int): Number of bands in light curve data, or 1 if only spectra are loaded.
+        filenames (List[str]): List of filenames corresponding to the loaded data.
+        folds (List[Dict]): List of dictionaries, each containing 'train_indices' and 'test_indices' for each fold.
 
-    The function loads images, light curves, and/or spectra data from the specified directories.
-    It ensures that the filenames between images and light curves or spectra match,
-    filtering out unmatched data. The resulting dataset is suitable for machine learning models.
+    This function loads and processes images, light curves, and spectra data based on specified combinations.
+    It ensures that filenames between different modalities match, using provided filenames to filter data if given.
+    The function also handles loading redshift and classification labels, organizing all into a TensorDataset
+    suitable for machine learning models. The list of folds for cross-validation is prepared if kfolds is specified,
+    with each dictionary in the list representing a fold containing training and testing indices.
     """
 
     # Decision based on whether spectra data is available
@@ -860,9 +867,19 @@ def load_data(
     classifications = torch.from_numpy(classifications).float()
     data += [classifications]
 
+    if kfolds is None:
+        folds = None
+    else:
+        folds = []
+        skf = StratifiedKFold(n_splits=kfolds)
+        X = classifications
+        y = classifications
+        for i, (train_index, test_index) in enumerate(skf.split(X, y)):
+            folds.append({"train_indices": train_index, "test_indices": test_index})
+
     data = TensorDataset(*data)
 
-    return data, nband, filenames
+    return data, nband, filenames, folds
 
 
 class SimulationLightcurveDataset(Dataset):
@@ -1135,7 +1152,8 @@ class SimulationDataset(Dataset):
 
         if "spectral" in self.combinations:
             transient_model = self.file["Spectroscopy"][t_type][model]
-            if "lightcurve" not in self.combinations: id_lc = transient_model["TID"][entry_idx]
+            if "lightcurve" not in self.combinations:
+                id_lc = transient_model["TID"][entry_idx]
 
             assert (
                 transient_model["TID"][entry_idx] == id_lc

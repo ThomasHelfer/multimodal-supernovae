@@ -30,7 +30,7 @@ parameters:
   time_norm: 
     values: [3371.1677601717206]
   agg: 
-    values: ["mean"]
+    values: ["attn"]
   # Spectral transformer
   emb_spectral:
     values: [32]
@@ -43,31 +43,34 @@ parameters:
   agg_spectral:
     values: ["mean"]
   # Optimiser 
+  foldnumber:
+    values: [1,2,3]
   lr:
-    values: [1e-3]
+    values: [4e-6]
   batchsize:
     values: [8192]
   epochs:
-    values: [20]
+    values: [2]
   weight_decay:
     values: [0]
   logit_scale:
-    values: [20.]
+    values: [20000.]
   seed:
     values: [0]
   patience:    # Parameter for early stopping 
     values: [99999999]
   dataset_length:
-    values: [100000]
+    values: [499951] #
 # Options are 'lightcurve' 'spectral' and 'host_galaxy' -- order does not matter 
 extra_args:
-  combinations: ["lightcurve"]
+  combinations: ['lightcurve']
   regression: True
   nruns: 20
   max_spectral_data_len: 1024
   val_fraction: 0.05  # train test split
+  kfolds: 5 # for strat Crossvaildation
   classification: False
   spectral_rescalefactor: 1 # rescaling spectral values by a fixed amout to avoid floating point issues
   # Loading up pretrained weights for lc
-  #pretrain_lc_path: 'models/pretrained_sim_lc/divine-sweep-1/epoch=394-step=4740.ckpt'
+  #pretrain_lc_path: '/home/thelfer1/data_tedwar42/thelfer1/Multimodal-hackathon-2024/analysis/qb98a0w9/efficient-sweep-1/epoch=46-step=2726.ckpt'
   #freeze_backbone_lc: True

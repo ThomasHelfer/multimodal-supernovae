@@ -39,19 +39,31 @@ def train_sweep(config=None):
         set_seed(cfg.seed)
 
         number_of_samples = len(dataset)
-        
-        inds_train, inds_val = train_test_split(
-            range(number_of_samples),
-            test_size=val_fraction,
-            random_state=cfg.seed,
-        )
+
+        if stratifiedkfoldindices is None:
+            inds_train, inds_val = train_test_split(
+                range(number_of_samples),
+                test_size=val_fraction,
+                random_state=cfg.seed,
+            )
+        else:
+            inds_train = stratifiedkfoldindices[cfg.foldnumber]["train_indices"]
+            inds_val = stratifiedkfoldindices[cfg.foldnumber]["test_indices"]
 
         dataset_train = Subset(dataset, inds_train)
         dataset_val = Subset(dataset, inds_val)
 
-        # save val file names 
-        np.savetxt(os.path.join(path_run, "val_filenames.txt"), np.array(filenames)[inds_val], fmt="%s")
-        np.savetxt(os.path.join(path_run, "train_filenames.txt"), np.array(filenames)[inds_train], fmt="%s")
+        # save val file names
+        np.savetxt(
+            os.path.join(path_run, "val_filenames.txt"),
+            np.array(filenames)[inds_val],
+            fmt="%s",
+        )
+        np.savetxt(
+            os.path.join(path_run, "train_filenames.txt"),
+            np.array(filenames)[inds_train],
+            fmt="%s",
+        )
 
         # dump config
         config_dict = {k: v for k, v in cfg.items()}
@@ -285,7 +297,7 @@ if __name__ == "__main__":
         combinations=combinations,
         n_classes=n_classes,
         spectral_rescalefactor=cfg["extra_args"]["spectral_rescalefactor"],
-        kfolds=cfg["extra_args"]["kfolds"],
+        kfolds=cfg["extra_args"].get("kfolds"),
     )
 
     wandb.agent(
