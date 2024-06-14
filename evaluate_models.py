@@ -177,10 +177,10 @@ def calculate_metrics(y_true, y_pred, label, combination, task='redshift'):
 set_seed(0)
 
 paths = [
-   # "/home/thelfer1/data_tedwar42/thelfer1/Multimodal-hackathon-2024/models/pretrained_sim_lc_finetuned_lc/pleasant-sweep-1//epoch=27-step=51968.ckpt",
-    "/home/thelfer1/data_tedwar42/thelfer1/Multimodal-hackathon-2024/models/pretrained_sim_lc_finetuned_lc/pleasant-sweep-1/epoch=19817-step=19818.ckpt",
-    "/home/thelfer1/data_tedwar42/thelfer1/Multimodal-hackathon-2024/models/clip-real/swept-sweep-1/epoch=347-step=48372.ckpt",
-    "/home/thelfer1/data_tedwar42/thelfer1/Multimodal-hackathon-2024/models/clip-simpretrain-clipreal/daily-sweep-7/epoch=35-step=5004.ckpt"
+   # "models/pretrained_sim_lc_finetuned_lc/pleasant-sweep-1//epoch=27-step=51968.ckpt",
+    "models/pretrained_sim_lc_finetuned_lc/pleasant-sweep-1/epoch=19817-step=19818.ckpt",
+    "models/clip-real/swept-sweep-1/epoch=347-step=48372.ckpt",
+    "models/clip-simpretrain-clipreal/daily-sweep-7/epoch=35-step=5004.ckpt"
 ]  #"ENDtoEND",
 labels = [ "masked-lc-pretraining", "clip-real","clip-simpretrain-clipreal"]
 regressions = [False, True]
