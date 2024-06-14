@@ -278,13 +278,14 @@ if __name__ == "__main__":
     max_spectral_data_len = cfg["extra_args"][
         "max_spectral_data_len"
     ]  # Spectral data is cut to this length
-    dataset, nband, filenames = load_data(
+    dataset, nband, filenames, stratifiedkfoldindices = load_data(
         data_dir,
         spectra_dir,
         max_data_len_spec=max_spectral_data_len,
         combinations=combinations,
         n_classes=n_classes,
         spectral_rescalefactor=cfg["extra_args"]["spectral_rescalefactor"],
+        kfolds=cfg["extra_args"]["kfolds"],
     )
 
     wandb.agent(
