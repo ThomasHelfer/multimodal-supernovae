@@ -125,30 +125,33 @@ def calculate_metrics(y_true, y_pred, label, combination, task='redshift'):
     elif task == 'classification':
         y_true = y_true.cpu().numpy()
         y_pred = y_pred.cpu().numpy()
+        y_pred_idxs = np.argmax(y_pred)
 
         #micro f1-score
-        micF1 = f1_score(y_true, y_pred, average='micro')
+        micF1 = f1_score(y_true, y_pred_idxs, average='micro')
 
         #micro precision
         micPrec = precision_score(y_true, y_pred, average='micro')
 
         #micro recall
-        micRec = recall_score(y_true, y_pred, average='micro')
+        micRec = recall_score(y_true, y_pred_idxs, average='micro')
 
         #micro accuracy
-        micAcc = accuracy_score(y_true, y_pred, normalize=True)
+        #y_pred needs to be array of predicted class labels
+        micAcc = accuracy_score(y_true, y_pred_idxs, normalize=True)
 
         #macro f1-score
-        macF1 = f1_score(y_true, y_pred, average='macro')
+        macF1 = f1_score(y_true, y_pred_idxs, average='macro')
 
         #macro precision
         macPrec = precision_score(y_true, y_pred, average='macro')
 
         #macro recall
-        macRec = recall_score(y_true, y_pred, average='macro')
+        macRec = recall_score(y_true, y_pred_idxs, average='macro')
 
         #macro accuracy
-        macAcc = balanced_accuracy_score(y_true, y_pred)
+        #y_pred needs to be array of predicted class labels
+        macAcc = balanced_accuracy_score(y_true, y_pred_idxs)
 
         # Compile the results into a metrics dictionary
         metrics = {
