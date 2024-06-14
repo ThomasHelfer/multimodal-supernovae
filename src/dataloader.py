@@ -1135,7 +1135,7 @@ class SimulationDataset(Dataset):
 
         if "spectral" in self.combinations:
             transient_model = self.file["Spectroscopy"][t_type][model]
-            id_lc = transient_model["TID"][entry_idx]
+            if "lightcurve" not in self.combinations: id_lc = transient_model["TID"][entry_idx]
 
             assert (
                 transient_model["TID"][entry_idx] == id_lc
