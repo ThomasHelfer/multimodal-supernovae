@@ -177,8 +177,8 @@ def calculate_metrics(y_true, y_pred, label, combination, task='redshift'):
 set_seed(0)
 
 paths = [
-   # "/home/thelfer1/data_tedwar42/thelfer1/Multimodal-hackathon-2024/models/unimodal_lc/radiant-sweep-1/epoch=27-step=51968.ckpt",
-    "/home/thelfer1/data_tedwar42/thelfer1/Multimodal-hackathon-2024/models/pretrained_sim_lc_finetuned_lc/pleasant-sweep-1/epoch=2024-step=2025.ckpt",
+   # "/home/thelfer1/data_tedwar42/thelfer1/Multimodal-hackathon-2024/models/pretrained_sim_lc_finetuned_lc/pleasant-sweep-1//epoch=27-step=51968.ckpt",
+    "/home/thelfer1/data_tedwar42/thelfer1/Multimodal-hackathon-2024/models/pretrained_sim_lc_finetuned_lc/pleasant-sweep-1/epoch=19817-step=19818.ckpt",
     "/home/thelfer1/data_tedwar42/thelfer1/Multimodal-hackathon-2024/models/clip-real/swept-sweep-1/epoch=347-step=48372.ckpt",
     "/home/thelfer1/data_tedwar42/thelfer1/Multimodal-hackathon-2024/models/clip-simpretrain-clipreal/daily-sweep-7/epoch=35-step=5004.ckpt"
 ]  #"ENDtoEND",
@@ -236,7 +236,7 @@ for output, label in zip(models, labels):
     set_seed(cfg["seed"])
 
     # Spectral data is cut to this length
-    dataset_train, nband, filenames_read = load_data(
+    dataset_train, nband, filenames_read, _ = load_data(
         data_dir,
         spectra_dir,
         max_data_len_spec=cfg_extra_args["max_spectral_data_len"],
@@ -248,7 +248,7 @@ for output, label in zip(models, labels):
     # Check that the filenames read are a subset of the training filenames from the already trained models
     assert is_subset(filenames_read, train_filenames)
 
-    dataset_val, nband, filenames_read = load_data(
+    dataset_val, nband, filenames_read, _  = load_data(
         data_dir,
         spectra_dir,
         max_data_len_spec=cfg_extra_args["max_spectral_data_len"],
