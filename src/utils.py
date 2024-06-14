@@ -12,6 +12,7 @@ from sklearn.linear_model import LinearRegression
 from sklearn.svm import LinearSVC
 from sklearn.neighbors import KNeighborsRegressor, KNeighborsClassifier
 
+
 def filter_files(filenames_avail, filenames_to_filter, data_to_filter=None):
     """
     Function to filter filenames and data based on the filenames_avail
@@ -439,82 +440,12 @@ def plot_ROC_curves(
     plt.savefig(os.path.join(path_base, "ROC_curves.png"))
 
 
-def get_linearR2(
-    X: torch.Tensor,
-    Y: torch.Tensor,
-    X_val: Optional[torch.Tensor] = None,
-    Y_val: Optional[torch.Tensor] = None
-) -> float:
-    """
-    Calculate the R^2 score using a linear regression model.
-
-    Parameters:
-    X (torch.Tensor): The input features for training.
-    Y (torch.Tensor): The target values for training.
-    X_val (Optional[torch.Tensor]): The input features for validation (default is None).
-    Y_val (Optional[torch.Tensor]): The target values for validation (default is None).
-
-    Returns:
-    float: The R^2 score of the model trained on training data or validation data if provided.
-    """
-
-    X = X.cpu().detach().numpy()
-    if X_val is not None:
-        X_val = X_val.cpu().detach().numpy()
-
-    if len(Y.shape) == 1:
-        Y = Y[:, np.newaxis]
-
-    model = LinearRegression().fit(X, Y)
-
-    if X_val is None or Y_val is None:
-        return model.score(X, Y)
-    return model.score(X_val, Y_val)
-
-
-def get_knnR2(
-    X: torch.Tensor,
-    Y: torch.Tensor,
-    X_val: Optional[torch.Tensor] = None,
-    Y_val: Optional[torch.Tensor] = None,
-    k: int = 5
-) -> float:
-    """
-    Calculate the R^2 score using a k-nearest neighbors regression model.
-
-    Parameters:
-    X (torch.Tensor): The input features for training.
-    Y (torch.Tensor): The target values for training.
-    X_val (Optional[torch.Tensor]): The input features for validation (default is None).
-    Y_val (Optional[torch.Tensor]): The target values for validation (default is None).
-    k (int): The number of neighbors to use for k-nearest neighbors.
-
-    Returns:
-    float: The R^2 score of the model trained on training data or validation data if provided.
-    """
-    if len(Y.shape) == 1:
-        Y = Y[:, np.newaxis]
-
-    #convert to numpy arrays
-    X = X.cpu().detach().numpy()
-    if X_val is not None:
-        X_val = X_val.cpu().detach().numpy()
-
-    #run redshift regression or SN classification
-    model = KNeighborsRegressor(n_neighbors=k).fit(X, Y)
-
-    if X_val is None or Y_val is None:
-        return model.score(X, Y)
-
-    return model.score(X_val, Y_val)
-
-
 def get_linear_predictions(
     X: torch.Tensor,
     Y: torch.Tensor,
     X_val: Optional[torch.Tensor] = None,
     Y_val: Optional[torch.Tensor] = None,
-    task: str = 'redshift',
+    task: str = "redshift",
 ) -> torch.Tensor:
     """
     Calculate predictions using a linear regression model (or a linear-kernel SVM, for classification).
@@ -539,9 +470,9 @@ def get_linear_predictions(
         X_val = X_val.cpu().detach().numpy()
 
     # fit the model
-    if mode.lower() == 'redshift':
+    if mode.lower() == "redshift":
         model = LinearRegression().fit(X, Y)
-    elif mode.lower() == 'classification':
+    elif mode.lower() == "classification":
         model = LinearSVC().fit(X, Y)
 
     # If validation data is provided, make predictions on that, otherwise on training data
@@ -562,7 +493,7 @@ def get_knn_predictions(
     X_val: Optional[torch.Tensor] = None,
     Y_val: Optional[torch.Tensor] = None,
     k: int = 5,
-    task: str = "redshift"
+    task: str = "redshift",
 ) -> torch.Tensor:
     """
     Calculate predictions using a k-nearest neighbors regression model.
@@ -587,10 +518,10 @@ def get_knn_predictions(
     if X_val is not None:
         X_val = X_val.cpu().detach().numpy()
 
-    #fit the model
-    if mode.lower() == 'redshift':
+    # fit the model
+    if mode.lower() == "redshift":
         model = KNeighborsRegressor(n_neighbors=k).fit(X, Y)
-    elif mode.lower() == 'classification':
+    elif mode.lower() == "classification":
         model = KNeighborsClassifier(n_neighbors=k).fit(X, Y)
 
         # If validation data is provided, make predictions on that, otherwise on training data
