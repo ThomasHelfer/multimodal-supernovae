@@ -80,7 +80,7 @@ def calculate_metrics(y_true, y_pred, label, combination, task='redshift'):
             - 'L2': The L2 norm (root mean squared error) of the prediction error.
             - 'R2': The coefficient of determination of the prediction error.
             - 'OLF': The outlier fraction of the prediction error.
-        For 3- or 5-way classification (all ):
+        For 3- or 5-way classification:
             - 'micro-f1': The micro-averaged f1-score (NOT balanced across classes).
             - 'micro-precision': The micro-averaged precision (true positives / (true positives + false positives), NOT balanced across classes).
             - 'micro-recall': The micro-averaged precision (true positives / (true positives + false negatives), NOT balanced across classes).
