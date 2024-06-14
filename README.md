@@ -111,7 +111,7 @@ Before installing, ensure you have the following prerequisites:
 ### Running a k-fold cross-validation
    We can run a k-fold cross validation by defining the variable 
    ```yaml
-    extra_args
+    extra_args:
       kfolds: 5 # for strat Crossvaildation
    ```
    as this can take serially very long, one can choose to split your runs for different submission by just choosing certain folds for each submission    
