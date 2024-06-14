@@ -109,14 +109,14 @@ Before installing, ensure you have the following prerequisites:
    Monitor and analyze your experiment results on your Weights & Biases project page. [wand.ai](https://wandb.ai)
 
 ### Running a k-fold cross-validation
-    We can run a k-fold cross validation by defining the variable 
-    ```yaml
+   We can run a k-fold cross validation by defining the variable 
+   ```yaml
     extra_args
       kfolds: 5 # for strat Crossvaildation
-    ```
-    as this can take serially very long, one can choose to split your runs for different submission by just choosing certain folds for each submission
-    ```yaml  
+   ```
+   as this can take serially very long, one can choose to split your runs for different submission by just choosing certain folds for each submission    
+   ```yaml
       foldnumber:
         values: [1,2,3]
-    ```
+   ```
 
