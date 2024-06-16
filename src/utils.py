@@ -11,6 +11,13 @@ from ruamel.yaml import YAML
 from sklearn.linear_model import LinearRegression
 from sklearn.svm import LinearSVC
 from sklearn.neighbors import KNeighborsRegressor, KNeighborsClassifier
+from sklearn.metrics import (
+    f1_score,
+    precision_score,
+    accuracy_score,
+    recall_score,
+    balanced_accuracy_score,
+)
 from torch.nn import Module
 import pandas as pd
 
@@ -663,3 +670,159 @@ def print_metrics_in_latex(metrics_list: List[Dict[str, float]]) -> None:
     )
 
     print(latex_code)
+
+
+def get_checkpoint_paths(root_dir: str) -> Dict[str, str]:
+    """
+    Traverse the directory structure starting from the specified root directory,
+    and find the checkpoint file (.ckpt) with the smallest epoch number in each sweep.
+
+    Parameters:
+        root_dir (str): The root directory containing different sweep directories.
+
+    Returns:
+        Dict[str, str]: A dictionary where keys are directory paths and values are the
+                        paths to the checkpoint file with the smallest epoch number.
+    """
+    # Dictionary to hold the paths of the smallest epoch checkpoint files
+    ckpt_paths = {}
+
+    # Walk through the directory structure
+    for dirpath, dirnames, filenames in os.walk(root_dir):
+        smallest_epoch = float("inf")
+        path_of_smallest = None
+
+        # Filter and process only the checkpoint files
+        for filename in filenames:
+            if filename.endswith(".ckpt"):
+                # Extract epoch number from the filename
+                try:
+                    epoch = int(filename.split("=")[1].split("-")[0])
+                except (IndexError, ValueError):
+                    continue
+
+                # Update if the current file has a smaller epoch number
+                if epoch < smallest_epoch:
+                    smallest_epoch = epoch
+                    path_of_smallest = os.path.join(dirpath, filename)
+
+        # Store the path of the checkpoint file with the smallest epoch number for each sweep
+        if path_of_smallest:
+            ckpt_paths[dirpath] = path_of_smallest
+
+    return ckpt_paths
+
+
+def calculate_metrics(y_true, y_pred, label, combination, task="regression"):
+    """
+    Calculates performance metrics (for both classification and redshift estimation) to assess the accuracy of predictions against true values.
+
+    Parameters:
+    - y_true (torch.Tensor): The true values against which predictions are evaluated.
+    - y_pred (torch.Tensor): The predicted values to be evaluated.
+    - label (str): Label describing the model or configuration being evaluated.
+    - combination (str): Description of the data or feature combination used for the model.
+    - task (str): the downstream task being done; can be 'redshift' or 'classification'.
+
+    Returns:
+    - dict: A dictionary containing the calculated metrics. Each key describes the metric.
+            - 'Model': The label of the model or configuration.
+            - 'Combination': Description of the feature or data combination.
+         For redshift regression:
+            - 'L1': The L1 norm (mean absolute error) of the prediction error.
+            - 'L2': The L2 norm (root mean squared error) of the prediction error.
+            - 'R2': The coefficient of determination of the prediction error.
+            - 'OLF': The outlier fraction of the prediction error.
+        For 3- or 5-way classification:
+            - 'micro-f1': The micro-averaged f1-score (NOT balanced across classes).
+            - 'micro-precision': The micro-averaged precision (true positives / (true positives + false positives), NOT balanced across classes).
+            - 'micro-recall': The micro-averaged precision (true positives / (true positives + false negatives), NOT balanced across classes).
+            - 'micro-acc': The micro-averaged accuracy (averaged across all points, NOT balanced across classes).
+
+            - 'macro-f1': The macro-averaged f1-score (balanced across classes).
+            - 'macro-precision': The macro-averaged precision (true positives / (true positives + false positives), balanced across classes).
+            - 'macro-recall': The macro-averaged precision (true positives / (true positives + false negatives), balanced across classes).
+            - 'macro-acc': The macro-averaged accuracy (balanced across classes).
+    """
+    if task == "regression":
+        # Calculate L1 and L2 norms for the predictions
+        l1 = torch.mean(torch.abs(y_true - y_pred)).item()
+        l2 = torch.sqrt(torch.mean((y_true - y_pred) ** 2)).item()
+        R2 = (
+            1
+            - (
+                torch.sum((y_true - y_pred) ** 2)
+                / torch.sum((y_true - torch.mean(y_true)) ** 2)
+            ).item()
+        )
+
+        # Calculate the residuals
+        delta_z = y_true - y_pred
+
+        # Outliers based on a fixed threshold
+        outliers = torch.abs(delta_z) > 0.07
+        non_outliers = ~outliers
+
+        # calulate the fraction of outliers
+        OLF = torch.mean(outliers.float()).item()
+
+        # Compile the results into a metrics dictionary
+        metrics = {
+            "Model": label,
+            "Combination": combination,
+            "L1": l1,
+            "L2": l2,
+            "R2": R2,
+            "OLF": OLF,
+        }
+    elif task == "classification":
+        y_true = y_true.cpu().numpy()
+        y_pred = y_pred.cpu().numpy()
+        y_pred_idxs = y_pred
+
+        # micro f1-score
+        micF1 = f1_score(y_true, y_pred_idxs, average="micro")
+
+        # micro precision
+        micPrec = precision_score(y_true, y_pred, average="micro")
+
+        # micro recall
+        micRec = recall_score(y_true, y_pred_idxs, average="micro")
+
+        # micro accuracy
+        # y_pred needs to be array of predicted class labels
+        micAcc = accuracy_score(y_true, y_pred_idxs, normalize=True)
+
+        # macro f1-score
+        macF1 = f1_score(y_true, y_pred_idxs, average="macro")
+
+        # macro precision
+        macPrec = precision_score(y_true, y_pred, average="macro")
+
+        # macro recall
+        macRec = recall_score(y_true, y_pred_idxs, average="macro")
+
+        # macro accuracy
+        # y_pred needs to be array of predicted class labels
+        macAcc = balanced_accuracy_score(y_true, y_pred_idxs)
+
+        # Compile the results into a metrics dictionary
+        metrics = {
+            "Model": label,
+            "Combination": combination,
+            "mic-f1": micF1,
+            "mic-p": micPrec,
+            "mic-r": micRec,
+            "mic-acc": micAcc,
+            "mac-f1": macF1,
+            "mac-p": macPrec,
+            "mac-r": macRec,
+            "mac-acc": macAcc,
+        }
+
+    else:
+        raise ValueError(
+            "Could not understand the task! Please set task to 'redshift' or 'classification'."
+        )
+
+    return metrics
