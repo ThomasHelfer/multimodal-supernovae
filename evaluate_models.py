@@ -26,11 +26,11 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 set_seed(0)
 
 directories = [
+    "models/classification-lc",
     "models/unimodal_lc",
-    "models/clip-real",
-    "models/clip-simpretrain-clipreal",
+    "models/clip-real-5fold",
 ]  # "ENDtoEND",
-names = ["unimodal_lc", "clip-real", "clip-simpretrain-clipreal"]
+names = ["class lc", "regres lc", "clip-real", "clip-simpretrain-clipreal"]
 models = []
 
 paths = []
@@ -194,10 +194,10 @@ for output, label, id in zip(models, labels, ids):
 
     elif classification:
         metrics = calculate_metrics(
-            y_true_train_label,
+            y_true_label,
             y_pred,
             label,
-            format_combinations(cfg_extra_args["combinations"], task="classification"),
+            format_combinations(cfg_extra_args["combinations"]),
             id=id,
             task="classification",
         )

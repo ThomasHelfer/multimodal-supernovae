@@ -623,14 +623,18 @@ def process_data_loader(
                 t_sp = t_sp.to(device)
                 mask_sp = mask_sp.to(device)
             x = model(x_img, x_lc, t_lc, mask_lc, x_sp, t_sp, mask_sp)
-            y_pred_val.append(x.detach().cpu().flatten())
+            if regression:
+                y_pred_val.append(x.detach().cpu().flatten())
+            elif classification:
+                _, predicted_classes = torch.max(x, dim=1)
+                y_pred_val.append(predicted_classes.detach().cpu().flatten())
 
         y_true_val.append(redshift)
         y_true_val_label.append(labels)
 
     y_true = torch.cat(y_true_val, dim=0)
     y_true_val_label = torch.cat(y_true_val_label, dim=0)
-    if regression:
+    if regression or classification:
         y_pred_val = torch.cat(y_pred_val, dim=0)
 
     return y_true, y_true_val_label, y_pred_val
