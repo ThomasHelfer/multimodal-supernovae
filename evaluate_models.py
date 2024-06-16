@@ -163,14 +163,14 @@ def calculate_metrics(y_true, y_pred, label, combination, task="regression"):
         metrics = {
             "Model": label,
             "Combination": combination,
-            "micro-f1": micF1,
-            "micro-precision": micPrec,
-            "micro-recall": micRec,
-            "micro-acc": micAcc,
-            "macro-f1": macF1,
-            "macro-precision": macPrec,
-            "macro-recall": macRec,
-            "macro-acc": macAcc,
+            "mic-f1": micF1,
+            "mic-p": micPrec,
+            "mic-r": micRec,
+            "mic-acc": micAcc,
+            "mac-f1": macF1,
+            "mac-p": macPrec,
+            "mac-r": macRec,
+            "mac-acc": macAcc,
         }
 
     else:
