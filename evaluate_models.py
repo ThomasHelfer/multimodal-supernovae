@@ -1,4 +1,4 @@
-import os 
+import os
 import torch
 from src.dataloader import (
     load_data,
@@ -22,28 +22,32 @@ from src.utils import (
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-# Specify the root directory of the sweeps
-root_directory = (
-    "/path/to/your/sweep/folder"  # Change this to your specific root directory path
-)
-smallest_ckpts = get_checkpoint_paths(root_directory)
-
-# Printing the results
-for sweep, path in smallest_ckpts.items():
-    print(f"Sweep: {sweep}, Path: {path}")
-
-
 # Load models
 set_seed(0)
 
-paths = [
-    # "models/pretrained_sim_lc_finetuned_lc/pleasant-sweep-1//epoch=27-step=51968.ckpt",
-    # "models/pretrained_sim_lc_finetuned_lc/pleasant-sweep-1/epoch=19817-step=19818.ckpt",
-    "models/clip-real/swept-sweep-1/epoch=347-step=48372.ckpt",
-    "models/clip-simpretrain-clipreal/daily-sweep-7/epoch=35-step=5004.ckpt",
+directories = [
+    "models/unimodal_lc",
+    "models/clip-real",
+    "models/clip-simpretrain-clipreal",
 ]  # "ENDtoEND",
-labels = ["masked-lc-pretraining", "clip-real", "clip-simpretrain-clipreal"]
+names = ["unimodal_lc", "clip-real", "clip-simpretrain-clipreal"]
 models = []
+
+paths = []
+ids = []
+labels = []
+# Finding all checkpoints
+for id, (directory, label) in enumerate(zip(directories, names)):
+    paths_to_checkpoint, name, id = get_checkpoint_paths(directory, label, id)
+    print(paths_to_checkpoint)
+    print(name)
+    print(id)
+    print("-----------------")
+    paths.extend(paths_to_checkpoint)
+    ids.extend(id)
+    labels.extend(name)
+
+
 for i, path in enumerate(paths):
     print(f"loading {labels[i]}")
     models.append(load_model(path))
@@ -186,14 +190,16 @@ for output, label in zip(models, labels):
         )
 
         regression_metrics_list.append(metrics)
-        """x
-        elif classification:
-            y_pred = torch.cat(y_pred_val, dim=0)
-            metrics = calculate_metrics(
-                y_true, y_pred, label, format_combinations(cfg_extra_args["combinations"], task='classification')
-            )
-            classification_metrics_list.append(metrics)
-        """
+
+    elif classification:
+        metrics = calculate_metrics(
+            y_true_train_label,
+            y_pred,
+            label,
+            format_combinations(cfg_extra_args["combinations"], task="classification"),
+        )
+        classification_metrics_list.append(metrics)
+
     else:
         embs_list, combs = get_embs(
             model, val_loader_no_aug, cfg_extra_args["combinations"], ret_combs=True
@@ -327,6 +333,6 @@ for output, label in zip(models, labels):
     print("===============================")
 
 # Convert metrics list to a DataFrame
-
+print(classification_metrics_list)
 print_metrics_in_latex(classification_metrics_list)
 print_metrics_in_latex(regression_metrics_list)

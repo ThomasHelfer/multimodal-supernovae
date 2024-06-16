@@ -612,13 +612,13 @@ def process_data_loader(
         ) = batch
 
         if regression or classification:
-            if "host_galaxy" in combinations:  # cfg_extra_args["combinations"]:
+            if "host_galaxy" in combinations:
                 x_img = x_img.to(device)
-            if "lightcurve" in combinations:  # cfg_extra_args["combinations"]:
+            if "lightcurve" in combinations:
                 x_lc = x_lc.to(device)
                 t_lc = t_lc.to(device)
                 mask_lc = mask_lc.to(device)
-            if "spectral" in combinations:  # cfg_extra_args["combinations"]:
+            if "spectral" in combinations:
                 x_sp = x_sp.to(device)
                 t_sp = t_sp.to(device)
                 mask_sp = mask_sp.to(device)
@@ -672,7 +672,9 @@ def print_metrics_in_latex(metrics_list: List[Dict[str, float]]) -> None:
     print(latex_code)
 
 
-def get_checkpoint_paths(root_dir: str) -> Dict[str, str]:
+def get_checkpoint_paths(
+    root_dir: str, name: str, id: int
+) -> Tuple[List[str], List[str], List[int]]:
     """
     Traverse the directory structure starting from the specified root directory,
     and find the checkpoint file (.ckpt) with the smallest epoch number in each sweep.
@@ -681,11 +683,11 @@ def get_checkpoint_paths(root_dir: str) -> Dict[str, str]:
         root_dir (str): The root directory containing different sweep directories.
 
     Returns:
-        Dict[str, str]: A dictionary where keys are directory paths and values are the
-                        paths to the checkpoint file with the smallest epoch number.
+        List[str]: A list with the paths to the checkpoint file with the smallest epoch number.
+        List[str]:
     """
     # Dictionary to hold the paths of the smallest epoch checkpoint files
-    ckpt_paths = {}
+    ckpt_paths = []
 
     # Walk through the directory structure
     for dirpath, dirnames, filenames in os.walk(root_dir):
@@ -708,12 +710,18 @@ def get_checkpoint_paths(root_dir: str) -> Dict[str, str]:
 
         # Store the path of the checkpoint file with the smallest epoch number for each sweep
         if path_of_smallest:
-            ckpt_paths[dirpath] = path_of_smallest
+            ckpt_paths.append(path_of_smallest)
 
-    return ckpt_paths
+    return ckpt_paths, [name] * len(ckpt_paths), [id] * len(ckpt_paths)
 
 
-def calculate_metrics(y_true, y_pred, label, combination, task="regression"):
+def calculate_metrics(
+    y_true: torch.Tensor,
+    y_pred: torch.Tensor,
+    label: str,
+    combination: str,
+    task: str = "regression",
+) -> dict:
     """
     Calculates performance metrics (for both classification and redshift estimation) to assess the accuracy of predictions against true values.
 
