@@ -1,22 +1,5 @@
-# Standard library imports
-import math
-import os
-import sys
-
-# Third-party imports
-import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
-import seaborn as sns
+import os 
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import pytorch_lightning as pl
-from PIL import Image
-from tqdm import tqdm
-
-
-# Local application imports
 from src.dataloader import (
     load_data,
     NoisyDataLoader,
@@ -24,7 +7,6 @@ from src.dataloader import (
 from src.models_multimodal import (
     load_model,
 )
-from src.transformer_utils import Transformer
 from src.utils import (
     get_valid_dir,
     set_seed,
@@ -37,14 +19,6 @@ from src.utils import (
     calculate_metrics,
     get_checkpoint_paths,
 )
-
-import pandas as pd
-
-# Typing imports
-from typing import Dict, Optional, Tuple
-
-# Additional imports
-from IPython.display import Image as IPImage
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
