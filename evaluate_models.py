@@ -39,10 +39,6 @@ labels = []
 # Finding all checkpoints
 for id, (directory, label) in enumerate(zip(directories, names)):
     paths_to_checkpoint, name, id = get_checkpoint_paths(directory, label, id)
-    print(paths_to_checkpoint)
-    print(name)
-    print(id)
-    print("-----------------")
     paths.extend(paths_to_checkpoint)
     ids.extend(id)
     labels.extend(name)
@@ -86,7 +82,7 @@ regression_metrics_list = []
 classification_metrics_list = []
 
 
-for output, label in zip(models, labels):
+for output, label, id in zip(models, labels, ids):
     (
         model,
         combinations,
@@ -186,7 +182,12 @@ for output, label in zip(models, labels):
 
     if regression:
         metrics = calculate_metrics(
-            y_true, y_pred, label, format_combinations(cfg_extra_args["combinations"])
+            y_true,
+            y_pred,
+            label,
+            format_combinations(cfg_extra_args["combinations"]),
+            id=id,
+            task="regression",
         )
 
         regression_metrics_list.append(metrics)
@@ -197,6 +198,8 @@ for output, label in zip(models, labels):
             y_pred,
             label,
             format_combinations(cfg_extra_args["combinations"], task="classification"),
+            id=id,
+            task="classification",
         )
         classification_metrics_list.append(metrics)
 
@@ -225,11 +228,16 @@ for output, label in zip(models, labels):
                         task=task,
                     )
                     metrics = calculate_metrics(
-                        y_true, y_pred_linear, label + "+Linear", combs[i], task=task
+                        y_true,
+                        y_pred_linear,
+                        label + "+Linear",
+                        combs[i],
+                        id=id,
+                        task=task,
                     )
                     regression_metrics_list.append(metrics)
                     metrics = calculate_metrics(
-                        y_true, y_pred_knn, label + "+KNN", combs[i], task=task
+                        y_true, y_pred_knn, label + "+KNN", combs[i], id=id, task=task
                     )
                     regression_metrics_list.append(metrics)
 
@@ -253,11 +261,17 @@ for output, label in zip(models, labels):
                         y_pred_linear,
                         label + "+Linear",
                         combs[i],
+                        id=id,
                         task=task,
                     )
                     classification_metrics_list.append(metrics)
                     metrics = calculate_metrics(
-                        y_true_label, y_pred_knn, label + "+KNN", combs[i], task=task
+                        y_true_label,
+                        y_pred_knn,
+                        label + "+KNN",
+                        combs[i],
+                        id=id,
+                        task=task,
                     )
                     classification_metrics_list.append(metrics)
 
@@ -288,6 +302,7 @@ for output, label in zip(models, labels):
                             y_pred_linear,
                             label + "+Linear",
                             combs[i] + " and " + combs[j],
+                            id=id,
                             task=task,
                         )
                         regression_metrics_list.append(metrics)
@@ -296,6 +311,7 @@ for output, label in zip(models, labels):
                             y_pred_knn,
                             label + "+KNN",
                             combs[i] + " and " + combs[j],
+                            id=id,
                             task=task,
                         )
                         regression_metrics_list.append(metrics)
@@ -319,6 +335,7 @@ for output, label in zip(models, labels):
                             y_pred_linear,
                             label + "+Linear",
                             combs[i] + " and " + combs[j],
+                            id=id,
                             task=task,
                         )
                         classification_metrics_list.append(metrics)
@@ -327,12 +344,12 @@ for output, label in zip(models, labels):
                             y_pred_knn,
                             label + "+KNN",
                             combs[i] + " and " + combs[j],
+                            id=id,
                             task=task,
                         )
                         classification_metrics_list.append(metrics)
     print("===============================")
 
 # Convert metrics list to a DataFrame
-print(classification_metrics_list)
 print_metrics_in_latex(classification_metrics_list)
 print_metrics_in_latex(regression_metrics_list)

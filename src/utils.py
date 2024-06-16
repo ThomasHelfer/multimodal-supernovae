@@ -652,24 +652,49 @@ def print_metrics_in_latex(metrics_list: List[Dict[str, float]]) -> None:
     Output:
         None: This function directly prints the LaTeX formatted table to the console.
     """
-    metrics_df = pd.DataFrame(metrics_list)
+    """
+    Generates a LaTeX table from a list of dictionaries containing model metrics,
+    formatting the metrics as mean ± standard deviation for each combination and model.
+    
+    Parameters:
+        data (list of dicts): Each dictionary should contain metrics and descriptors such as Model, Combination, and id.
 
-    # Save the DataFrame to a CSV file
-    metrics_df.to_csv("model_metrics.csv", index=False)
+    Returns:
+        str: A LaTeX formatted table as a string.
+    """
+    # Convert the list of dictionaries to a DataFrame
+    df = pd.DataFrame(metrics_list)
 
-    # Define formatters for the float columns to format them to three decimal places
-    float_formatter = lambda x: f"{x:.4f}"
-    formatters = {}
+    # Select numeric columns
+    numeric_cols = df.select_dtypes(include=[float]).columns
+    grouped_df = df.groupby(["id", "Model", "Combination"])[numeric_cols]
 
-    # Iterate over all metrics and truncate to 3 decimal places
-    for colname in list(set(metrics_df.columns.values) - set(["Combination", "Model"])):
-        formatters[colname] = float_formatter
+    # Calculate mean and standard deviation
+    mean_df = grouped_df.mean()
+    std_df = grouped_df.std()
 
-    latex_code = metrics_df.to_latex(
-        index=False, formatters=formatters, escape=False, na_rep=""
+    # Create a DataFrame with 'mean ± std' for each metric
+    summary_df = mean_df.copy()
+    for col in numeric_cols:
+        summary_df[col] = (
+            mean_df[col].apply("{:.3f}".format)
+            + " ± "
+            + std_df[col].apply("{:.3f}".format)
+        )
+
+    # Reset the index and drop 'id'
+    summary_df.reset_index(inplace=True)
+    summary_df.drop(columns="id", inplace=True)
+
+    # Generate LaTeX table
+    latex_table = summary_df.to_latex(
+        escape=False,
+        column_format="|c" * (len(summary_df.columns)) + "|",
+        index=False,
+        header=True,
     )
 
-    print(latex_code)
+    print(latex_table)
 
 
 def get_checkpoint_paths(
@@ -720,6 +745,7 @@ def calculate_metrics(
     y_pred: torch.Tensor,
     label: str,
     combination: str,
+    id: int,
     task: str = "regression",
 ) -> dict:
     """
@@ -730,6 +756,7 @@ def calculate_metrics(
     - y_pred (torch.Tensor): The predicted values to be evaluated.
     - label (str): Label describing the model or configuration being evaluated.
     - combination (str): Description of the data or feature combination used for the model.
+    - id (int): A unique indentifier to distiguish different k-fold runs
     - task (str): the downstream task being done; can be 'redshift' or 'classification'.
 
     Returns:
@@ -782,6 +809,7 @@ def calculate_metrics(
             "L2": l2,
             "R2": R2,
             "OLF": OLF,
+            "id": id,
         }
     elif task == "classification":
         y_true = y_true.cpu().numpy()
@@ -826,6 +854,7 @@ def calculate_metrics(
             "mac-p": macPrec,
             "mac-r": macRec,
             "mac-acc": macAcc,
+            "id": id,
         }
 
     else:
