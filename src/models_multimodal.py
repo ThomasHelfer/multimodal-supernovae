@@ -514,7 +514,7 @@ class LightCurveImageCLIP(pl.LightningModule):
 
 
 def load_config(path):
-    '''
+    """
     Load the configuration file from the path provided.
 
     Args:
@@ -523,7 +523,7 @@ def load_config(path):
     Returns:
         cfg: dictonary containing dict from yaml
         cfg_extra_args: dictonary containing extra args not tracked by wandb
-    '''
+    """
     # Load the sweep configuration file
     config_dir = os.path.dirname(path)
     sweep_config_dir = os.path.dirname(config_dir)
@@ -538,31 +538,36 @@ def load_config(path):
 
 
 def initialize_model(
-    path: str, optimizer_kwargs: Optional[dict] = {}, combinations: Optional[Any] = None, regression: Optional[Any] = None
+    path: str, optimizer_kwargs: Optional[dict] = {}, combinations: Optional[Any] = None
 ) -> LightCurveImageCLIP:
-    '''
+    """
     Initialize the model with the configuration parameters from the config file stored in path.
 
     Args:
         path (str): Path to the checkpoint file (.ckpt) or the config file (.yaml).
         combinations (Optional[Any]): Combination parameters for the model. If not provided, it will be loaded from the sweep configuration.
-        regression (Optional[Bool]): Regression bolean, if True the model is a regression model. If not provided, it will be loaded from the sweep configuration.
+
 
     Returns:
         LightCurveImageCLIP: The loaded and configured model.
         combinations: Combination parameters for the model.
         regression: Regression bolean, if True the model is a regression model.
+        classification: classification bolean, if True the model is a classification model.
+        n_classes: Number of classes for classification.
         cfg: dictonary containing dict from yaml
         cfg_extra_args: dictonary containing extra args not tracked by wandb
-    '''
+    """
     # Load the sweep configuration file
     cfg, cfg_extra_args = load_config(path)
 
-
     if combinations is None:
         combinations = cfg_extra_args["combinations"]
-    if regression is None:
-        regression = cfg_extra_args.get("regression", False)
+    regression = cfg_extra_args.get("regression", False)
+    classification = cfg_extra_args.get("classification", False)
+    n_classes = cfg_extra_args.get("n_classes", 5)
+
+    # You cannot have both classification and regression in this codebase
+    assert not (classification and regression)
 
     # Setting parameters for the transformer
     transformer_kwargs = {
@@ -608,13 +613,26 @@ def initialize_model(
         optimizer_kwargs=optimizer_kwargs,
         combinations=combinations,
         regression=regression,
+        classification=classification,
+        n_classes=n_classes,
     )
 
-    return model, combinations, regression, cfg, cfg_extra_args
+    return (
+        model,
+        combinations,
+        regression,
+        classification,
+        n_classes,
+        cfg,
+        cfg_extra_args,
+    )
 
 
 def load_model(
-    path: str, path_statedict: Optional[str] = None, combinations: Optional[Any] = None, regression: Optional[Any] = None
+    path: str,
+    path_statedict: Optional[str] = None,
+    combinations: Optional[Any] = None,
+    regression: Optional[Any] = None,
 ) -> LightCurveImageCLIP:
     """
     Load a trained LightCurveImageCLIP model from a checkpoint file.
@@ -629,33 +647,45 @@ def load_model(
         LightCurveImageCLIP: The loaded and configured model.
         combinations: Combination parameters for the model.
         regression: Regression bolean, if True the model is a regression model.
+        classification: classification bolean, if True the model is a regression model.
+        n_classes: Number of classes for classification.
         cfg: dictonary containing dict from yaml
         cfg_extra_args: dictonary containing extra args not tracked by wandb
     """
-    model, combinations, regression, cfg, cfg_extra_args = initialize_model(
-        path, combinations=combinations, regression=regression
-    )
+    (
+        model,
+        combinations,
+        regression,
+        classification,
+        n_classes,
+        cfg,
+        cfg_extra_args,
+    ) = initialize_model(path)
 
     # Set the model to the appropriate device (CPU/GPU)
     model.to(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
 
     path_ckpt = path_statedict if path_statedict else path
 
-    assert path_ckpt.endswith(".ckpt"), "The checkpoint file must have a .ckpt extension."
+    assert path_ckpt.endswith(
+        ".ckpt"
+    ), "The checkpoint file must have a .ckpt extension."
 
     # Load the model state from the checkpoint file
     model.load_state_dict(
         torch.load(path_ckpt, map_location=torch.device("cpu"))["state_dict"]
     )
 
-
     config_dir = os.path.dirname(path_ckpt)
     print(config_dir)
 
     # Load the CSV file as a NumPy array
-    train_filenames = np.loadtxt(f"{config_dir}/train_filenames.txt", dtype='str', delimiter=',')
-    val_filenames = np.loadtxt(f"{config_dir}/val_filenames.txt", dtype='str', delimiter=',')
-
+    train_filenames = np.loadtxt(
+        f"{config_dir}/train_filenames.txt", dtype="str", delimiter=","
+    )
+    val_filenames = np.loadtxt(
+        f"{config_dir}/val_filenames.txt", dtype="str", delimiter=","
+    )
 
     # Since the file contains only one column of filenames, `data` will be a one-dimensional array
     train_filenames = sorted(train_filenames.tolist())
@@ -664,7 +694,17 @@ def load_model(
     # Set the model to evaluation mode
     model.eval()
 
-    return model, combinations, regression, cfg, cfg_extra_args, train_filenames, val_filenames
+    return (
+        model,
+        combinations,
+        regression,
+        classification,
+        n_classes,
+        cfg,
+        cfg_extra_args,
+        train_filenames,
+        val_filenames,
+    )
 
 
 def load_pretrain_lc_model(
@@ -702,6 +742,7 @@ def load_pretrain_lc_model(
                     param.requires_grad = False
                 else:
                     param.requires_grad = True
+
 
 def load_pretrain_clip_model(
     pretrain_path: Optional[str], clip_model: nn.Module, freeze_backbone: bool
@@ -765,12 +806,18 @@ class MLP(nn.Module):
 
 
 class ClipMLP(pl.LightningModule):
-    def __init__(self, clip_model, mlp_kwargs, optimizer_kwargs, lr,
-                 combinations=['lightcurve'],
-                 regression=True,
-                 classification=False,
-                 n_classes=5):
-        '''
+    def __init__(
+        self,
+        clip_model,
+        mlp_kwargs,
+        optimizer_kwargs,
+        lr,
+        combinations=["lightcurve"],
+        regression=True,
+        classification=False,
+        n_classes=5,
+    ):
+        """
         A model that combines the CLIP model with an MLP for regression or classification.
 
         Args:
@@ -783,14 +830,16 @@ class ClipMLP(pl.LightningModule):
         classification (bool): If True, the model is a classification model.
         n_classes (int): Number of classes for classification.
 
-        '''
+        """
         super(ClipMLP, self).__init__()
 
         enc_dim = 0
-        if 'lightcurve' in combinations: enc_dim += clip_model.lightcurve_projection.out_features
-        if 'spectral' in combinations: enc_dim += clip_model.spectral_projection.out_features
+        if "lightcurve" in combinations:
+            enc_dim += clip_model.lightcurve_projection.out_features
+        if "spectral" in combinations:
+            enc_dim += clip_model.spectral_projection.out_features
 
-        mlp_kwargs['input_dim'] = enc_dim
+        mlp_kwargs["input_dim"] = enc_dim
 
         self.clip_model = clip_model
         self.mlp_model = MLP(**mlp_kwargs)
@@ -801,12 +850,20 @@ class ClipMLP(pl.LightningModule):
         self.classification = classification
         self.n_classes = n_classes
 
-    def forward(self, x_lc=None, t_lc=None, mask_lc=None, x_sp=None, t_sp=None, mask_sp=None):
+    def forward(
+        self, x_lc=None, t_lc=None, mask_lc=None, x_sp=None, t_sp=None, mask_sp=None
+    ):
         x = []
-        if 'lightcurve' in self.combinations:
-            x.append(self.clip_model.lightcurve_embeddings_with_projection(x_lc, t_lc, mask_lc))
-        if 'spectral' in self.combinations:
-            x.append(self.clip_model.spectral_embeddings_with_projection(x_sp, t_sp, mask_sp))
+        if "lightcurve" in self.combinations:
+            x.append(
+                self.clip_model.lightcurve_embeddings_with_projection(
+                    x_lc, t_lc, mask_lc
+                )
+            )
+        if "spectral" in self.combinations:
+            x.append(
+                self.clip_model.spectral_embeddings_with_projection(x_sp, t_sp, mask_sp)
+            )
 
         x = torch.cat(x, dim=-1)
         x = self.mlp_model(x)
@@ -875,7 +932,8 @@ class ClipMLP(pl.LightningModule):
             y_true = torch.cat(self.y_true, dim=0)
             y_pred = torch.cat(self.y_pred, dim=0)
             r2 = (
-                1 - (y_true - y_pred).pow(2).sum() / (y_true - y_true.mean()).pow(2).sum()
+                1
+                - (y_true - y_pred).pow(2).sum() / (y_true - y_true.mean()).pow(2).sum()
             )
             self.log(
                 "R2_train",

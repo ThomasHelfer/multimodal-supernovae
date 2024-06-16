@@ -20,7 +20,13 @@ from torchvision.transforms import RandomRotation
 from torch.utils.data import DataLoader, TensorDataset, random_split
 from sklearn.linear_model import LinearRegression
 from sklearn.neighbors import KNeighborsRegressor
-from sklearn.metrics import f1_score, precision_score, accuracy_score, recall_score, balanced_accuracy_score
+from sklearn.metrics import (
+    f1_score,
+    precision_score,
+    accuracy_score,
+    recall_score,
+    balanced_accuracy_score,
+)
 
 # Local application imports
 from src.dataloader import (
@@ -41,12 +47,12 @@ from src.transformer_utils import Transformer
 from src.utils import (
     get_valid_dir,
     set_seed,
-    get_linearR2,
     get_linear_predictions,
     get_knn_predictions,
-    get_knnR2,
     get_embs,
     is_subset,
+    process_data_loader,
+    print_metrics_in_latex,
 )
 
 import pandas as pd
@@ -60,7 +66,7 @@ from IPython.display import Image as IPImage
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 
-def calculate_metrics(y_true, y_pred, label, combination, task='redshift'):
+def calculate_metrics(y_true, y_pred, label, combination, task="regression"):
     """
     Calculates performance metrics (for both classification and redshift estimation) to assess the accuracy of predictions against true values.
 
@@ -91,7 +97,7 @@ def calculate_metrics(y_true, y_pred, label, combination, task='redshift'):
             - 'macro-recall': The macro-averaged precision (true positives / (true positives + false negatives), balanced across classes).
             - 'macro-acc': The macro-averaged accuracy (balanced across classes).
     """
-    if task == 'redshift':
+    if task == "regression":
         # Calculate L1 and L2 norms for the predictions
         l1 = torch.mean(torch.abs(y_true - y_pred)).item()
         l2 = torch.sqrt(torch.mean((y_true - y_pred) ** 2)).item()
@@ -122,35 +128,35 @@ def calculate_metrics(y_true, y_pred, label, combination, task='redshift'):
             "R2": R2,
             "OLF": OLF,
         }
-    elif task == 'classification':
+    elif task == "classification":
         y_true = y_true.cpu().numpy()
         y_pred = y_pred.cpu().numpy()
-        y_pred_idxs = np.argmax(y_pred)
+        y_pred_idxs = y_pred
 
-        #micro f1-score
-        micF1 = f1_score(y_true, y_pred_idxs, average='micro')
+        # micro f1-score
+        micF1 = f1_score(y_true, y_pred_idxs, average="micro")
 
-        #micro precision
-        micPrec = precision_score(y_true, y_pred, average='micro')
+        # micro precision
+        micPrec = precision_score(y_true, y_pred, average="micro")
 
-        #micro recall
-        micRec = recall_score(y_true, y_pred_idxs, average='micro')
+        # micro recall
+        micRec = recall_score(y_true, y_pred_idxs, average="micro")
 
-        #micro accuracy
-        #y_pred needs to be array of predicted class labels
+        # micro accuracy
+        # y_pred needs to be array of predicted class labels
         micAcc = accuracy_score(y_true, y_pred_idxs, normalize=True)
 
-        #macro f1-score
-        macF1 = f1_score(y_true, y_pred_idxs, average='macro')
+        # macro f1-score
+        macF1 = f1_score(y_true, y_pred_idxs, average="macro")
 
-        #macro precision
-        macPrec = precision_score(y_true, y_pred, average='macro')
+        # macro precision
+        macPrec = precision_score(y_true, y_pred, average="macro")
 
-        #macro recall
-        macRec = recall_score(y_true, y_pred_idxs, average='macro')
+        # macro recall
+        macRec = recall_score(y_true, y_pred_idxs, average="macro")
 
-        #macro accuracy
-        #y_pred needs to be array of predicted class labels
+        # macro accuracy
+        # y_pred needs to be array of predicted class labels
         macAcc = balanced_accuracy_score(y_true, y_pred_idxs)
 
         # Compile the results into a metrics dictionary
@@ -168,7 +174,9 @@ def calculate_metrics(y_true, y_pred, label, combination, task='redshift'):
         }
 
     else:
-        raise ValueError("Could not understand the task! Please set task to 'redshift' or 'classification'.")
+        raise ValueError(
+            "Could not understand the task! Please set task to 'redshift' or 'classification'."
+        )
 
     return metrics
 
@@ -177,17 +185,16 @@ def calculate_metrics(y_true, y_pred, label, combination, task='redshift'):
 set_seed(0)
 
 paths = [
-   # "models/pretrained_sim_lc_finetuned_lc/pleasant-sweep-1//epoch=27-step=51968.ckpt",
-    "models/pretrained_sim_lc_finetuned_lc/pleasant-sweep-1/epoch=19817-step=19818.ckpt",
+    # "models/pretrained_sim_lc_finetuned_lc/pleasant-sweep-1//epoch=27-step=51968.ckpt",
+    # "models/pretrained_sim_lc_finetuned_lc/pleasant-sweep-1/epoch=19817-step=19818.ckpt",
     "models/clip-real/swept-sweep-1/epoch=347-step=48372.ckpt",
-    "models/clip-simpretrain-clipreal/daily-sweep-7/epoch=35-step=5004.ckpt"
-]  #"ENDtoEND",
-labels = [ "masked-lc-pretraining", "clip-real","clip-simpretrain-clipreal"]
-regressions = [False, True]
+    "models/clip-simpretrain-clipreal/daily-sweep-7/epoch=35-step=5004.ckpt",
+]  # "ENDtoEND",
+labels = ["masked-lc-pretraining", "clip-real", "clip-simpretrain-clipreal"]
 models = []
 for i, path in enumerate(paths):
     print(f"loading {labels[i]}")
-    models.append(load_model(path))  # , combs_list[i], regressions[i]))
+    models.append(load_model(path))
 
 print("finished loading models")
 
@@ -219,7 +226,8 @@ num_workers = max(1, cpus_per_task - 1)
 print(f"Using {num_workers} workers for data loading", flush=True)
 
 # Keeping track of all metrics
-metrics_list = []
+regression_metrics_list = []
+classification_metrics_list = []
 
 
 for output, label in zip(models, labels):
@@ -227,6 +235,8 @@ for output, label in zip(models, labels):
         model,
         combinations,
         regression,
+        classification,
+        n_classes,
         cfg,
         cfg_extra_args,
         train_filenames,
@@ -248,7 +258,7 @@ for output, label in zip(models, labels):
     # Check that the filenames read are a subset of the training filenames from the already trained models
     assert is_subset(filenames_read, train_filenames)
 
-    dataset_val, nband, filenames_read, _  = load_data(
+    dataset_val, nband, filenames_read, _ = load_data(
         data_dir,
         spectra_dir,
         max_data_len_spec=cfg_extra_args["max_spectral_data_len"],
@@ -290,57 +300,23 @@ for output, label in zip(models, labels):
     model = model.to(device)
     model.eval()
 
-    y_true_val = []
-    y_pred_val = []
+    y_true, y_true_label, y_pred = process_data_loader(
+        val_loader_no_aug,
+        regression,
+        classification,
+        device,
+        model,
+        combinations=cfg_extra_args["combinations"],
+    )
+    y_true_train, y_true_train_label, _ = process_data_loader(
+        train_loader_no_aug,
+        regression,
+        classification,
+        device,
+        model,
+        combinations=cfg_extra_args["combinations"],
+    )
 
-    for batch in val_loader_no_aug:
-        # Send them all existing tensors to the device
-        (
-            x_img,
-            x_lc,
-            t_lc,
-            mask_lc,
-            x_sp,
-            t_sp,
-            mask_sp,
-            redshift,
-            classification,
-        ) = batch
-
-        if regression:
-            if "host_galaxy" in cfg_extra_args["combinations"]:
-                x_img = x_img.to(device)
-            if "lightcurve" in cfg_extra_args["combinations"]:
-                x_lc = x_lc.to(device)
-                t_lc = t_lc.to(device)
-                mask_lc = mask_lc.to(device)
-            if "spectral" in cfg_extra_args["combinations"]:
-                x_sp = x_sp.to(device)
-                t_sp = t_sp.to(device)
-                mask_sp = mask_sp.to(device)
-            x = model(x_img, x_lc, t_lc, mask_lc, x_sp, t_sp, mask_sp)
-            y_pred_val.append(x.detach().cpu().flatten())
-
-        y_true_val.append(redshift)
-
-    y_true = torch.cat(y_true_val, dim=0)
-
-    y_true_train = []
-    for batch in train_loader_no_aug:
-        (
-            x_img,
-            x_lc,
-            t_lc,
-            mask_lc,
-            x_sp,
-            t_sp,
-            mask_sp,
-            redshift,
-            classification,
-        ) = batch
-        y_true_train.append(redshift)
-
-    y_true_train = torch.cat(y_true_train, dim=0)
     print("===============================")
     print(f"Model: {label}")
     print(f"Using data modalities: {cfg_extra_args['combinations']}")
@@ -353,20 +329,19 @@ for output, label in zip(models, labels):
         return ""
 
     if regression:
-        y_pred = torch.cat(y_pred_val, dim=0)
-
         metrics = calculate_metrics(
             y_true, y_pred, label, format_combinations(cfg_extra_args["combinations"])
         )
 
-        metrics_list.append(metrics)
-    elif classification:
-        y_pred = torch.cat(y_pred_val, dim=0)
-        metrics = calculate_metrics(
-            y_true, y_pred, label, format_combinations(cfg_extra_args["combinations"], task='classification')
-        )
-        metrics_list.append(metrics)
-
+        regression_metrics_list.append(metrics)
+        """x
+        elif classification:
+            y_pred = torch.cat(y_pred_val, dim=0)
+            metrics = calculate_metrics(
+                y_true, y_pred, label, format_combinations(cfg_extra_args["combinations"], task='classification')
+            )
+            classification_metrics_list.append(metrics)
+        """
     else:
         embs_list, combs = get_embs(
             model, val_loader_no_aug, cfg_extra_args["combinations"], ret_combs=True
@@ -375,15 +350,58 @@ for output, label in zip(models, labels):
         for i in range(len(embs_list)):
             # print(f"Train set linear regression R2 value for {combs[i]}: {get_linearR2(embs_list_train[i], y_true_train)}")
             print(f"---- {combs[i]} input ---- ")
-            for task in ['regression', 'classification']:
-                y_pred_linear = get_linear_predictions(embs_list_train[i], y_true_train, embs_list[i], y_true, task=task)
-                y_pred_knn = get_knn_predictions(embs_list_train[i], y_true_train, embs_list[i], y_true, task=task)
+            for task in ["regression", "classification"]:
+                if task == "regression":
+                    y_pred_linear = get_linear_predictions(
+                        embs_list_train[i],
+                        y_true_train,
+                        embs_list[i],
+                        y_true,
+                        task=task,
+                    )
+                    y_pred_knn = get_knn_predictions(
+                        embs_list_train[i],
+                        y_true_train,
+                        embs_list[i],
+                        y_true,
+                        task=task,
+                    )
+                    metrics = calculate_metrics(
+                        y_true, y_pred_linear, label + "+Linear", combs[i], task=task
+                    )
+                    regression_metrics_list.append(metrics)
+                    metrics = calculate_metrics(
+                        y_true, y_pred_knn, label + "+KNN", combs[i], task=task
+                    )
+                    regression_metrics_list.append(metrics)
 
-                metrics = calculate_metrics(y_true, y_pred_linear, label + "+Linear", combs[i], task=task)
-                metrics_list.append(metrics)
-
-                metrics = calculate_metrics(y_true, y_pred_knn, label + "+KNN", combs[i], task=task)
-                metrics_list.append(metrics)
+                elif task == "classification":
+                    y_pred_linear = get_linear_predictions(
+                        embs_list_train[i],
+                        y_true_train_label,
+                        embs_list[i],
+                        y_true_label,
+                        task=task,
+                    )
+                    y_pred_knn = get_knn_predictions(
+                        embs_list_train[i],
+                        y_true_train_label,
+                        embs_list[i],
+                        y_true_label,
+                        task=task,
+                    )
+                    metrics = calculate_metrics(
+                        y_true_label,
+                        y_pred_linear,
+                        label + "+Linear",
+                        combs[i],
+                        task=task,
+                    )
+                    classification_metrics_list.append(metrics)
+                    metrics = calculate_metrics(
+                        y_true_label, y_pred_knn, label + "+KNN", combs[i], task=task
+                    )
+                    classification_metrics_list.append(metrics)
 
         # for concatenated pairs of modalities
         for i in range(len(embs_list)):
@@ -391,34 +409,72 @@ for output, label in zip(models, labels):
                 emb_concat = torch.cat([embs_list[i], embs_list[j]], dim=1)
                 emb_train = torch.cat([embs_list_train[i], embs_list_train[j]], dim=1)
                 print(f"---- {combs[i]} and {combs[j]} input ---- ")
-                for task in ['regression', 'classification']:
-                    y_pred_linear = get_linear_predictions(emb_train, y_true_train, emb_concat, y_true, task=task)
-
-                    y_pred_knn = get_knn_predictions(emb_train, y_true_train, emb_concat, y_true, task=task)
-
-                    metrics = calculate_metrics(y_true, y_pred_linear, label + "+Linear", combs[i] + " and " + combs[j], task=task)
-                    metrics_list.append(metrics)
-
-                    metrics = calculate_metrics(y_true, y_pred_knn, label + "+KNN", combs[i] + " and " + combs[j], task=task)
-                    metrics_list.append(metrics)
+                for task in ["regression", "classification"]:
+                    if task == "regression":
+                        y_pred_linear = get_linear_predictions(
+                            embs_list_train[i],
+                            y_true_train,
+                            embs_list[i],
+                            y_true,
+                            task=task,
+                        )
+                        y_pred_knn = get_knn_predictions(
+                            embs_list_train[i],
+                            y_true_train,
+                            embs_list[i],
+                            y_true,
+                            task=task,
+                        )
+                        metrics = calculate_metrics(
+                            y_true,
+                            y_pred_linear,
+                            label + "+Linear",
+                            combs[i] + " and " + combs[j],
+                            task=task,
+                        )
+                        regression_metrics_list.append(metrics)
+                        metrics = calculate_metrics(
+                            y_true,
+                            y_pred_knn,
+                            label + "+KNN",
+                            combs[i] + " and " + combs[j],
+                            task=task,
+                        )
+                        regression_metrics_list.append(metrics)
+                    elif task == "classification":
+                        y_pred_linear = get_linear_predictions(
+                            embs_list_train[i],
+                            y_true_train_label,
+                            embs_list[i],
+                            y_true_label,
+                            task=task,
+                        )
+                        y_pred_knn = get_knn_predictions(
+                            embs_list_train[i],
+                            y_true_train_label,
+                            embs_list[i],
+                            y_true_label,
+                            task=task,
+                        )
+                        metrics = calculate_metrics(
+                            y_true_label,
+                            y_pred_linear,
+                            label + "+Linear",
+                            combs[i] + " and " + combs[j],
+                            task=task,
+                        )
+                        classification_metrics_list.append(metrics)
+                        metrics = calculate_metrics(
+                            y_true_label,
+                            y_pred_knn,
+                            label + "+KNN",
+                            combs[i] + " and " + combs[j],
+                            task=task,
+                        )
+                        classification_metrics_list.append(metrics)
     print("===============================")
 
 # Convert metrics list to a DataFrame
-metrics_df = pd.DataFrame(metrics_list)
 
-# Save the DataFrame to a CSV file
-metrics_df.to_csv("model_metrics.csv", index=False)
-
-# Define formatters for the float columns to format them to three decimal places
-float_formatter = lambda x: f"{x:.3f}"
-formatters = {}
-
-#iterate over all metrics and truncate to 3 decimal places
-for colname in list(set(metrics_df.columns.values) - set(['Combination', 'Model'])):
-    formatters[colname] = float_formatter
-
-latex_code = metrics_df.to_latex(
-    index=False, formatters=formatters, escape=False, na_rep=""
-)
-
-print(latex_code)
+print_metrics_in_latex(classification_metrics_list)
+print_metrics_in_latex(regression_metrics_list)

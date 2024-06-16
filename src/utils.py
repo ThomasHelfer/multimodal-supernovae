@@ -5,12 +5,14 @@ from pytorch_lightning.callbacks import Callback
 import torch
 import numpy as np
 from torch.utils.data import DataLoader
-from typing import Tuple, List
+from typing import Tuple, List, Dict
 from matplotlib import pyplot as plt
 from ruamel.yaml import YAML
 from sklearn.linear_model import LinearRegression
 from sklearn.svm import LinearSVC
 from sklearn.neighbors import KNeighborsRegressor, KNeighborsClassifier
+from torch.nn import Module
+import pandas as pd
 
 
 def filter_files(filenames_avail, filenames_to_filter, data_to_filter=None):
@@ -445,7 +447,7 @@ def get_linear_predictions(
     Y: torch.Tensor,
     X_val: Optional[torch.Tensor] = None,
     Y_val: Optional[torch.Tensor] = None,
-    task: str = "redshift",
+    task: str = "regression",
 ) -> torch.Tensor:
     """
     Calculate predictions using a linear regression model (or a linear-kernel SVM, for classification).
@@ -455,7 +457,7 @@ def get_linear_predictions(
     Y (torch.Tensor): The target values for training.
     X_val (Optional[torch.Tensor]): The input features for validation (default is None).
     Y_val (Optional[torch.Tensor]): The target values for validation (default is None).
-    task (str): The downstream task ('redshift' or 'classification').
+    task (str): The downstream task ('regression' or 'classification').
 
     Returns:
     torch.Tensor: The predictions of the model trained on training data or on validation data if provided.
@@ -470,10 +472,12 @@ def get_linear_predictions(
         X_val = X_val.cpu().detach().numpy()
 
     # fit the model
-    if mode.lower() == "redshift":
+    if task.lower() == "regression":
         model = LinearRegression().fit(X, Y)
-    elif mode.lower() == "classification":
+    elif task.lower() == "classification":
         model = LinearSVC().fit(X, Y)
+    else:
+        raise ValueError("Invalid task")
 
     # If validation data is provided, make predictions on that, otherwise on training data
     if X_val is not None and Y_val is not None:
@@ -493,7 +497,7 @@ def get_knn_predictions(
     X_val: Optional[torch.Tensor] = None,
     Y_val: Optional[torch.Tensor] = None,
     k: int = 5,
-    task: str = "redshift",
+    task: str = "regression",
 ) -> torch.Tensor:
     """
     Calculate predictions using a k-nearest neighbors regression model.
@@ -504,7 +508,7 @@ def get_knn_predictions(
     X_val (Optional[torch.Tensor]): The input features for validation (default is None).
     Y_val (Optional[torch.Tensor]): The target values for validation (default is None).
     k (int): The number of neighbors to use for k-nearest neighbors.
-    task (str): The downstream task ('redshift' or 'classification').
+    task (str): The downstream task ('regression' or 'classification').
 
     Returns:
     torch.Tensor: The 1D predictions of the model trained on training data or on validation data if provided.
@@ -519,16 +523,18 @@ def get_knn_predictions(
         X_val = X_val.cpu().detach().numpy()
 
     # fit the model
-    if mode.lower() == "redshift":
+    if task.lower() == "regression":
         model = KNeighborsRegressor(n_neighbors=k).fit(X, Y)
-    elif mode.lower() == "classification":
+    elif task.lower() == "classification":
         model = KNeighborsClassifier(n_neighbors=k).fit(X, Y)
+    else:
+        raise ValueError("Invalid task")
 
-        # If validation data is provided, make predictions on that, otherwise on training data
-        if X_val is not None and Y_val is not None:
-            predictions = model.predict(X_val)
-        else:
-            predictions = model.predict(X)
+    # If validation data is provided, make predictions on that, otherwise on training data
+    if X_val is not None and Y_val is not None:
+        predictions = model.predict(X_val)
+    else:
+        predictions = model.predict(X)
 
     # Convert numpy array back to PyTorch tensor and flatten to 1D
     predictions_tensor = torch.from_numpy(predictions).flatten()
@@ -553,3 +559,107 @@ def is_subset(subset: List[str], superset: List[str]) -> bool:
 
     # Check if subset is a subset of superset
     return subset_set.issubset(superset_set)
+
+
+def process_data_loader(
+    loader: DataLoader,
+    regression: bool,
+    classification: bool,
+    device: str,
+    model: Module,
+    combinations: List[str],
+) -> Tuple[torch.Tensor, torch.Tensor, Optional[torch.Tensor]]:
+    """
+    Processes batches from a DataLoader to generate model predictions and true labels for regression or classification.
+
+    Args:
+        loader (DataLoader): The DataLoader from which data batches are loaded.
+        regression (bool): Indicates whether the processing is for regression tasks.
+        classification (bool): Indicates whether the processing is for classification tasks.
+        device (str): The device (e.g., 'cuda', 'cpu') to which tensors are sent for model computation.
+        model (Module): The neural network model that processes the input data.
+        combinations (List[str]): Specifies which types of data (e.g., 'host_galaxy', 'lightcurve', 'spectral') are included in the input batches.
+
+    Returns:
+        Tuple[torch.Tensor, torch.Tensor, Optional[torch.Tensor]]: A tuple containing:
+            - The true values for the regression or classification targets.
+            - The true labels for classification if available.
+            - The predicted values from the model if regression is true, otherwise None.
+    """
+    y_true_val = []
+    y_pred_val = []
+    y_true_val_label = []
+
+    for batch in loader:
+        # Send them all existing tensors to the device
+        (
+            x_img,
+            x_lc,
+            t_lc,
+            mask_lc,
+            x_sp,
+            t_sp,
+            mask_sp,
+            redshift,
+            labels,
+        ) = batch
+
+        if regression or classification:
+            if "host_galaxy" in combinations:  # cfg_extra_args["combinations"]:
+                x_img = x_img.to(device)
+            if "lightcurve" in combinations:  # cfg_extra_args["combinations"]:
+                x_lc = x_lc.to(device)
+                t_lc = t_lc.to(device)
+                mask_lc = mask_lc.to(device)
+            if "spectral" in combinations:  # cfg_extra_args["combinations"]:
+                x_sp = x_sp.to(device)
+                t_sp = t_sp.to(device)
+                mask_sp = mask_sp.to(device)
+            x = model(x_img, x_lc, t_lc, mask_lc, x_sp, t_sp, mask_sp)
+            y_pred_val.append(x.detach().cpu().flatten())
+
+        y_true_val.append(redshift)
+        y_true_val_label.append(labels)
+
+    y_true = torch.cat(y_true_val, dim=0)
+    y_true_val_label = torch.cat(y_true_val_label, dim=0)
+    if regression:
+        y_pred_val = torch.cat(y_pred_val, dim=0)
+
+    return y_true, y_true_val_label, y_pred_val
+
+
+def print_metrics_in_latex(metrics_list: List[Dict[str, float]]) -> None:
+    """
+    Generates LaTeX code from a list of metric dictionaries and prints it.
+
+    This function takes a list of dictionaries where each dictionary represents
+    performance metrics for a particular model and data combination. It converts
+    this list into a DataFrame, formats numerical values to three decimal places,
+    and converts the DataFrame to LaTeX format which it then prints.
+
+    Args:
+        metrics_list (List[Dict[str, float]]): A list of dictionaries with keys as metric names
+                                               and values as their respective numerical values.
+
+    Output:
+        None: This function directly prints the LaTeX formatted table to the console.
+    """
+    metrics_df = pd.DataFrame(metrics_list)
+
+    # Save the DataFrame to a CSV file
+    metrics_df.to_csv("model_metrics.csv", index=False)
+
+    # Define formatters for the float columns to format them to three decimal places
+    float_formatter = lambda x: f"{x:.4f}"
+    formatters = {}
+
+    # Iterate over all metrics and truncate to 3 decimal places
+    for colname in list(set(metrics_df.columns.values) - set(["Combination", "Model"])):
+        formatters[colname] = float_formatter
+
+    latex_code = metrics_df.to_latex(
+        index=False, formatters=formatters, escape=False, na_rep=""
+    )
+
+    print(latex_code)
