@@ -276,15 +276,26 @@ def get_embs(
     ret_combs: bool = False,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     """
-    Computes and concatenates embeddings for light curves and images from a DataLoader.
+    Computes and concatenates embeddings for different data modalities (images, light curves, spectra)
+    from a DataLoader using a specified model. This function allows selection of modalities via a list of combinations.
 
     Args:
-    clip_model (torch.nn.Module): The model used for generating embeddings.
-    dataloader (DataLoader): DataLoader providing batches of data (images, magnitudes, times, masks).
-    combinations (List[str]): List of combinations of modalities to use for embeddings.
+        clip_model (torch.nn.Module): The model used for generating embeddings. It should have methods
+                                      to compute embeddings for the specified modalities.
+        dataloader (DataLoader): DataLoader that provides batches of data. Each batch should include data
+                                 for images, magnitudes, times, and masks for light curves and spectral data.
+        combinations (List[str]): List of strings specifying which data modalities to compute embeddings for.
+                                  Possible options include 'host_galaxy' for images, 'lightcurve' for light curves,
+                                  and 'spectral' for spectral data.
+        ret_combs (bool, optional): If True, returns a tuple of the embeddings and the names of the modalities
+                                    processed. Defaults to False.
 
     Returns:
-    List[torch.Tensor]: List of concatenated embeddings for each item in combinations.
+        Tuple[torch.Tensor, ...] or Tuple[List[torch.Tensor], np.ndarray]:
+            - If ret_combs is False, returns a list of torch.Tensor, each tensor represents concatenated embeddings
+              for each modality specified in combinations.
+            - If ret_combs is True, returns a tuple containing the list of concatenated embeddings and an array of
+              modality names that were included in the combinations and processed.
     """
 
     clip_model.eval()
@@ -671,34 +682,49 @@ def print_metrics_in_latex(metrics_list: List[Dict[str, float]]) -> None:
 
     # Select numeric columns
     numeric_cols = df.select_dtypes(include=[float]).columns
-    grouped_df = df.groupby(["id", "Model", "Combination"])[numeric_cols]
+    # Ensure that no more than 4 numeric columns are in one table
+    max_cols_per_table = 4
 
     # Calculate mean and standard deviation
+    grouped_df = df.groupby(["id", "Model", "Combination"])[numeric_cols]
     mean_df = grouped_df.mean()
     std_df = grouped_df.std()
 
-    # Create a DataFrame with 'mean ± std' for each metric
-    summary_df = mean_df.copy()
-    for col in numeric_cols:
-        summary_df[col] = (
-            mean_df[col].apply("{:.3f}".format)
-            + " ± "
-            + std_df[col].apply("{:.3f}".format)
+    # Generate tables
+    num_tables = (
+        len(numeric_cols) + max_cols_per_table - 1
+    ) // max_cols_per_table  # Calculate how many tables are needed
+    tables = []
+
+    for i in range(num_tables):
+        # Select subset of columns for the current table
+        cols_subset = numeric_cols[
+            i * max_cols_per_table : (i + 1) * max_cols_per_table
+        ]
+        summary_df = mean_df[cols_subset].copy()
+
+        # Format 'mean ± std' for each metric in the subset
+        for col in cols_subset:
+            summary_df[col] = (
+                mean_df[col].apply("{:.3f}".format)
+                + " ± "
+                + std_df[col].apply("{:.3f}".format)
+            )
+
+        # Reset the index and drop 'id'
+        summary_df.reset_index(inplace=True)
+        summary_df.drop(columns="id", inplace=True)
+
+        # Generate LaTeX table for the current subset of columns
+        latex_table = summary_df.to_latex(
+            escape=False,
+            column_format="|c" * (len(summary_df.columns)) + "|",
+            index=False,
+            header=True,
         )
+        tables.append(latex_table)
 
-    # Reset the index and drop 'id'
-    summary_df.reset_index(inplace=True)
-    summary_df.drop(columns="id", inplace=True)
-
-    # Generate LaTeX table
-    latex_table = summary_df.to_latex(
-        escape=False,
-        column_format="|c" * (len(summary_df.columns)) + "|",
-        index=False,
-        header=True,
-    )
-
-    print(latex_table)
+        print(latex_table)
 
 
 def get_checkpoint_paths(
