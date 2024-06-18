@@ -297,7 +297,7 @@ if __name__ == "__main__":
         combinations=combinations,
         n_classes=n_classes,
         spectral_rescalefactor=cfg["extra_args"]["spectral_rescalefactor"],
-        kfolds=cfg["extra_args"].get("kfolds"),
+        kfolds=cfg["extra_args"].get("kfolds", None),
     )
 
     wandb.agent(

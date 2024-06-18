@@ -40,11 +40,15 @@ def train_sweep(config=None):
 
         number_of_samples = len(dataset)
 
-        inds_train, inds_val = train_test_split(
-            range(number_of_samples),
-            test_size=val_fraction,
-            random_state=cfg.seed,
-        )
+        if stratifiedkfoldindices is None:
+            inds_train, inds_val = train_test_split(
+                range(number_of_samples),
+                test_size=val_fraction,
+                random_state=cfg.seed,
+            )
+        else:
+            inds_train = stratifiedkfoldindices[cfg.foldnumber]["train_indices"]
+            inds_val = stratifiedkfoldindices[cfg.foldnumber]["test_indices"]
 
         dataset_train = Subset(dataset, inds_train)
         dataset_val = Subset(dataset, inds_val)
@@ -110,7 +114,7 @@ def train_sweep(config=None):
                       "num_layers": cfg.num_layers,
                       "dropout": cfg.dropout}
         
-        clip_model,_,_,cfg_pre,_  = initialize_model(pretrain_path, 
+        clip_model,_,_,_,_,cfg_pre,_  = initialize_model(pretrain_path, 
                                                 optimizer_kwargs=optimizer_kwargs, 
                                                 combinations=combinations)
 
@@ -259,13 +263,14 @@ if __name__ == "__main__":
     max_spectral_data_len = cfg["extra_args"][
         "max_spectral_data_len"
     ]  # Spectral data is cut to this length
-    dataset, nband, filenames = load_data(
+    dataset, nband, filenames, stratifiedkfoldindices = load_data(
         data_dir,
         spectra_dir,
         max_data_len_spec=max_spectral_data_len,
         combinations=combinations,
         n_classes=n_classes,
-        spectral_rescalefactor=1,
+        spectral_rescalefactor=cfg["extra_args"]["spectral_rescalefactor"],
+        kfolds=cfg["extra_args"].get("kfolds", None),
     )
 
     wandb.agent(
