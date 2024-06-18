@@ -28,9 +28,17 @@ set_seed(0)
 directories = [
     "models/classification-lc",
     "models/unimodal_lc",
+    "models/pretrained_sim_lc_finetuned_lc",
     "models/clip-real-5fold",
+    "models/clip-simpretrain-clipreal-5fold",
 ]  # "ENDtoEND",
-names = ["class lc", "regres lc", "clip-real", "clip-simpretrain-clipreal"]
+names = [
+    "class lc",
+    "regres lc",
+    "masked-sim",
+    "clip-real",
+    "clip-simpretrain-clipreal",
+]
 models = []
 
 paths = []
