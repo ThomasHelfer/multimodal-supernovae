@@ -498,7 +498,7 @@ def load_lightcurves(
             AV = df.loc[df['ZTFID'] == snName, 'A_V'].values[0]
             RV = 3.1 #corresponding to MW
             for band in bands:
-                ext_corr = extinction.ccm89(wave_eff[band], AV, RV)
+                ext_corr = extinction.ccm89(np.array([wave_eff[band]]), AV, RV)
                 light_curve_df.loc[light_curve_df['band'] == band, 'mag'] -= ext_corr
 
             if not all(
@@ -997,7 +997,7 @@ class SimulationLightcurveDataset(Dataset):
                 AV = MWEBV*RV
 
                 #do the correction
-                ext_corr = extinction.ccm89(self.wave_eff[band], AV, RV)
+                ext_corr = extinction.ccm89(np.array([self.wave_eff[band]]), AV, RV)
                 mag_data -= ext_corr
 
                 indices, mask = make_padding_mask(len(time_data), self.n_max_obs)
