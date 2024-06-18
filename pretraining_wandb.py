@@ -51,21 +51,21 @@ def train_sweep(config=None):
         n_max_obs = 80
         mask_ratio = 0.15
 
-        dataset = SimulationLightcurveDataset(
-            "./sim_data/scotch_z3.hdf5",
-            transient_types=None,
-            bands=bands,
-            n_max_obs=n_max_obs,
-            dataset_length=cfg.dataset_length,
-        )
-
-        #dataset = SimulationDataset(
-        #    hdf5_path = 'sim_data/ZTF_Pretrain_5Class.hdf5',
-        #    bands = bands,
+        #dataset = SimulationLightcurveDataset(
+        #    "./sim_data/scotch_z3.hdf5",
+        #    transient_types=None,
+        #    bands=bands,
         #    n_max_obs=n_max_obs,
-        #    combinations=['lightcurve'],
-        #    dataset_length =  cfg.dataset_length,
+        #    dataset_length=cfg.dataset_length,
         #)
+
+        dataset = SimulationDataset(
+            hdf5_path = 'sim_data/ZTF_Pretrain_5Class.hdf5',
+            bands = bands,
+            n_max_obs=n_max_obs,
+            combinations=['lightcurve'],
+            dataset_length =  cfg.dataset_length,
+        )
 
         number_of_samples = len(dataset)
         n_samples_val = int(val_fraction * number_of_samples)
