@@ -1,4 +1,4 @@
-agg: attn
+agg: mean
 agg_spectral: mean
 batchsize: 8192
 cnn_channels: 3
@@ -11,6 +11,7 @@ dropout: 0.0001988
 emb: 32
 emb_spectral: 32
 epochs: 20000
+foldnumber: 0
 heads: 2
 heads_spectral: 2
 logit_scale: 20000
