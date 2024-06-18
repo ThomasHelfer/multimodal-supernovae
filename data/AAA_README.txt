@@ -1,0 +1,2 @@
+ZTF Bright Transient Survey Sample Explorer data now includes all quality and purity cuts outlined on the website. 
+We require pre/post peak coverage, good visibility, 2020B filter, uncontaminated reference image, a peak after May 2018, low extinction, a SN-like lightcurve, and a galaxy cross-match. As of 06/18/2024 this leaves 4702 candidates (though we'll have a bit less since our light curves, galaxy images, and spectra are cut off earlier. 

@@ -4,6 +4,7 @@ import h5py
 import numpy as np
 from typing import List, Tuple, Optional, Dict
 from PIL import Image
+from pathlib import Path
 
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -17,7 +18,7 @@ from typing import Tuple, List, Optional
 from torch.utils.data import TensorDataset
 from src.utils import filter_files, find_indices_in_arrays
 from sklearn.model_selection import StratifiedKFold
-
+import extinction
 
 # Custom data loader with noise augmentation using magerr
 class NoisyDataLoader(DataLoader):
@@ -465,6 +466,10 @@ def load_lightcurves(
     print("Loading light curves...")
     dir_light_curves = f"{data_dir}/light-curves/"
 
+    # the effective wavelengths in Angstroms of ZTF-g and ZTF-R
+    # defined at http://svo2.cab.inta-csic.es/theory/fps/index.php?id=Palomar/ZTF.r&&mode=browse&gname=Palomar&gname2=ZTF#filter
+    wave_eff = {'g':1196.25, 'R':6366.38}
+
     def open_light_curve_csv(filename: str) -> pd.DataFrame:
         """Helper function to open a light curve CSV file."""
         file_path = os.path.join(dir_light_curves, filename)
@@ -481,9 +486,20 @@ def load_lightcurves(
 
     mask_list, mag_list, magerr_list, time_list, filenames_loaded = [], [], [], [], []
 
+    df = pd.read_csv(f"{data_dir}/ZTFBTS_TransientTable.csv")
+    df["redshift"] = pd.to_numeric(df["redshift"], errors="coerce")
+
     for filename in tqdm(filenames):
         if filename.endswith(".csv"):
             light_curve_df = open_light_curve_csv(filename)
+
+            # Correct for milky way extinction using the Cardelli, Clayton & Mathis (1989) law.
+            snName = Path(filename).stem
+            AV = df.loc[df['ZTFID'] == snName, 'A_V'].values[0]
+            RV = 3.1 #corresponding to MW
+            for band in bands:
+                ext_corr = extinction.ccm89(wave_eff[band], AV, RV)
+                light_curve_df.loc[light_curve_df['band'] == band, 'mag'] -= ext_corr
 
             if not all(
                 col in light_curve_df.columns
@@ -922,6 +938,8 @@ class SimulationLightcurveDataset(Dataset):
         self.bands = bands
         self.n_max_obs = n_max_obs
         self.dataset_length = dataset_length
+        self.wave_eff = {'g':1196.25, 'R':6366.38}
+
 
         # Open the HDF5 file
         with h5py.File(self.hdf5_path, "r") as file:
@@ -972,6 +990,15 @@ class SimulationLightcurveDataset(Dataset):
 
                 time_data = time_data[mag_data < 98]
                 mag_data = (mag_data[mag_data < 98] - 23.74) / 1.6
+
+                # Correct for milky way extinction using the Cardelli, Clayton & Mathis (1989) law.
+                MWEBV = transient_model["mwebv"][entry_idx]
+                RV = 3.1 #corresponding to MW
+                AV = MWEBV*RV
+
+                #do the correction
+                ext_corr = extinction.ccm89(self.wave_eff[band], AV, RV)
+                mag_data -= ext_corr
 
                 indices, mask = make_padding_mask(len(time_data), self.n_max_obs)
 
