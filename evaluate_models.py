@@ -20,6 +20,9 @@ from src.utils import (
     get_checkpoint_paths,
     mergekfold_results,
     save_normalized_conf_matrices,
+    plot_pred_vs_true,
+    get_class_dependent_predictions,
+    generate_radar_plots,
 )
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -389,12 +392,31 @@ for output, label, id in zip(models, labels, ids):
                         classification_metrics_list.append(metrics)
     print("===============================")
 
+class_names = {
+    0: ("SLSN-I", "blue"),
+    1: ("SN II", "green"),
+    2: ("SN IIn", "teal"),
+    3: ("SN Ia", "purple"),
+    4: ("SN Ibc", "orange"),
+}
+
 # Convert metrics list to a DataFrame
 print_metrics_in_latex(classification_metrics_list)
 print_metrics_in_latex(regression_metrics_list)
 if len(collect_classification_results) > 0:
     merged_classification = mergekfold_results(collect_classification_results)
-    save_normalized_conf_matrices(merged_classification, "confusion_plots")
+    save_normalized_conf_matrices(merged_classification, class_names, "confusion_plots")
 
 if len(collect_regression_results) > 0:
     merged_regression = mergekfold_results(collect_regression_results)
+    folder_name = "plots"
+    plot_pred_vs_true(merged_regression, "plots", class_names)
+    # Spiderplots for regression
+    spiderplot_data = get_class_dependent_predictions(merged_regression, class_names)
+    import pandas as pd
+
+    df = pd.DataFrame(spiderplot_data)
+    output_dir = "radar_plots"
+    range_dict = {"L1": [0, 0.2], "L2": [0, 0.2], "R2": [-1, 1], "OLF": None}
+
+    generate_radar_plots(df, output_dir, range_dict)

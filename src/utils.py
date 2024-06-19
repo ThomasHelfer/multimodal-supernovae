@@ -22,6 +22,7 @@ from torch.nn import Module
 import pandas as pd
 from sklearn.metrics import confusion_matrix
 import seaborn as sns
+import matplotlib.ticker as ticker
 
 
 def filter_files(filenames_avail, filenames_to_filter, data_to_filter=None):
@@ -965,16 +966,16 @@ def mergekfold_results(results: List[Dict[str, Any]]) -> pd.DataFrame:
 
 
 def save_normalized_conf_matrices(
-    df: pd.DataFrame, output_dir: str = "confusion_matrices"
+    df: pd.DataFrame, class_names: dict, output_dir: str = "confusion_matrices"
 ) -> None:
     """
     Calculates and saves a normalized confusion matrix for each entry in a DataFrame.
-
-    The function expects the DataFrame to contain columns 'y_true_label' and 'y_pred' along with 'Model' and 'Combination'.
-    The confusion matrices are saved as PNG files named after the model and combination identifiers.
+    The confusion matrices are labeled with class names and saved as PNG files named after
+    the model and combination identifiers.
 
     Args:
         df (pd.DataFrame): DataFrame containing the columns 'Model', 'Combination', 'y_true_label', and 'y_pred'.
+        class_names (dict): Dictionary mapping class labels (int) to class names (str).
         output_dir (str): Directory where the confusion matrix plots will be saved. Defaults to 'confusion_matrices'.
     """
 
@@ -989,7 +990,14 @@ def save_normalized_conf_matrices(
 
         # Create the plot
         plt.figure(figsize=(10, 8))
-        sns.heatmap(cm_normalized, annot=True, fmt=".2f", cmap="Blues")
+        sns.heatmap(
+            cm_normalized,
+            annot=True,
+            fmt=".2f",
+            cmap="Blues",
+            xticklabels=[class_names[label][0] for label in sorted(class_names)],
+            yticklabels=[class_names[label][0] for label in sorted(class_names)],
+        )
         plt.title(f'Normalized Confusion Matrix: {row["Model"]}, {row["Combination"]}')
         plt.xlabel("Predicted Label")
         plt.ylabel("True Label")
@@ -1002,5 +1010,223 @@ def save_normalized_conf_matrices(
         plt.close()  # Close the plot to free memory
         print(f"Saved plot to {filename}")
 
-    # Apply the save_conf_matrix function to each row in the DataFrame
+    # Apply save_conf_matrix to each row in the DataFrame
     df.apply(save_conf_matrix, axis=1)
+
+
+def plot_pred_vs_true(df, folder_name, class_names):
+    """
+    Creates and saves a plot for each row in the DataFrame, where each subplot within a plot
+    corresponds to a unique class. Each class is plotted with its designated color and label.
+
+    Parameters:
+    - df (pandas.DataFrame): DataFrame containing the data for plots. Expected to have columns:
+      'y_pred', 'y_true', 'y_true_label', 'Model', and 'Combination'.
+    - folder_name (str): Directory name where the plots will be saved.
+    - class_names (dict): Dictionary mapping class labels (int) to tuples of (class name, color).
+
+    Each plot is saved with the filename format "Model_Combination.png", where spaces are removed.
+    """
+
+    # Ensure the directory exists where plots will be saved
+    os.makedirs(folder_name, exist_ok=True)
+
+    # Iterate over each row in the DataFrame to create plots
+    for index, row in df.iterrows():
+        y_pred = np.array(row["y_pred"])
+        y_true = np.array(row["y_true"])
+        y_true_label = np.array(row["y_true_label"])
+
+        # Determine global axis limits
+        x_min, x_max = y_true.min(), y_true.max()
+        y_min, y_max = y_pred.min(), y_pred.max()
+
+        x_min = min(0, x_min)
+        y_min = min(0, y_min)
+
+        # Setup for subplots
+        plt.figure(figsize=(15, 30))
+        unique_labels = np.unique(y_true_label)
+        n_classes = len(unique_labels)
+        red_line = np.linspace(-1, 1, 100)
+        for i, label in enumerate(unique_labels, 1):
+            ax = plt.subplot(n_classes, 1, i)
+
+            # Plot all classes in gray as the background
+            ax.scatter(y_true, y_pred, color="gray", alpha=0.2, label="Other Classes")
+
+            # Highlight the current class
+            idx = y_true_label == label
+            class_color = class_names[label][1]  # Color corresponding to the label
+            ax.scatter(
+                y_true[idx],
+                y_pred[idx],
+                color=class_color,
+                label=f"{class_names[label][0]}",
+            )
+            ax.plot(
+                red_line, red_line, linewidth=3, alpha=0.4, linestyle="--", color="red"
+            )
+
+            # Set tick parameters
+            ax.xaxis.set_major_locator(
+                ticker.MultipleLocator(0.05)
+            )  # Adjust tick spacing as needed
+            ax.yaxis.set_major_locator(
+                ticker.MultipleLocator(0.05)
+            )  # Adjust tick spacing as needed
+            ax.tick_params(direction="in", length=6, width=2)
+
+            ax.set_title(f"{class_names[label][0]}")
+            ax.set_xlabel("True Redshift")
+            ax.set_ylabel("Predicted Redshift")
+            ax.set_xlim(x_min, x_max)
+            ax.set_ylim(y_min, y_max)
+            ax.legend()
+            ax.grid(True)
+
+        # Format and save the file
+        filename = f"{folder_name}/{row['Model']}_{row['Combination']}.png".replace(
+            " ", ""
+        )
+        plt.savefig(filename)
+        print(f"Saved plot to {filename}")
+        plt.close()  # Close the plot to free up memory
+
+
+def get_class_dependent_predictions(
+    inputs: List[Dict[str, Any]], class_names: Dict[int, Tuple[str, str]]
+) -> List[Dict[str, Any]]:
+    """
+    Segregates predictions and true values by class and calculates metrics for each class within
+    each provided model and combination from the input data.
+
+    Args:
+        inputs (List[Dict[str, Any]]): A list of dictionaries, where each dictionary contains model output data including
+                                       'y_pred', 'y_true', 'y_true_label', 'Model', 'Combination', and 'id'.
+        class_names (Dict[int, Tuple[str, str]]): A dictionary mapping class labels (int) to tuples containing
+                                            the class name (str) and its associated color (str).
+
+    Returns:
+        List[Dict[str, Any]]: A list of dictionaries where each dictionary contains calculated metrics for a class,
+                              including the class name under the key 'class', and each key from the calculated metrics.
+    """
+    df = pd.DataFrame(inputs)
+    results = []
+    for index, row in df.iterrows():
+        y_pred = torch.tensor(row["y_pred"])
+        y_true = torch.tensor(row["y_true"])
+        y_true_labels = torch.tensor(row["y_true_label"])
+
+        # Process each class
+        for label, name_color_tuple in class_names.items():
+            class_name = name_color_tuple[0]  # Class name
+            mask = y_true_labels == label
+
+            # Segregate y_true and y_pred based on class
+            y_pred_class = y_pred[mask]
+            y_true_class = y_true[mask]
+            if len(y_pred_class) > 0 and len(y_true_class) > 0:
+                # Calculate metrics
+                metrics, _ = calculate_metrics(
+                    y_true=y_true_class,
+                    y_pred=y_pred_class,
+                    y_true_label=y_true_labels[mask],  # if needed by calculate_metrics
+                    label=row["Model"],
+                    combination=row["Combination"],
+                    id=row["id"],
+                    task="regression",  # or "redshift" based on your task
+                )
+                metrics["class"] = class_name
+                # Collect results
+                results.append(metrics)
+
+    return results
+
+
+def make_spider(
+    df: pd.DataFrame,
+    title: str,
+    metric: str,
+    output_dir: str,
+    Range: Optional[Tuple[float, float]] = None,
+) -> None:
+    """
+    Creates a radar plot for the specific metric across different classes, allowing the scale to be
+    adjusted, and saves it to a file.
+
+    Args:
+        df (pd.DataFrame): DataFrame containing the metrics and class labels.
+        title (str): Title of the plot, typically includes model, combination, and metric.
+        metric (str): The specific metric to plot.
+        output_dir (str): Directory where the plots will be saved.
+        Range (Optional[Tuple[float, float]]): A tuple specifying the lower and upper limits for the plot's radial axis.
+            If None, the plot scales automatically based on the data.
+
+    Creates:
+        A radar plot saved as a PNG file in the specified directory.
+    """
+    categories = df["class"].tolist()  # Classes as categories
+    num_vars = len(categories)
+
+    # Compute angle each bar
+    angles = np.linspace(0, 2 * np.pi, num_vars, endpoint=False).tolist()
+    angles += angles[:1]  # Complete the circle by appending the first angle at the end
+
+    # The plot is made in a circular (not polygon) interface
+    fig, ax = plt.subplots(figsize=(6, 6), subplot_kw=dict(polar=True))
+    # Extract the metric values and repeat the first value at the end to close the circle
+    values = df[metric].tolist()
+    values += values[:1]
+    ax.fill(angles, values, color="blue", alpha=0.25)
+    ax.plot(angles, values, color="blue", linewidth=2)
+
+    # Set the range for the plot's radial axis if provided
+    if Range is not None:
+        ax.set_ylim(Range[0], Range[1])
+
+    # Labels for each point
+    ax.set_xticks(angles[:-1])
+    ax.set_xticklabels(categories, fontsize=13)
+
+    # Title of the plot
+    plt.title(f"{title} - {metric}", size=15, color="blue", y=1.1)
+
+    # Ensure the output directory exists
+    os.makedirs(output_dir, exist_ok=True)
+    output_path = os.path.join(output_dir, f"{title}_{metric}.png").replace(" ", "_")
+    plt.savefig(output_path)
+    print(f"Created radar plot in {output_path}")
+    plt.close(fig)  # Close the plot after saving to free up memory
+
+
+def generate_radar_plots(
+    df: pd.DataFrame,
+    output_dir: str,
+    range_dict: Dict[str, Optional[Tuple[float, float]]],
+) -> None:
+    """
+    Generates radar plots for each metric across different classes within each model and combination grouping
+    from the input data and saves them to specified directory.
+
+    Args:
+        df (pd.DataFrame): DataFrame containing the metrics, class labels, and model/combination identifiers.
+        output_dir (str): Directory where the radar plots will be saved.
+        range_dict (Dict[str, Optional[Tuple[float, float]]]): Dictionary mapping metric names to tuples that specify
+            the range (min, max) of the radar plot's radial axis. If the value is None, the plot scales automatically.
+
+    Generates:
+        Radar plots saved as PNG files in the specified output directory. Each plot is named according to its model,
+        combination, and metric.
+    """
+    # Group by Model and Combination
+    grouped = df.groupby(["Model", "Combination"])
+
+    # Iterate through each group and metric to create radar plots
+    for (model, combination), group in grouped:
+        for metric in ["L1", "L2", "R2", "OLF"]:  # Define the metrics to iterate over
+            title = f"{model} - {combination}"
+            range_values = range_dict.get(
+                metric, None
+            )  # Get range for the metric, default to None if not specified
+            make_spider(group, title, metric, output_dir, range_values)
