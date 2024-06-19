@@ -1,0 +1,43 @@
+method: grid
+metric:
+  goal: minimize
+  name: best_val_loss
+entity: multimodal-supernovae
+project: multimodal
+parameters:
+  hidden_dim:
+    values: [32]
+  num_layers:
+    values: [2]
+  dropout:
+    values: [0.001039587189592368]
+  foldnumber:
+    values: [0, 1, 2, 3, 4]
+  # Optimiser 
+  lr:
+    values: [1.8341457485585475e-05]
+  batchsize:
+    values: [32]
+  epochs:
+    values: [1000]
+  weight_decay:
+    values: [6.296250184870131e-05]
+  seed:
+    values: [0]
+  patience:    # Parameter for early stopping 
+    values: [100]
+sweep:
+  id: 3ffp875n
+# Options are 'lightcurve' 'spectral' and 'host_galaxy' -- order does not matter 
+extra_args:
+  pretrain_path: 
+    /n/home02/gemzhang/repos/Multimodal-hackathon-2024/analysis/5mogfhxc/scarlet-sweep-1/epoch=337-step=5016934.ckpt
+  freeze_backbone: false
+  kfolds: 5
+  combinations: [lightcurve, spectral]
+  regression: false
+  nruns: 5
+  max_spectral_data_len: 220
+  val_fraction: 0.2  # train test split
+  classification: false
+  spectral_rescalefactor: 1 # rescaling spectral values by a fixed amout to avoid floating point issues

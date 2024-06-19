@@ -60,13 +60,13 @@ parameters:
   patience:    # Parameter for early stopping 
     values: [150]
 sweep:
-  id: aicvbgk7
+  id: 69moltuc
 # Options are 'lightcurve' 'spectral' and 'host_galaxy' -- order does not matter 
 extra_args:
   combinations: [spectral]
   regression: true
   nruns: 5
-  nfolds: 5
+  kfolds: 5
   max_spectral_data_len: 1024
   val_fraction: 0.05  # train test split
   classification: false
