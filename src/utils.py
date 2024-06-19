@@ -5,7 +5,7 @@ from pytorch_lightning.callbacks import Callback
 import torch
 import numpy as np
 from torch.utils.data import DataLoader
-from typing import Tuple, List, Dict
+from typing import Tuple, List, Dict, Any
 from matplotlib import pyplot as plt
 from ruamel.yaml import YAML
 from sklearn.linear_model import LinearRegression
@@ -20,6 +20,8 @@ from sklearn.metrics import (
 )
 from torch.nn import Module
 import pandas as pd
+from sklearn.metrics import confusion_matrix
+import seaborn as sns
 
 
 def filter_files(filenames_avail, filenames_to_filter, data_to_filter=None):
@@ -772,6 +774,7 @@ def get_checkpoint_paths(
 
 def calculate_metrics(
     y_true: torch.Tensor,
+    y_true_label: torch.Tensor,
     y_pred: torch.Tensor,
     label: str,
     combination: str,
@@ -841,36 +844,58 @@ def calculate_metrics(
             "OLF": OLF,
             "id": id,
         }
+
     elif task == "classification":
-        y_true = y_true.cpu().numpy()
+        """
+        # Create folder
+        if not os.path.exists(f"confusion_plots"):
+            os.makedirs(f"confusion_plots")
+        # Create the confusion matrix
+        cm = confusion_matrix(y_true_label, y_pred)
+
+        # Normalize the confusion matrix
+        cm_normalized = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+
+        # Plotting using seaborn
+        plt.figure(figsize=(8, 6))
+        sns.heatmap(cm_normalized, annot=True, fmt='.2f', cmap='Blues')
+        plt.xlabel('Predicted Label')
+        plt.ylabel('True Label')
+        plt.title('Normalized Confusion Matrix')
+        plt.savefig(f'confusion_plots/{label.replace(" ", "")}_{combination.replace(" ", "")}_fold{id}_confusion_matrix.png')
+        print(f'confusion_plots/{label.replace(" ", "")}_{combination.replace(" ", "")}_fold{id}_confusion_matrix.png')
+        plt.close()
+        """
+
+        y_true_label = y_true_label.cpu().numpy()
         y_pred = y_pred.cpu().numpy()
         y_pred_idxs = y_pred
 
         # micro f1-score
-        micF1 = f1_score(y_true, y_pred_idxs, average="micro")
+        micF1 = f1_score(y_true_label, y_pred_idxs, average="micro")
 
         # micro precision
-        micPrec = precision_score(y_true, y_pred, average="micro")
+        micPrec = precision_score(y_true_label, y_pred, average="micro")
 
         # micro recall
-        micRec = recall_score(y_true, y_pred_idxs, average="micro")
+        micRec = recall_score(y_true_label, y_pred_idxs, average="micro")
 
         # micro accuracy
         # y_pred needs to be array of predicted class labels
-        micAcc = accuracy_score(y_true, y_pred_idxs, normalize=True)
+        micAcc = accuracy_score(y_true_label, y_pred_idxs, normalize=True)
 
         # macro f1-score
-        macF1 = f1_score(y_true, y_pred_idxs, average="macro")
+        macF1 = f1_score(y_true_label, y_pred_idxs, average="macro")
 
         # macro precision
-        macPrec = precision_score(y_true, y_pred, average="macro")
+        macPrec = precision_score(y_true_label, y_pred, average="macro")
 
         # macro recall
-        macRec = recall_score(y_true, y_pred_idxs, average="macro")
+        macRec = recall_score(y_true_label, y_pred_idxs, average="macro")
 
         # macro accuracy
         # y_pred needs to be array of predicted class labels
-        macAcc = balanced_accuracy_score(y_true, y_pred_idxs)
+        macAcc = balanced_accuracy_score(y_true_label, y_pred_idxs)
 
         # Compile the results into a metrics dictionary
         metrics = {
@@ -891,5 +916,91 @@ def calculate_metrics(
         raise ValueError(
             "Could not understand the task! Please set task to 'redshift' or 'classification'."
         )
+    results = {
+        "Model": label,
+        "Combination": combination,
+        "id": id,
+        "y_pred": y_pred,
+        "y_true": y_true,
+        "y_true_label": y_true_label,
+    }
+    return metrics, results
 
-    return metrics
+
+def mergekfold_results(results: List[Dict[str, Any]]) -> pd.DataFrame:
+    """
+    Processes a list of classification results by grouping and concatenating the prediction and label arrays.
+
+    Each result entry should contain 'Model', 'Combination', 'id', 'y_pred', and 'y_true_label' keys.
+
+    Args:
+        results (List[Dict[str, Any]]): A list of dictionaries, each containing classification data.
+
+    Returns:
+        pd.DataFrame: A DataFrame with concatenated results grouped by 'Model', 'Combination', and 'id'.
+    """
+
+    # Convert the list of dictionaries to a DataFrame
+    df = pd.DataFrame(results)
+
+    # Function to concatenate numpy arrays
+    def concatenate_series(series: pd.Series) -> np.ndarray:
+        arrays = [item for item in series]
+        return np.concatenate(arrays)
+
+    # Group by 'Model', 'Combination', 'id' and apply the concatenation function on specific columns
+    grouped = df.groupby(["Model", "Combination", "id"])
+    concatenated_df = pd.DataFrame(
+        {
+            "y_pred": grouped["y_pred"].apply(concatenate_series),
+            "y_true": grouped["y_true"].apply(concatenate_series),
+            "y_true_label": grouped["y_true_label"].apply(concatenate_series),
+        }
+    )
+
+    # Reset index to make 'Model', 'Combination', 'id' columns again
+    concatenated_df = concatenated_df.reset_index()
+
+    return concatenated_df
+
+
+def save_normalized_conf_matrices(
+    df: pd.DataFrame, output_dir: str = "confusion_matrices"
+) -> None:
+    """
+    Calculates and saves a normalized confusion matrix for each entry in a DataFrame.
+
+    The function expects the DataFrame to contain columns 'y_true_label' and 'y_pred' along with 'Model' and 'Combination'.
+    The confusion matrices are saved as PNG files named after the model and combination identifiers.
+
+    Args:
+        df (pd.DataFrame): DataFrame containing the columns 'Model', 'Combination', 'y_true_label', and 'y_pred'.
+        output_dir (str): Directory where the confusion matrix plots will be saved. Defaults to 'confusion_matrices'.
+    """
+
+    # Ensure the output directory exists
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Function to calculate and save a confusion matrix for a single DataFrame row
+    def save_conf_matrix(row):
+        # Calculate the confusion matrix and normalize it
+        cm = confusion_matrix(row["y_true_label"], row["y_pred"])
+        cm_normalized = cm.astype("float") / cm.sum(axis=1)[:, np.newaxis]
+
+        # Create the plot
+        plt.figure(figsize=(10, 8))
+        sns.heatmap(cm_normalized, annot=True, fmt=".2f", cmap="Blues")
+        plt.title(f'Normalized Confusion Matrix: {row["Model"]}, {row["Combination"]}')
+        plt.xlabel("Predicted Label")
+        plt.ylabel("True Label")
+
+        # Generate filename and save the plot
+        filename = f"{output_dir}/{row['Model']}_{row['Combination']}.png".replace(
+            " ", ""
+        )
+        plt.savefig(filename)
+        plt.close()  # Close the plot to free memory
+        print(f"Saved plot to {filename}")
+
+    # Apply the save_conf_matrix function to each row in the DataFrame
+    df.apply(save_conf_matrix, axis=1)

@@ -18,6 +18,8 @@ from src.utils import (
     print_metrics_in_latex,
     calculate_metrics,
     get_checkpoint_paths,
+    mergekfold_results,
+    save_normalized_conf_matrices,
 )
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -88,6 +90,8 @@ print(f"Using {num_workers} workers for data loading", flush=True)
 # Keeping track of all metrics
 regression_metrics_list = []
 classification_metrics_list = []
+collect_classification_results = []
+collect_regression_results = []
 
 
 for output, label, id in zip(models, labels, ids):
@@ -189,19 +193,21 @@ for output, label, id in zip(models, labels, ids):
         return ""
 
     if regression:
-        metrics = calculate_metrics(
+        metrics, results = calculate_metrics(
             y_true,
+            y_true_label,
             y_pred,
             label,
             format_combinations(cfg_extra_args["combinations"]),
             id=id,
             task="regression",
         )
-
+        collect_regression_results.append(results)
         regression_metrics_list.append(metrics)
 
     elif classification:
-        metrics = calculate_metrics(
+        metrics, results = calculate_metrics(
+            y_true,
             y_true_label,
             y_pred,
             label,
@@ -210,7 +216,7 @@ for output, label, id in zip(models, labels, ids):
             task="classification",
         )
         classification_metrics_list.append(metrics)
-
+        collect_classification_results.append(results)
     else:
         embs_list, combs = get_embs(
             model, val_loader_no_aug, cfg_extra_args["combinations"], ret_combs=True
@@ -235,8 +241,9 @@ for output, label, id in zip(models, labels, ids):
                         y_true,
                         task=task,
                     )
-                    metrics = calculate_metrics(
+                    metrics, results = calculate_metrics(
                         y_true,
+                        y_true_label,
                         y_pred_linear,
                         label + "+Linear",
                         combs[i],
@@ -244,10 +251,19 @@ for output, label, id in zip(models, labels, ids):
                         task=task,
                     )
                     regression_metrics_list.append(metrics)
-                    metrics = calculate_metrics(
-                        y_true, y_pred_knn, label + "+KNN", combs[i], id=id, task=task
+                    collect_regression_results.append(results)
+
+                    metrics, results = calculate_metrics(
+                        y_true,
+                        y_true_label,
+                        y_pred_knn,
+                        label + "+KNN",
+                        combs[i],
+                        id=id,
+                        task=task,
                     )
                     regression_metrics_list.append(metrics)
+                    collect_regression_results.append(results)
 
                 elif task == "classification":
                     y_pred_linear = get_linear_predictions(
@@ -264,7 +280,8 @@ for output, label, id in zip(models, labels, ids):
                         y_true_label,
                         task=task,
                     )
-                    metrics = calculate_metrics(
+                    metrics, results = calculate_metrics(
+                        y_true,
                         y_true_label,
                         y_pred_linear,
                         label + "+Linear",
@@ -273,7 +290,10 @@ for output, label, id in zip(models, labels, ids):
                         task=task,
                     )
                     classification_metrics_list.append(metrics)
-                    metrics = calculate_metrics(
+                    collect_classification_results.append(results)
+
+                    metrics, results = calculate_metrics(
+                        y_true,
                         y_true_label,
                         y_pred_knn,
                         label + "+KNN",
@@ -281,6 +301,7 @@ for output, label, id in zip(models, labels, ids):
                         id=id,
                         task=task,
                     )
+                    collect_classification_results.append(results)
                     classification_metrics_list.append(metrics)
 
         # for concatenated pairs of modalities
@@ -305,8 +326,9 @@ for output, label, id in zip(models, labels, ids):
                             y_true,
                             task=task,
                         )
-                        metrics = calculate_metrics(
+                        metrics, results = calculate_metrics(
                             y_true,
+                            y_true_label,
                             y_pred_linear,
                             label + "+Linear",
                             combs[i] + " and " + combs[j],
@@ -314,14 +336,18 @@ for output, label, id in zip(models, labels, ids):
                             task=task,
                         )
                         regression_metrics_list.append(metrics)
-                        metrics = calculate_metrics(
+                        collect_regression_results.append(results)
+
+                        metrics, results = calculate_metrics(
                             y_true,
+                            y_true_label,
                             y_pred_knn,
                             label + "+KNN",
                             combs[i] + " and " + combs[j],
                             id=id,
                             task=task,
                         )
+                        collect_regression_results.append(results)
                         regression_metrics_list.append(metrics)
                     elif task == "classification":
                         y_pred_linear = get_linear_predictions(
@@ -338,7 +364,8 @@ for output, label, id in zip(models, labels, ids):
                             y_true_label,
                             task=task,
                         )
-                        metrics = calculate_metrics(
+                        metrics, results = calculate_metrics(
+                            y_true,
                             y_true_label,
                             y_pred_linear,
                             label + "+Linear",
@@ -347,7 +374,10 @@ for output, label, id in zip(models, labels, ids):
                             task=task,
                         )
                         classification_metrics_list.append(metrics)
-                        metrics = calculate_metrics(
+                        collect_classification_results.append(results)
+
+                        metrics, results = calculate_metrics(
+                            y_true,
                             y_true_label,
                             y_pred_knn,
                             label + "+KNN",
@@ -355,9 +385,16 @@ for output, label, id in zip(models, labels, ids):
                             id=id,
                             task=task,
                         )
+                        collect_classification_results.append(results)
                         classification_metrics_list.append(metrics)
     print("===============================")
 
 # Convert metrics list to a DataFrame
 print_metrics_in_latex(classification_metrics_list)
 print_metrics_in_latex(regression_metrics_list)
+if len(collect_classification_results) > 0:
+    merged_classification = mergekfold_results(collect_classification_results)
+    save_normalized_conf_matrices(merged_classification, "confusion_plots")
+
+if len(regression_metrics_list) > 0:
+    merged_regression = mergekfold_results(regression_metrics_list)
