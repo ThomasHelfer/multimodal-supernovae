@@ -396,5 +396,5 @@ if len(collect_classification_results) > 0:
     merged_classification = mergekfold_results(collect_classification_results)
     save_normalized_conf_matrices(merged_classification, "confusion_plots")
 
-if len(regression_metrics_list) > 0:
-    merged_regression = mergekfold_results(regression_metrics_list)
+if len(collect_regression_results) > 0:
+    merged_regression = mergekfold_results(collect_regression_results)
