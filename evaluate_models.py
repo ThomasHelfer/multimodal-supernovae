@@ -120,6 +120,7 @@ for output, label, id in zip(models, labels, ids):
         combinations=cfg_extra_args["combinations"],
         spectral_rescalefactor=cfg_extra_args["spectral_rescalefactor"],
         filenames=train_filenames,
+        n_classes=n_classes,
     )
 
     # Check that the filenames read are a subset of the training filenames from the already trained models
@@ -132,6 +133,7 @@ for output, label, id in zip(models, labels, ids):
         combinations=cfg_extra_args["combinations"],
         spectral_rescalefactor=cfg_extra_args["spectral_rescalefactor"],
         filenames=val_filenames,
+        n_classes=n_classes,
     )
 
     # Check that the filenames read are a subset of the training filenames from the already trained models
@@ -316,16 +318,16 @@ for output, label, id in zip(models, labels, ids):
                 for task in ["regression", "classification"]:
                     if task == "regression":
                         y_pred_linear = get_linear_predictions(
-                            embs_list_train[i],
+                            emb_train,
                             y_true_train,
-                            embs_list[i],
+                            emb_concat,
                             y_true,
                             task=task,
                         )
                         y_pred_knn = get_knn_predictions(
-                            embs_list_train[i],
+                            emb_train,
                             y_true_train,
-                            embs_list[i],
+                            emb_concat,
                             y_true,
                             task=task,
                         )
@@ -354,16 +356,16 @@ for output, label, id in zip(models, labels, ids):
                         regression_metrics_list.append(metrics)
                     elif task == "classification":
                         y_pred_linear = get_linear_predictions(
-                            embs_list_train[i],
+                            emb_train,
                             y_true_train_label,
-                            embs_list[i],
+                            emb_concat,
                             y_true_label,
                             task=task,
                         )
                         y_pred_knn = get_knn_predictions(
-                            embs_list_train[i],
+                            emb_train,
                             y_true_train_label,
-                            embs_list[i],
+                            emb_concat,
                             y_true_label,
                             task=task,
                         )
@@ -401,13 +403,15 @@ class_names = {
 }
 
 # Convert metrics list to a DataFrame
-print_metrics_in_latex(classification_metrics_list)
-print_metrics_in_latex(regression_metrics_list)
 if len(collect_classification_results) > 0:
+    print_metrics_in_latex(classification_metrics_list)
+
     merged_classification = mergekfold_results(collect_classification_results)
     save_normalized_conf_matrices(merged_classification, class_names, "confusion_plots")
 
 if len(collect_regression_results) > 0:
+    print_metrics_in_latex(regression_metrics_list)
+
     merged_regression = mergekfold_results(collect_regression_results)
     folder_name = "plots"
     plot_pred_vs_true(merged_regression, "plots", class_names)
