@@ -179,16 +179,30 @@ def train_sweep(config=None):
                 torch.set_float32_matmul_precision("high")
 
         wandb_logger = WandbLogger()
-        checkpoint_callback = ModelCheckpoint(
-            dirpath=path_run, save_top_k=2, monitor="val_loss"
-        )
-        early_stop_callback = EarlyStopping(
-            monitor="val_loss",
-            min_delta=0.00,
-            patience=cfg.patience,
-            verbose=False,
-            mode="min",
-        )
+        if classification: 
+            checkpoint_callback = ModelCheckpoint(
+                dirpath=path_run, save_top_k=2, monitor="f1_val", save_last=True,
+            )
+
+            early_stop_callback = EarlyStopping(
+                monitor="f1_val",
+                min_delta=0.00,
+                patience=cfg.patience,
+                verbose=False,
+                mode="max",
+            )
+        else: 
+            checkpoint_callback = ModelCheckpoint(
+                dirpath=path_run, save_top_k=2, monitor="val_loss", save_last=True,
+            )
+
+            early_stop_callback = EarlyStopping(
+                monitor="val_loss",
+                min_delta=0.00,
+                patience=cfg.patience,
+                verbose=False,
+                mode="max",
+            )
 
         trainer = pl.Trainer(
             max_epochs=cfg.epochs,
