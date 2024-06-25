@@ -23,7 +23,7 @@ from src.utils import (
     plot_pred_vs_true,
     get_class_dependent_predictions,
     generate_radar_plots,
-    filter_classes
+    filter_classes,
 )
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -32,9 +32,9 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 set_seed(0)
 
 directories = [
-    'models/newest_models/clip_noiselesssimpretrain_clipreal',
-    'models/newest_models/clip_noisysimpretrain_clipreal',
-    'models/newest_models/clip_real',
+    "models/newest_models/clip_noiselesssimpretrain_clipreal",
+    "models/newest_models/clip_noisysimpretrain_clipreal",
+    "models/newest_models/clip_real",
     #'models/newest_models/lc_3way_f1',
     #'models/newest_models/lc_5way_f1',
     #'models/newest_models/lc_reg',
@@ -42,9 +42,9 @@ directories = [
     #'models/newest_models/sp_5way_f1',
 ]  # "ENDtoEND",
 names = [
-    'clip-noiselesssimpretrain-clipreal',
-    'clip-noisysimpretrain-clipreal',
-    'clip-real',
+    "clip-noiselesssimpretrain-clipreal",
+    "clip-noisysimpretrain-clipreal",
+    "clip-real",
     #'lc-3way-f1',
     #'lc-5way-f1',
     #'lc-reg',
@@ -234,107 +234,38 @@ for output, label, id in zip(models, labels, ids):
             model, val_loader_no_aug, cfg_extra_args["combinations"], ret_combs=True
         )
         embs_list_train = get_embs(model, train_loader_no_aug, combinations)
-        for i in range(len(embs_list)):
-            # print(f"Train set linear regression R2 value for {combs[i]}: {get_linearR2(embs_list_train[i], y_true_train)}")
-            print(f"---- {combs[i]} input ---- ")
-            for task in ["regression", "classification"]:
-                if task == "regression":
-                    y_pred_linear = get_linear_predictions(
-                        embs_list_train[i],
-                        y_true_train,
-                        embs_list[i],
-                        y_true,
-                        task=task,
-                    )
-                    y_pred_knn = get_knn_predictions(
-                        embs_list_train[i],
-                        y_true_train,
-                        embs_list[i],
-                        y_true,
-                        task=task,
-                    )
-                    metrics, results = calculate_metrics(
-                        y_true,
-                        y_true_label,
-                        y_pred_linear,
-                        label + "+Linear",
-                        combs[i],
-                        id=id,
-                        task=task,
-                    )
-                    regression_metrics_list.append(metrics)
-                    collect_regression_results.append(results)
-
-                    metrics, results = calculate_metrics(
-                        y_true,
-                        y_true_label,
-                        y_pred_knn,
-                        label + "+KNN",
-                        combs[i],
-                        id=id,
-                        task=task,
-                    )
-                    regression_metrics_list.append(metrics)
-                    collect_regression_results.append(results)
-
-                elif task == "classification":
-                    y_pred_linear = get_linear_predictions(
-                        embs_list_train[i],
-                        y_true_train_label,
-                        embs_list[i],
-                        y_true_label,
-                        task=task,
-                    )
-                    y_pred_knn = get_knn_predictions(
-                        embs_list_train[i],
-                        y_true_train_label,
-                        embs_list[i],
-                        y_true_label,
-                        task=task,
-                    )
-                    metrics, results = calculate_metrics(
-                        y_true,
-                        y_true_label,
-                        y_pred_linear,
-                        label + "+Linear",
-                        combs[i],
-                        id=id,
-                        task=task,
-                    )
-                    classification_metrics_list.append(metrics)
-                    collect_classification_results.append(results)
-
-                    metrics, results = calculate_metrics(
-                        y_true,
-                        y_true_label,
-                        y_pred_knn,
-                        label + "+KNN",
-                        combs[i],
-                        id=id,
-                        task=task,
-                    )
-                    collect_classification_results.append(results)
-                    classification_metrics_list.append(metrics)
-
-        # for concatenated pairs of modalities
-        for i in range(len(embs_list)):
-            for j in range(i + 1, len(embs_list)):
-                emb_concat = torch.cat([embs_list[i], embs_list[j]], dim=1)
-                emb_train = torch.cat([embs_list_train[i], embs_list_train[j]], dim=1)
-                print(f"---- {combs[i]} and {combs[j]} input ---- ")
+        # looping over different amount of classes to predict
+        for n_classes in ["five", "three"]:
+            # filter classes to three
+            print(f"nclasses {n_classes}")
+            if n_classes == "three":
+                subclasses = torch.tensor(
+                    [1, 3, 4]
+                )  # Selecting subclasses 1,3 and 4 correspnding to 'SN II', 'SN Ia', 'SN Ibc'
+                embs_list, y_true_label = filter_classes(
+                    embs_list, y_true_label, subclasses
+                )
+                embs_list_train, y_true_train_label = filter_classes(
+                    embs_list_train, y_true_train_label, subclasses
+                )
+            # loop over different combinations of modalities
+            for i in range(len(embs_list)):
+                # print(f"Train set linear regression R2 value for {combs[i]}: {get_linearR2(embs_list_train[i], y_true_train)}")
+                print(f"---- {combs[i]} input ---- ")
                 for task in ["regression", "classification"]:
-                    if task == "regression":
+                    # Regression only for five classes
+                    if task == "regression" and n_classes == "five":
                         y_pred_linear = get_linear_predictions(
-                            emb_train,
+                            embs_list_train[i],
                             y_true_train,
-                            emb_concat,
+                            embs_list[i],
                             y_true,
                             task=task,
                         )
                         y_pred_knn = get_knn_predictions(
-                            emb_train,
+                            embs_list_train[i],
                             y_true_train,
-                            emb_concat,
+                            embs_list[i],
                             y_true,
                             task=task,
                         )
@@ -343,7 +274,7 @@ for output, label, id in zip(models, labels, ids):
                             y_true_label,
                             y_pred_linear,
                             label + "+Linear",
-                            combs[i] + " and " + combs[j],
+                            combs[i],
                             id=id,
                             task=task,
                         )
@@ -355,24 +286,25 @@ for output, label, id in zip(models, labels, ids):
                             y_true_label,
                             y_pred_knn,
                             label + "+KNN",
-                            combs[i] + " and " + combs[j],
+                            combs[i],
                             id=id,
                             task=task,
                         )
-                        collect_regression_results.append(results)
                         regression_metrics_list.append(metrics)
+                        collect_regression_results.append(results)
+
                     elif task == "classification":
                         y_pred_linear = get_linear_predictions(
-                            emb_train,
+                            embs_list_train[i],
                             y_true_train_label,
-                            emb_concat,
+                            embs_list[i],
                             y_true_label,
                             task=task,
                         )
                         y_pred_knn = get_knn_predictions(
-                            emb_train,
+                            embs_list_train[i],
                             y_true_train_label,
-                            emb_concat,
+                            embs_list[i],
                             y_true_label,
                             task=task,
                         )
@@ -380,8 +312,8 @@ for output, label, id in zip(models, labels, ids):
                             y_true,
                             y_true_label,
                             y_pred_linear,
-                            label + "+Linear",
-                            combs[i] + " and " + combs[j],
+                            label + f"+Linear+{n_classes}",
+                            combs[i],
                             id=id,
                             task=task,
                         )
@@ -392,13 +324,100 @@ for output, label, id in zip(models, labels, ids):
                             y_true,
                             y_true_label,
                             y_pred_knn,
-                            label + "+KNN",
-                            combs[i] + " and " + combs[j],
+                            label + f"+KNN+{n_classes}",
+                            combs[i],
                             id=id,
                             task=task,
                         )
                         collect_classification_results.append(results)
                         classification_metrics_list.append(metrics)
+
+            # for concatenated pairs of modalities
+            for i in range(len(embs_list)):
+                for j in range(i + 1, len(embs_list)):
+                    emb_concat = torch.cat([embs_list[i], embs_list[j]], dim=1)
+                    emb_train = torch.cat(
+                        [embs_list_train[i], embs_list_train[j]], dim=1
+                    )
+                    print(f"---- {combs[i]} and {combs[j]} input ---- ")
+                    for task in ["regression", "classification"]:
+                        # Regression only for five classes
+                        if task == "regression" and n_classes == "five":
+                            y_pred_linear = get_linear_predictions(
+                                emb_train,
+                                y_true_train,
+                                emb_concat,
+                                y_true,
+                                task=task,
+                            )
+                            y_pred_knn = get_knn_predictions(
+                                emb_train,
+                                y_true_train,
+                                emb_concat,
+                                y_true,
+                                task=task,
+                            )
+                            metrics, results = calculate_metrics(
+                                y_true,
+                                y_true_label,
+                                y_pred_linear,
+                                label + "+Linear",
+                                combs[i] + " and " + combs[j],
+                                id=id,
+                                task=task,
+                            )
+                            regression_metrics_list.append(metrics)
+                            collect_regression_results.append(results)
+
+                            metrics, results = calculate_metrics(
+                                y_true,
+                                y_true_label,
+                                y_pred_knn,
+                                label + "+KNN",
+                                combs[i] + " and " + combs[j],
+                                id=id,
+                                task=task,
+                            )
+                            collect_regression_results.append(results)
+                            regression_metrics_list.append(metrics)
+                        elif task == "classification":
+                            y_pred_linear = get_linear_predictions(
+                                emb_train,
+                                y_true_train_label,
+                                emb_concat,
+                                y_true_label,
+                                task=task,
+                            )
+                            y_pred_knn = get_knn_predictions(
+                                emb_train,
+                                y_true_train_label,
+                                emb_concat,
+                                y_true_label,
+                                task=task,
+                            )
+                            metrics, results = calculate_metrics(
+                                y_true,
+                                y_true_label,
+                                y_pred_linear,
+                                label + f"+Linear+{n_classes}",
+                                combs[i] + " and " + combs[j],
+                                id=id,
+                                task=task,
+                            )
+                            classification_metrics_list.append(metrics)
+                            collect_classification_results.append(results)
+
+                            metrics, results = calculate_metrics(
+                                y_true,
+                                y_true_label,
+                                y_pred_knn,
+                                label + f"+KNN+{n_classes}",
+                                combs[i] + " and " + combs[j],
+                                id=id,
+                                task=task,
+                            )
+                            collect_classification_results.append(results)
+                            classification_metrics_list.append(metrics)
     print("===============================")
 
 class_names = {
