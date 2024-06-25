@@ -208,7 +208,7 @@ def train_sweep(config=None):
                 min_delta=0.00,
                 patience=cfg.patience,
                 verbose=False,
-                mode="max",
+                mode="min",
             )
 
         trainer = pl.Trainer(
