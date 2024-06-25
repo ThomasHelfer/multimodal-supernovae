@@ -1230,3 +1230,36 @@ def generate_radar_plots(
                 metric, None
             )  # Get range for the metric, default to None if not specified
             make_spider(group, title, metric, output_dir, range_values)
+
+
+def filter_classes(X, y, target_classes):
+    """
+    Filter the dataset based on target classes and automatically remap the class labels
+    to start from 0 and increase sequentially.
+
+    Parameters:
+    - X (torch.Tensor): The feature matrix.
+    - y (torch.Tensor): The label vector.
+    - target_classes (torch.Tensor): A tensor of the original class labels to keep.
+
+    Returns:
+    - torch.Tensor: The filtered feature matrix.
+    - torch.Tensor: The remapped label vector.
+    """
+    # Flatten y to ensure it is a 1D tensor
+    y_flat = y.flatten()
+
+    # Create a mask for the elements of y that are in the target classes
+    mask = y_flat == target_classes[:, None]
+    mask = mask.any(dim=0)
+
+    # Filter X and y based on the mask
+    filtered_X = X[mask]
+    filtered_y = y_flat[mask]
+
+    # Automatically generate new_labels based on the order in target_classes
+    remapped_y = torch.empty_like(filtered_y)
+    for i, class_val in enumerate(target_classes):
+        remapped_y[filtered_y == class_val] = i
+
+    return filtered_X, remapped_y
