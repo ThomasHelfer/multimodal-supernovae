@@ -23,6 +23,7 @@ from src.utils import (
     plot_pred_vs_true,
     get_class_dependent_predictions,
     generate_radar_plots,
+    filter_classes
 )
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -31,18 +32,24 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 set_seed(0)
 
 directories = [
-    "models/classification-lc",
-    "models/unimodal_lc",
-    "models/pretrained_sim_lc_finetuned_lc",
-    "models/clip-real-5fold",
-    "models/clip-simpretrain-clipreal-5fold",
+    'models/newest_models/clip_noiselesssimpretrain_clipreal',
+    'models/newest_models/clip_noisysimpretrain_clipreal',
+    'models/newest_models/clip_real',
+    #'models/newest_models/lc_3way_f1',
+    #'models/newest_models/lc_5way_f1',
+    #'models/newest_models/lc_reg',
+    #'models/newest_models/sp_3way_f1',
+    #'models/newest_models/sp_5way_f1',
 ]  # "ENDtoEND",
 names = [
-    "class lc",
-    "regres lc",
-    "masked-sim",
-    "clip-real",
-    "clip-simpretrain-clipreal",
+    'clip-noiselesssimpretrain-clipreal',
+    'clip-noisysimpretrain-clipreal',
+    'clip-real',
+    #'lc-3way-f1',
+    #'lc-5way-f1',
+    #'lc-reg',
+    #'sp-3way-f1',
+    #'sp-5way-f1',
 ]
 models = []
 
