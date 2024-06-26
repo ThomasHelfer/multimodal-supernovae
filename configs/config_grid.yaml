@@ -27,10 +27,10 @@ parameters:
     values: [32]
   heads:
     values: [2]
-  time_norm: 
+  time_norm:
     values: [3371.1677601717206]
-  agg: 
-    values: ["attn"]
+  agg:
+    values: [mean]
   # Spectral transformer
   emb_spectral:
     values: [32]
@@ -44,23 +44,25 @@ parameters:
     values: ["mean"]
   # Optimiser 
   foldnumber:
-    values: [1,2,3]
+    values: [0,1,2,3,4]
   lr:
-    values: [4e-6]
+    values: [0.0005]
   batchsize:
-    values: [8192]
+    values: [256]
   epochs:
-    values: [2]
+    values: [3000]
   weight_decay:
     values: [0]
   logit_scale:
-    values: [20000.]
+    values: [20.]
   seed:
     values: [0]
   patience:    # Parameter for early stopping 
-    values: [99999999]
+    values: [9999]
   dataset_length:
     values: [499951] #
+  noisy_masked_pretrain:
+    values: [True]
 # Options are 'lightcurve' 'spectral' and 'host_galaxy' -- order does not matter 
 extra_args:
   combinations: ['lightcurve']
