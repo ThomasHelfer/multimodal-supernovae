@@ -1,0 +1,81 @@
+method: grid
+metric:
+  goal: minimize
+  name: best_val_loss
+entity: multimodal-supernovae
+project: multimodal
+parameters:
+  dropout:
+    values: [0.0001988]
+  n_out:
+    values: [32]
+  # CNN
+  cnn_depth:
+    values: [16]
+  cnn_dim:
+    values: [32]
+  cnn_channels:
+    values: [3]
+  cnn_kernel_size:
+    values: [5]
+  cnn_patch_size:
+    values: [10]
+  # Lightcurve transformer
+  transformer_depth:
+    values: [9]
+  emb:
+    values: [32]
+  heads:
+    values: [2]
+  time_norm:
+    values: [3371.1677601717206]
+  agg:
+    values: [attn]
+  # Spectral transformer
+  emb_spectral:
+    values: [32]
+  transformer_depth_spectral:
+    values: [8]
+  heads_spectral:
+    values: [2]
+  time_norm_spectral:
+    values: [8946.72886036674]
+  agg_spectral:
+    values: [mean]
+  # Optimiser 
+  foldnumber:
+    values: [0]
+  lr:
+    values: [5e-3]
+  batchsize:
+    values: [8192]
+  epochs:
+    values: [5]
+  weight_decay:
+    values: [0]
+  logit_scale:
+    values: [20000.]
+  seed:
+    values: [0]
+  patience:    # Parameter for early stopping 
+    values: [99999999]
+  dataset_length:
+    values: [499951] #
+  # Pretraining specific
+  noisy_masked_pretrain:
+    values: [true, false]
+sweep:
+  id: r6ctgi1f
+extra_args:
+  combinations: [lightcurve]
+  regression: true
+  nruns: 20
+  max_spectral_data_len: 1024
+  val_fraction: 0.05  # train test split
+  kfolds: 5 # for strat Crossvaildation
+  classification: false
+  spectral_rescalefactor: 1 # rescaling spectral values by a fixed amout to avoid floating point issues
+  # Loading up pretrained weights for lc
+  #pretrain_lc_path: 
+  #  /home/thelfer1/data_tedwar42/thelfer1/Multimodal-hackathon-2024/analysis/qb98a0w9/efficient-sweep-1/epoch=46-step=2726.ckpt
+  #freeze_backbone_lc: false
