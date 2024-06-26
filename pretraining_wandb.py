@@ -67,7 +67,7 @@ def train_sweep(config=None):
             dataset_length =  cfg.dataset_length,
             noise = cfg.noisy_masked_pretrain
         )
-        print(cfg.noisy_masked_pretrain)
+
         number_of_samples = len(dataset)
         n_samples_val = int(val_fraction * number_of_samples)
 
@@ -174,10 +174,6 @@ def train_sweep(config=None):
             loss_tracking_callback.train_loss_history,
             loss_tracking_callback.val_loss_history,
             path_base=path_run,
-        )
-
-        plot_masked_pretraining_model(
-            model, val_loader, path_run + "/masked_pretraining.png"
         )
 
         wandb.finish()
