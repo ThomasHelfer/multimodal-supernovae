@@ -20,6 +20,7 @@ from src.utils import filter_files, find_indices_in_arrays
 from sklearn.model_selection import StratifiedKFold
 import extinction
 
+
 # Custom data loader with noise augmentation using magerr
 class NoisyDataLoader(DataLoader):
     """
@@ -468,7 +469,7 @@ def load_lightcurves(
 
     # the effective wavelengths in Angstroms of ZTF-g and ZTF-R
     # defined at http://svo2.cab.inta-csic.es/theory/fps/index.php?id=Palomar/ZTF.r&&mode=browse&gname=Palomar&gname2=ZTF#filter
-    wave_eff = {'g':1196.25, 'R':6366.38}
+    wave_eff = {"g": 1196.25, "R": 6366.38}
 
     def open_light_curve_csv(filename: str) -> pd.DataFrame:
         """Helper function to open a light curve CSV file."""
@@ -495,11 +496,11 @@ def load_lightcurves(
 
             # Correct for milky way extinction using the Cardelli, Clayton & Mathis (1989) law.
             snName = Path(filename).stem
-            AV = df.loc[df['ZTFID'] == snName, 'A_V'].values[0]
-            RV = 3.1 #corresponding to MW
+            AV = df.loc[df["ZTFID"] == snName, "A_V"].values[0]
+            RV = 3.1  # corresponding to MW
             for band in bands:
                 ext_corr = extinction.ccm89(np.array([wave_eff[band]]), AV, RV)
-                light_curve_df.loc[light_curve_df['band'] == band, 'mag'] -= ext_corr
+                light_curve_df.loc[light_curve_df["band"] == band, "mag"] -= ext_corr
 
             if not all(
                 col in light_curve_df.columns
@@ -938,8 +939,7 @@ class SimulationLightcurveDataset(Dataset):
         self.bands = bands
         self.n_max_obs = n_max_obs
         self.dataset_length = dataset_length
-        self.wave_eff = {'g':1196.25, 'R':6366.38}
-
+        self.wave_eff = {"g": 1196.25, "R": 6366.38}
 
         # Open the HDF5 file
         with h5py.File(self.hdf5_path, "r") as file:
@@ -993,10 +993,10 @@ class SimulationLightcurveDataset(Dataset):
 
                 # Correct for milky way extinction using the Cardelli, Clayton & Mathis (1989) law.
                 MWEBV = transient_model["mwebv"][entry_idx]
-                RV = 3.1 #corresponding to MW
-                AV = MWEBV*RV
+                RV = 3.1  # corresponding to MW
+                AV = MWEBV * RV
 
-                #do the correction
+                # do the correction
                 ext_corr = extinction.ccm89(np.array([self.wave_eff[band]]), AV, RV)
                 mag_data -= ext_corr
 
@@ -1105,7 +1105,7 @@ class SimulationDataset(Dataset):
         if self.dataset_length is None:
             return len(self.index_map)
         else:
-            return self.dataset_length
+            return np.min([len(self.index_map), self.dataset_length])
 
     def __getitem__(self, idx: int) -> Tuple[List[float], List[float]]:
         """
