@@ -30,7 +30,7 @@ parameters:
   time_norm:
     values: [20583.369161312577]
   agg:
-    values: [mean]
+    values: [attn]
   # Spectral transformer
   emb_spectral:
     values: [32]
@@ -60,7 +60,7 @@ parameters:
   patience:    # Parameter for early stopping 
     values: [200]
 sweep:
-  id: d7iwku6i
+  id: r4ll0ogk
 # Options are 'lightcurve' 'spectral' and 'host_galaxy' -- order does not matter 
 extra_args:
   combinations: [lightcurve, spectral]
