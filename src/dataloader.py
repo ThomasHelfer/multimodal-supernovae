@@ -492,10 +492,13 @@ def load_lightcurves(
 
     for filename in tqdm(filenames):
         if filename.endswith(".csv"):
+            snName = Path(filename).stem  # Get the filename without the extension
+            if snName not in df["ZTFID"].values:
+                continue
+            
             light_curve_df = open_light_curve_csv(filename)
 
             # Correct for milky way extinction using the Cardelli, Clayton & Mathis (1989) law.
-            snName = Path(filename).stem
             AV = df.loc[df["ZTFID"] == snName, "A_V"].values[0]
             RV = 3.1  # corresponding to MW
             for band in bands:
