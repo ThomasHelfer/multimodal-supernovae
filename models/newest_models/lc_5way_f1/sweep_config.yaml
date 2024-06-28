@@ -60,7 +60,7 @@ parameters:
   patience:    # Parameter for early stopping 
     values: [100]
 sweep:
-  id: l08tk7p3
+  id: tlabduya
 # Options are 'lightcurve' 'spectral' and 'host_galaxy' -- order does not matter 
 extra_args:
   combinations: [lightcurve]
