@@ -1,5 +1,6 @@
 import os
 import torch
+import pickle
 from src.dataloader import (
     load_data,
     NoisyDataLoader,
@@ -32,24 +33,24 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 set_seed(0)
 
 directories = [
-    "models/newest_models/clip_noiselesssimpretrain_clipreal",
-    "models/newest_models/clip_noisysimpretrain_clipreal",
+    "models/newest_models/clip_noiselesssimpretrain_clipreal_flatz",
+    "models/newest_models/clip_noisysimpretrain_clipreal_flatz",
     "models/newest_models/clip_real",
-    'models/newest_models/lc_3way_f1',
-    'models/newest_models/lc_5way_f1',
-    'models/newest_models/lc_reg',
-    'models/newest_models/sp_3way_f1',
-    'models/newest_models/sp_5way_f1',
+    "models/newest_models/lc_3way_f1",
+    "models/newest_models/lc_5way_f1",
+    "models/newest_models/lc_reg",
+    "models/newest_models/sp_3way_f1",
+    "models/newest_models/sp_5way_f1",
 ]  # "ENDtoEND",
 names = [
     "clip-noiselesssimpretrain-clipreal",
     "clip-noisysimpretrain-clipreal",
     "clip-real",
-    'lc-3way-f1',
-    'lc-5way-f1',
-    'lc-reg',
-    'sp-3way-f1',
-    'sp-5way-f1',
+    "lc-3way-f1",
+    "lc-5way-f1",
+    "lc-reg",
+    "sp-3way-f1",
+    "sp-5way-f1",
 ]
 models = []
 
@@ -428,16 +429,26 @@ class_names = {
     4: ("SN Ibc", "orange"),
 }
 
+os.makedirs("evaluation_metrics", exist_ok=True)
+
+
 # Convert metrics list to a DataFrame
 if len(collect_classification_results) > 0:
     print_metrics_in_latex(classification_metrics_list)
-
+    # Save metric to file
+    with open("evaluation_metrics/classification_metrics_list.pkl", "wb") as file:
+        pickle.dump(classification_metrics_list, file)
+    with open("evaluation_metrics/collect_classification_results.pkl", "wb") as file:
+        pickle.dump(collect_classification_results, file)
     merged_classification = mergekfold_results(collect_classification_results)
     save_normalized_conf_matrices(merged_classification, class_names, "confusion_plots")
 
 if len(collect_regression_results) > 0:
     print_metrics_in_latex(regression_metrics_list)
-
+    with open("evaluation_metrics/regression_metrics_list.pkl", "wb") as file:
+        pickle.dump(regression_metrics_list, file)
+    with open("evaluation_metrics/collect_regression_results.pkl", "wb") as file:
+        pickle.dump(collect_regression_results, file)
     merged_regression = mergekfold_results(collect_regression_results)
     folder_name = "plots"
     plot_pred_vs_true(merged_regression, "plots", class_names)
