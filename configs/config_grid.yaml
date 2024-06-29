@@ -63,6 +63,11 @@ parameters:
     values: [499951] #
   noisy_masked_pretrain:
     values: [True]
+  # learning rate sheduler (only available for masked pretraining)
+  step_size:
+    values: [2]
+  gamma:
+    values: [0.1]
 # Options are 'lightcurve' 'spectral' and 'host_galaxy' -- order does not matter 
 extra_args:
   combinations: ['lightcurve']

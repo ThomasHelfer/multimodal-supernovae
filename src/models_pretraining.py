@@ -71,6 +71,7 @@ class MaskedLightCurveEncoder(pl.LightningModule):
         nband: int = 1,
         transformer_kwargs: Dict = {"n_out": 1, "emb": 128, "heads": 2, "depth": 4},
         optimizer_kwargs: Dict = {},
+        lr_scheduler_kwargs: Dict = {},
         lr: float = 1e-3,
     ) -> None:
         """
@@ -81,11 +82,13 @@ class MaskedLightCurveEncoder(pl.LightningModule):
             nband (int): Number of bands in the input data.
             transformer_kwargs (Dict): Configuration arguments for the Transformer model.
             optimizer_kwargs (Dict): Configuration arguments for the optimizer.
+            lr_scheduler_kwargs (Dict): Configuration arguments for the lr rate scheduler.
             lr (float): Learning rate for the optimizer.
         """
         super().__init__()
 
         self.optimizer_kwargs = optimizer_kwargs
+        self.lr_scheduler_kwargs = lr_scheduler_kwargs
         # nbands are concatenated, so we need to adapt nout
         self.lr = lr
         self.f_mask = f_mask
@@ -125,7 +128,19 @@ class MaskedLightCurveEncoder(pl.LightningModule):
         optimizer = torch.optim.RAdam(
             self.parameters(), lr=self.lr, **self.optimizer_kwargs
         )
-        return {"optimizer": optimizer}
+
+        scheduler = torch.optim.lr_scheduler.StepLR(
+            optimizer, **self.lr_scheduler_kwargs
+        )
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": {
+                "scheduler": scheduler,
+                "monitor": "val_loss",  # Optional: monitor validation loss
+                "interval": "epoch",  # How often to apply the scheduler
+                "frequency": 1,  # Frequency of application
+            },
+        }
 
     def masked_pred(
         self, x: Tensor, t: Tensor, padding_mask: Tensor, f_mask: float = 0.15

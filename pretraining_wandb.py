@@ -25,7 +25,7 @@ from src.dataloader import (
     load_data,
     NoisyDataLoader,
     SimulationLightcurveDataset,
-    SimulationDataset
+    SimulationDataset,
 )
 
 from src.models_pretraining import (
@@ -51,21 +51,21 @@ def train_sweep(config=None):
         n_max_obs = 80
         mask_ratio = 0.15
 
-        #dataset = SimulationLightcurveDataset(
+        # dataset = SimulationLightcurveDataset(
         #    "./sim_data/scotch_z3.hdf5",
         #    transient_types=None,
         #    bands=bands,
         #    n_max_obs=n_max_obs,
         #    dataset_length=cfg.dataset_length,
-        #)
+        # )
 
         dataset = SimulationDataset(
-            hdf5_path = 'sim_data/ZTF_Pretrain_5Class_ZFLAT_PERFECT.hdf5',
-            bands = bands,
+            hdf5_path="sim_data/ZTF_Pretrain_5Class_ZFLAT_PERFECT.hdf5",
+            bands=bands,
             n_max_obs=n_max_obs,
-            combinations=['lightcurve'],
-            dataset_length =  cfg.dataset_length,
-            noise = cfg.noisy_masked_pretrain
+            combinations=["lightcurve"],
+            dataset_length=cfg.dataset_length,
+            noise=cfg.noisy_masked_pretrain,
         )
 
         number_of_samples = len(dataset)
@@ -111,17 +111,19 @@ def train_sweep(config=None):
         }
 
         optimizer_kwargs = {"weight_decay": cfg.weight_decay}
+        lr_scheduler_kwargs = {"step_size": cfg.step_size, "gamma": cfg.gamma}
 
         model = MaskedLightCurveEncoder(
             f_mask=mask_ratio,
             lr=cfg.lr,
             transformer_kwargs=transformer_kwargs,
             optimizer_kwargs=optimizer_kwargs,
+            lr_scheduler_kwargs=lr_scheduler_kwargs,
             nband=nband,
         )
 
         if pretrain_lc_path:
-            model.load_state_dict(torch.load(pretrain_lc_path)['state_dict'] )
+            model.load_state_dict(torch.load(pretrain_lc_path)["state_dict"])
 
         # Calculate the total number of trainable parameters
         total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -197,8 +199,6 @@ if __name__ == "__main__":
 
     set_seed(0)
     # define constants
-
-
 
     pretrain_lc_path = cfg["extra_args"].get("pretrain_lc_path")
 
