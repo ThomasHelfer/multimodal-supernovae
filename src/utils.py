@@ -829,7 +829,7 @@ def calculate_metrics(
         delta_z = y_true - y_pred
 
         # Outliers based on a fixed threshold
-        outliers = torch.abs(delta_z) > 0.07
+        outliers = torch.abs(delta_z) / (1.0 + y_true) > 0.15
         non_outliers = ~outliers
 
         # calulate the fraction of outliers
@@ -1232,8 +1232,9 @@ def generate_radar_plots(
             make_spider(group, title, metric, output_dir, range_values)
 
 
-
-def filter_classes(X_list: List[torch.Tensor], y: torch.Tensor, target_classes: torch.Tensor) -> (List[torch.Tensor], torch.Tensor):
+def filter_classes(
+    X_list: List[torch.Tensor], y: torch.Tensor, target_classes: torch.Tensor
+) -> (List[torch.Tensor], torch.Tensor):
     """
     Filter a list of datasets based on target classes and automatically remap the class labels
     to start from 0 and increase sequentially.
