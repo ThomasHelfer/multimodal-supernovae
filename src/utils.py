@@ -661,7 +661,7 @@ def process_data_loader(
         x_lc = torch.cat(lc_datas, dim=0)
         t_lc = torch.cat(time_lc_datas, dim=0)
         mask_lc = torch.cat(masked_lc_datas, dim=0)
-        lc_data = {'x_lc':x_lc,'t_lc':t_lc,'mask_lc':mask_lc}
+        lc_data = {"x_lc": x_lc, "t_lc": t_lc, "mask_lc": mask_lc}
     else:
         lc_data = None
     return y_true, y_true_val_label, y_pred_val, lc_data
@@ -939,16 +939,16 @@ def calculate_metrics(
         "y_pred": y_pred,
         "y_true": y_true,
         "y_true_label": y_true_label,
-        "lc_data": lc_data
+        "lc_data": lc_data,
     }
     return metrics, results
 
 
 def mergekfold_results(results: List[Dict[str, Any]]) -> pd.DataFrame:
     """
-    Processes a list of classification results by grouping and concatenating the prediction and label arrays.
+    Processes a list of classification results by grouping and concatenating the prediction, label arrays, and lc_data.
 
-    Each result entry should contain 'Model', 'Combination', 'id', 'y_pred', and 'y_true_label' keys.
+    Each result entry should contain 'Model', 'Combination', 'id', 'y_pred', 'y_true_label', and 'lc_data' keys.
 
     Args:
         results (List[Dict[str, Any]]): A list of dictionaries, each containing classification data.
@@ -960,23 +960,48 @@ def mergekfold_results(results: List[Dict[str, Any]]) -> pd.DataFrame:
     # Convert the list of dictionaries to a DataFrame
     df = pd.DataFrame(results)
 
-    # Function to concatenate numpy arrays
-    def concatenate_series(series: pd.Series) -> np.ndarray:
-        arrays = [item for item in series]
-        return np.concatenate(arrays)
+    # Create a dictionary to hold the concatenated results
+    concatenated_results = {
+        "Model": [],
+        "Combination": [],
+        "id": [],
+        "y_pred": [],
+        "y_true": [],
+        "y_true_label": [],
+        "lc_data": [],
+    }
 
-    # Group by 'Model', 'Combination', 'id' and apply the concatenation function on specific columns
+    # Group by 'Model', 'Combination', 'id'
     grouped = df.groupby(["Model", "Combination", "id"])
-    concatenated_df = pd.DataFrame(
-        {
-            "y_pred": grouped["y_pred"].apply(concatenate_series),
-            "y_true": grouped["y_true"].apply(concatenate_series),
-            "y_true_label": grouped["y_true_label"].apply(concatenate_series),
-        }
-    )
 
-    # Reset index to make 'Model', 'Combination', 'id' columns again
-    concatenated_df = concatenated_df.reset_index()
+    # Iterate through each group and concatenate the results
+    for (model, combination, id_), group in grouped:
+        concatenated_results["Model"].append(model)
+        concatenated_results["Combination"].append(combination)
+        concatenated_results["id"].append(id_)
+
+        concatenated_results["y_pred"].append(
+            np.concatenate(group["y_pred"].dropna().values)
+        )
+        concatenated_results["y_true"].append(
+            np.concatenate(group["y_true"].dropna().values)
+        )
+        concatenated_results["y_true_label"].append(
+            np.concatenate(group["y_true_label"].dropna().values)
+        )
+
+        # Concatenate lc_data if it's not None
+        if group["lc_data"].notna().any():
+            lc_data_concat = {
+                key: np.concatenate([d[key] for d in group["lc_data"].dropna().values])
+                for key in group["lc_data"].dropna().values[0].keys()
+            }
+        else:
+            lc_data_concat = None
+        concatenated_results["lc_data"].append(lc_data_concat)
+
+    # Convert the concatenated results to a DataFrame
+    concatenated_df = pd.DataFrame(concatenated_results)
 
     return concatenated_df
 
@@ -1148,7 +1173,7 @@ def get_class_dependent_predictions(
                     y_true=y_true_class,
                     y_pred=y_pred_class,
                     y_true_label=y_true_labels[mask],  # if needed by calculate_metrics
-                    lc_data = None, 
+                    lc_data=None,
                     label=row["Model"],
                     combination=row["Combination"],
                     id=row["id"],
@@ -1250,7 +1275,10 @@ def generate_radar_plots(
 
 
 def filter_classes(
-    X_list: List[torch.Tensor], y: torch.Tensor,lc_data: Dict[str, torch.Tensor], target_classes: torch.Tensor
+    X_list: List[torch.Tensor],
+    y: torch.Tensor,
+    lc_data: Dict[str, torch.Tensor],
+    target_classes: torch.Tensor,
 ) -> (List[torch.Tensor], torch.Tensor):
     """
     Filter a list of datasets based on target classes and automatically remap the class labels
@@ -1286,4 +1314,4 @@ def filter_classes(
     for i, class_val in enumerate(target_classes):
         remapped_y[filtered_y == class_val] = i
 
-    return filtered_X_list, remapped_y,filtered_lc_data
+    return filtered_X_list, remapped_y, filtered_lc_data
