@@ -177,7 +177,7 @@ for output, label, id in zip(models, labels, ids):
     model = model.to(device)
     model.eval()
 
-    y_true, y_true_label, y_pred = process_data_loader(
+    y_true, y_true_label, y_pred, lc_data = process_data_loader(
         val_loader_no_aug,
         regression,
         classification,
@@ -185,7 +185,7 @@ for output, label, id in zip(models, labels, ids):
         model,
         combinations=cfg_extra_args["combinations"],
     )
-    y_true_train, y_true_train_label, _ = process_data_loader(
+    y_true_train, y_true_train_label, _, _ = process_data_loader(
         train_loader_no_aug,
         regression,
         classification,
