@@ -57,6 +57,9 @@ class NoisyDataLoader(DataLoader):
         self.noise_level_mag = noise_level_mag
         self.combinations = set(combinations)
 
+        if "meta" in self.combinations: # Remove meta from combinations
+            self.combinations.remove("meta")
+
         # Checking if we get the right output
         if len(next(iter(dataset))) == 10:
             assert "lightcurve" in self.combinations
@@ -884,7 +887,7 @@ def load_data(
     _, filenames, data = filter_files(filenames_classifications, filenames, data)
 
     # Prepare dataset with spectra data
-    classifications = torch.from_numpy(classifications).float()
+    classifications = torch.from_numpy(classifications).int()
     data += [classifications]
 
     if kfolds is None:

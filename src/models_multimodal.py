@@ -123,6 +123,11 @@ class LightCurveImageCLIP(pl.LightningModule):
             "patch_size": 10,
             "n_out": 128,
         },
+        meta_kwargs: Dict[str, int] = {
+            "input_dim": 128,
+            "hidden_dim": 128,
+            "num_layers": 2,
+        }, 
         combinations: List[str] = ["host_galaxy", "spectral"],
         optimizer_kwargs: Dict = {},
         lr: float = 1e-4,
@@ -182,6 +187,11 @@ class LightCurveImageCLIP(pl.LightningModule):
             self.image_encoder = ConvMixer(**conv_kwargs)
             self.image_projection = nn.Linear(conv_kwargs["n_out"], enc_dim)
 
+        if "meta" in self.combinations:
+            self.len_meta_input = meta_kwargs["input_dim"]
+            self.class_emb = nn.Embedding(n_classes, self.len_meta_input//2)
+            self.meta_encoder = MLP(output_dim=enc_dim, **meta_kwargs)
+
         self.loss = loss
         self.linear_out = 1  # for regression
         if self.classification:
@@ -199,6 +209,8 @@ class LightCurveImageCLIP(pl.LightningModule):
         x_sp: torch.Tensor,
         t_sp: torch.Tensor,
         mask_sp: Optional[torch.Tensor],
+        redshift: Optional[torch.Tensor] = None,
+        classification: Optional[torch.Tensor] = None,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Forward pass through the network.
@@ -229,6 +241,11 @@ class LightCurveImageCLIP(pl.LightningModule):
                 x_sp = self.spectral_encoder(x_sp, t_sp, mask_sp)
                 x_sp = self.spectral_projection(x_sp)
                 x.append(x_sp)
+            if "meta" in self.combinations: 
+                # half of the input is the class embedding, the other half is the redshift
+                x_meta = torch.concat([self.class_emb(classification), redshift.unsqueeze(1).repeat(1, self.len_meta_input//2)], dim=-1)
+                x_meta = self.meta_encoder(x_meta)
+                x.append(x_meta)
 
             x = torch.cat(x, dim=-1)
             x = self.linear(x)
@@ -243,6 +260,10 @@ class LightCurveImageCLIP(pl.LightningModule):
                 )
             if "spectral" in self.combinations:
                 x.append(self.spectral_embeddings_with_projection(x_sp, t_sp, mask_sp))
+
+            if "meta" in self.combinations: 
+                x.append(self.meta_embeddings_with_projection(classification, redshift))
+                
             return x
 
     def image_embeddings_with_projection(self, x_img):
@@ -264,6 +285,11 @@ class LightCurveImageCLIP(pl.LightningModule):
         x_lc = self.spectral_encoder(x_lc, t_lc, mask_lc)
         x_lc = self.spectral_projection(x_lc)
         return x_lc / x_lc.norm(dim=-1, keepdim=True)
+    
+    def meta_embeddings_with_projection(self, classification, redshift):
+        x_meta = torch.concat([self.class_emb(classification), redshift.unsqueeze(1).repeat(1, self.len_meta_input//2)], dim=-1)
+        x_meta = self.meta_encoder(x_meta)
+        return x_meta / x_meta.norm(dim=-1, keepdim=True) 
 
     def configure_optimizers(self):
         optimizer = torch.optim.RAdam(
@@ -283,7 +309,7 @@ class LightCurveImageCLIP(pl.LightningModule):
             redshift,
             classification,
         ) = batch
-        x = self(x_img, x_lc, t_lc, mask_lc, x_sp, t_sp, mask_sp)
+        x = self(x_img, x_lc, t_lc, mask_lc, x_sp, t_sp, mask_sp, redshift, classification)
 
         if self.regression:
             loss = nn.MSELoss()(x.squeeze(), redshift)
@@ -394,7 +420,8 @@ class LightCurveImageCLIP(pl.LightningModule):
             redshift,
             classification,
         ) = batch
-        x = self(x_img, x_lc, t_lc, mask_lc, x_sp, t_sp, mask_sp)
+        x = self(x_img, x_lc, t_lc, mask_lc, x_sp, t_sp, mask_sp, redshift, classification)
+        print("validation", flush=True)
 
         if self.regression:
             loss = nn.MSELoss()(x.squeeze(), redshift)
@@ -423,11 +450,13 @@ class LightCurveImageCLIP(pl.LightningModule):
             self.y_true_val.append(classification)
 
         elif self.loss == "sigmoid":
-            for i in range(len(x)):
+            for i in range(len(self.embs_list)):
                 self.embs_list[i].append(x[i])
             loss = sigmoid_loss_multimodal(x, self.logit_scale, self.logit_bias).mean()
         elif self.loss == "softmax":
-            for i in range(len(x)):
+            print('softmax', flush=True)
+            for i in range(len(self.embs_list)):
+                print(i, len(x[i]), flush=True)
                 self.embs_list[i].append(x[i])
             loss = clip_loss_multimodal(
                 x,
