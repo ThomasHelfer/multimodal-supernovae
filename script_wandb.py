@@ -148,6 +148,15 @@ def train_sweep(config=None):
             "n_out": cfg.n_out,
             "dropout_prob": cfg.dropout,
         }
+        if 'meta' in combinations:
+            meta_kwargs = {
+                'input_dim': cfg.meta_input_dim,
+                'hidden_dim': cfg.meta_hidden_dim,
+                'num_layers': cfg.meta_num_layers,
+                'dropout': cfg.dropout,
+            }
+        else: meta_kwargs = None
+        
         optimizer_kwargs = {"weight_decay": cfg.weight_decay}
 
         clip_model = LightCurveImageCLIP(
@@ -158,6 +167,7 @@ def train_sweep(config=None):
             transformer_kwargs=transformer_kwargs,
             transformer_spectral_kwargs=transformer_spectral_kwargs,
             conv_kwargs=conv_kwargs,
+            meta_kwargs=meta_kwargs,
             optimizer_kwargs=optimizer_kwargs,
             combinations=combinations,
             regression=regression,
