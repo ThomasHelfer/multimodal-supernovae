@@ -210,6 +210,7 @@ for output, label, id in zip(models, labels, ids):
             y_true,
             y_true_label,
             y_pred,
+            lc_data,
             label,
             format_combinations(cfg_extra_args["combinations"]),
             id=id,
@@ -223,6 +224,7 @@ for output, label, id in zip(models, labels, ids):
             y_true,
             y_true_label,
             y_pred,
+            lc_data,
             label,
             format_combinations(cfg_extra_args["combinations"]),
             id=id,
@@ -243,11 +245,11 @@ for output, label, id in zip(models, labels, ids):
                 subclasses = torch.tensor(
                     [1, 3, 4]
                 )  # Selecting subclasses 1,3 and 4 correspnding to 'SN II', 'SN Ia', 'SN Ibc'
-                embs_list, y_true_label = filter_classes(
-                    embs_list, y_true_label, subclasses
+                embs_list, y_true_label, lc_data = filter_classes(
+                    embs_list, y_true_label, lc_data, subclasses
                 )
-                embs_list_train, y_true_train_label = filter_classes(
-                    embs_list_train, y_true_train_label, subclasses
+                embs_list_train, y_true_train_label, _ = filter_classes(
+                    embs_list_train, y_true_train_label, None, subclasses
                 )
             # loop over different combinations of modalities
             for i in range(len(embs_list)):
@@ -274,6 +276,7 @@ for output, label, id in zip(models, labels, ids):
                             y_true,
                             y_true_label,
                             y_pred_linear,
+                            lc_data,
                             label + "+Linear",
                             combs[i],
                             id=id,
@@ -286,6 +289,7 @@ for output, label, id in zip(models, labels, ids):
                             y_true,
                             y_true_label,
                             y_pred_knn,
+                            lc_data,
                             label + "+KNN",
                             combs[i],
                             id=id,
@@ -313,6 +317,7 @@ for output, label, id in zip(models, labels, ids):
                             y_true,
                             y_true_label,
                             y_pred_linear,
+                            lc_data,
                             label + f"+Linear+{n_classes}",
                             combs[i],
                             id=id,
@@ -325,6 +330,7 @@ for output, label, id in zip(models, labels, ids):
                             y_true,
                             y_true_label,
                             y_pred_knn,
+                            lc_data,
                             label + f"+KNN+{n_classes}",
                             combs[i],
                             id=id,
@@ -362,6 +368,7 @@ for output, label, id in zip(models, labels, ids):
                                 y_true,
                                 y_true_label,
                                 y_pred_linear,
+                                lc_data,
                                 label + "+Linear",
                                 combs[i] + " and " + combs[j],
                                 id=id,
@@ -374,6 +381,7 @@ for output, label, id in zip(models, labels, ids):
                                 y_true,
                                 y_true_label,
                                 y_pred_knn,
+                                lc_data,
                                 label + "+KNN",
                                 combs[i] + " and " + combs[j],
                                 id=id,
@@ -400,6 +408,7 @@ for output, label, id in zip(models, labels, ids):
                                 y_true,
                                 y_true_label,
                                 y_pred_linear,
+                                lc_data,
                                 label + f"+Linear+{n_classes}",
                                 combs[i] + " and " + combs[j],
                                 id=id,
@@ -412,6 +421,7 @@ for output, label, id in zip(models, labels, ids):
                                 y_true,
                                 y_true_label,
                                 y_pred_knn,
+                                lc_data,
                                 label + f"+KNN+{n_classes}",
                                 combs[i] + " and " + combs[j],
                                 id=id,

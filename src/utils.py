@@ -610,6 +610,9 @@ def process_data_loader(
     y_true_val = []
     y_pred_val = []
     y_true_val_label = []
+    lc_datas = []
+    time_lc_datas = []
+    masked_lc_datas = []
 
     for batch in loader:
         # Send them all existing tensors to the device
@@ -624,6 +627,10 @@ def process_data_loader(
             redshift,
             labels,
         ) = batch
+        # tracking lc data for later checks
+        lc_datas.append(x_lc)
+        time_lc_datas.append(t_lc)
+        masked_lc_datas.append(mask_lc)
 
         if regression or classification:
             if "host_galaxy" in combinations:
@@ -650,8 +657,14 @@ def process_data_loader(
     y_true_val_label = torch.cat(y_true_val_label, dim=0)
     if regression or classification:
         y_pred_val = torch.cat(y_pred_val, dim=0)
-
-    return y_true, y_true_val_label, y_pred_val
+    if len(lc_datas) > 0 and lc_datas[0] is not None:
+        x_lc = torch.cat(lc_datas, dim=0)
+        t_lc = torch.cat(time_lc_datas, dim=0)
+        mask_lc = torch.cat(masked_lc_datas, dim=0)
+        lc_data = {'x_lc':x_lc,'t_lc':t_lc,'mask_lc':mask_lc}
+    else:
+        lc_data = None
+    return y_true, y_true_val_label, y_pred_val, lc_data
 
 
 def print_metrics_in_latex(metrics_list: List[Dict[str, float]]) -> None:
@@ -777,6 +790,7 @@ def calculate_metrics(
     y_true: torch.Tensor,
     y_true_label: torch.Tensor,
     y_pred: torch.Tensor,
+    lc_data: List[Tuple[torch.Tensor, torch.Tensor, torch.Tensor]],
     label: str,
     combination: str,
     id: int,
@@ -788,6 +802,7 @@ def calculate_metrics(
     Parameters:
     - y_true (torch.Tensor): The true values against which predictions are evaluated.
     - y_pred (torch.Tensor): The predicted values to be evaluated.
+    - lc_data (List[Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]): List of tuples containing light curve data (x_lc, t_lc, mask_lc).
     - label (str): Label describing the model or configuration being evaluated.
     - combination (str): Description of the data or feature combination used for the model.
     - id (int): A unique indentifier to distiguish different k-fold runs
@@ -924,6 +939,7 @@ def calculate_metrics(
         "y_pred": y_pred,
         "y_true": y_true,
         "y_true_label": y_true_label,
+        "lc_data": lc_data
     }
     return metrics, results
 
@@ -1132,6 +1148,7 @@ def get_class_dependent_predictions(
                     y_true=y_true_class,
                     y_pred=y_pred_class,
                     y_true_label=y_true_labels[mask],  # if needed by calculate_metrics
+                    lc_data = None, 
                     label=row["Model"],
                     combination=row["Combination"],
                     id=row["id"],
@@ -1233,7 +1250,7 @@ def generate_radar_plots(
 
 
 def filter_classes(
-    X_list: List[torch.Tensor], y: torch.Tensor, target_classes: torch.Tensor
+    X_list: List[torch.Tensor], y: torch.Tensor,lc_data: Dict[str, torch.Tensor], target_classes: torch.Tensor
 ) -> (List[torch.Tensor], torch.Tensor):
     """
     Filter a list of datasets based on target classes and automatically remap the class labels
@@ -1242,6 +1259,7 @@ def filter_classes(
     Parameters:
     - X_list (list of torch.Tensor): List of feature matrices.
     - y (torch.Tensor): The label vector.
+    - lc_data (Dict[str, Tensor]): containing lc_data
     - target_classes (torch.Tensor): A tensor of the original class labels to keep.
 
     Returns:
@@ -1257,6 +1275,10 @@ def filter_classes(
 
     # Filter each X in the list based on the mask
     filtered_X_list = [X[mask] for X in X_list]
+    if lc_data is not None:
+        filtered_lc_data = {key: value[mask] for key, value in lc_data.items()}
+    else:
+        filtered_lc_data = None
     filtered_y = y_flat[mask]
 
     # Automatically generate new_labels based on the order in target_classes
@@ -1264,4 +1286,4 @@ def filter_classes(
     for i, class_val in enumerate(target_classes):
         remapped_y[filtered_y == class_val] = i
 
-    return filtered_X_list, remapped_y
+    return filtered_X_list, remapped_y,filtered_lc_data
