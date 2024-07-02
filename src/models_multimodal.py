@@ -454,9 +454,7 @@ class LightCurveImageCLIP(pl.LightningModule):
                 self.embs_list[i].append(x[i])
             loss = sigmoid_loss_multimodal(x, self.logit_scale, self.logit_bias).mean()
         elif self.loss == "softmax":
-            print('softmax', flush=True)
             for i in range(len(self.embs_list)):
-                print(i, len(x[i]), flush=True)
                 self.embs_list[i].append(x[i])
             loss = clip_loss_multimodal(
                 x,
