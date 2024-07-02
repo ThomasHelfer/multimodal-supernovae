@@ -39,6 +39,7 @@ def train_sweep(config=None):
         set_seed(cfg.seed)
 
         number_of_samples = len(dataset)
+        print(f"Number of samples: {number_of_samples}", flush=True)
 
         if stratifiedkfoldindices is None:
             inds_train, inds_val = train_test_split(
@@ -139,16 +140,18 @@ def train_sweep(config=None):
             "time_norm": cfg.time_norm_spectral,
             "agg": cfg.agg_spectral,
         }
-        conv_kwargs = {
-            "dim": cfg.cnn_dim,
-            "depth": cfg.cnn_depth,
-            "channels": cfg.cnn_channels,
-            "kernel_size": cfg.cnn_kernel_size,
-            "patch_size": cfg.cnn_patch_size,
-            "n_out": cfg.n_out,
-            "dropout_prob": cfg.dropout,
-        }
-        if 'meta' in combinations:
+        if "host_galaxy" in combinations:
+            conv_kwargs = {
+                "dim": cfg.cnn_dim,
+                "depth": cfg.cnn_depth,
+                "channels": cfg.cnn_channels,
+                "kernel_size": cfg.cnn_kernel_size,
+                "patch_size": cfg.cnn_patch_size,
+                "n_out": cfg.n_out,
+                "dropout_prob": cfg.dropout,
+            }
+        else: conv_kwargs = None
+        if "meta" in combinations:
             meta_kwargs = {
                 'input_dim': cfg.meta_input_dim,
                 'hidden_dim': cfg.meta_hidden_dim,
