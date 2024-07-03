@@ -308,12 +308,22 @@ def get_embs(
     embs_list = [[] for i in range(len(combinations))]
 
     # gives combination names corresponding each emb in embs_list
-    combs_all = ["host_galaxy", "lightcurve", "spectral"]
+    combs_all = ["host_galaxy", "lightcurve", "spectral", "meta"]
     combs = np.array(combs_all)[np.isin(combs_all, combinations)]
 
     # Iterate through the DataLoader
     for batch in dataloader:
-        x_img, x_lc, t_lc, mask_lc, x_sp, t_sp, mask_sp, _, _ = batch
+        (
+            x_img,
+            x_lc,
+            t_lc,
+            mask_lc,
+            x_sp,
+            t_sp,
+            mask_sp,
+            redshift,
+            classification,
+        ) = batch
         if "host_galaxy" in combinations:
             x_img = x_img.to(device)
         if "lightcurve" in combinations:
@@ -340,6 +350,19 @@ def get_embs(
                 x.append(
                     clip_model.spectral_embeddings_with_projection(x_sp, t_sp, mask_sp)
                 )
+            if "meta" in combinations:
+                # half of the input is the class embedding, the other half is the redshift
+                x_meta = torch.concat(
+                    [
+                        clip_model.class_emb(classification.to(device)).to(device),
+                        redshift.unsqueeze(1)
+                        .repeat(1, clip_model.len_meta_input // 2)
+                        .to(device),
+                    ],
+                    dim=-1,
+                ).to(device)
+                x_meta = clip_model.meta_encoder(x_meta)
+                x.append(x_meta)
 
         # Append the results to the lists
         for i in range(len(x)):

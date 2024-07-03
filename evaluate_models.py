@@ -33,6 +33,10 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 set_seed(0)
 
 directories = [
+    "models/newest_models/clip_real_lc_meta/",
+    "models/newest_models/clip_real_lc_spectral_meta/",
+    # "models/newest_models/masked_pretraining_noiseless_backbonefrozen",
+    # "models/newest_models/masked_pretraining_noiseless_backbonenotfrozen",
     "models/newest_models/clip_noiselesssimpretrain_clipreal_flatz",
     "models/newest_models/clip_noisysimpretrain_clipreal_flatz",
     "models/newest_models/clip_real",
@@ -43,6 +47,10 @@ directories = [
     "models/newest_models/sp_5way_f1",
 ]  # "ENDtoEND",
 names = [
+    "clip-lc-meta",
+    "clip-lc-spectral-meta",
+    # "masked_pretrain_noiseless_cliprealbackbonefrozen",
+    # "masked_pretrain_noiseless_cliprealbackbonenotfrozen",
     "clip-noiselesssimpretrain-clipreal",
     "clip-noisysimpretrain-clipreal",
     "clip-real",
