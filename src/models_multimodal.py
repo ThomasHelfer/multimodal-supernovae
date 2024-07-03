@@ -127,7 +127,7 @@ class LightCurveImageCLIP(pl.LightningModule):
             "input_dim": 128,
             "hidden_dim": 128,
             "num_layers": 2,
-        }, 
+        },
         combinations: List[str] = ["host_galaxy", "spectral"],
         optimizer_kwargs: Dict = {},
         lr: float = 1e-4,
@@ -189,7 +189,7 @@ class LightCurveImageCLIP(pl.LightningModule):
 
         if "meta" in self.combinations:
             self.len_meta_input = meta_kwargs["input_dim"]
-            self.class_emb = nn.Embedding(n_classes, self.len_meta_input//2)
+            self.class_emb = nn.Embedding(n_classes, self.len_meta_input // 2)
             self.meta_encoder = MLP(output_dim=enc_dim, **meta_kwargs)
 
         self.loss = loss
@@ -241,9 +241,15 @@ class LightCurveImageCLIP(pl.LightningModule):
                 x_sp = self.spectral_encoder(x_sp, t_sp, mask_sp)
                 x_sp = self.spectral_projection(x_sp)
                 x.append(x_sp)
-            if "meta" in self.combinations: 
+            if "meta" in self.combinations:
                 # half of the input is the class embedding, the other half is the redshift
-                x_meta = torch.concat([self.class_emb(classification), redshift.unsqueeze(1).repeat(1, self.len_meta_input//2)], dim=-1)
+                x_meta = torch.concat(
+                    [
+                        self.class_emb(classification),
+                        redshift.unsqueeze(1).repeat(1, self.len_meta_input // 2),
+                    ],
+                    dim=-1,
+                )
                 x_meta = self.meta_encoder(x_meta)
                 x.append(x_meta)
 
@@ -261,9 +267,9 @@ class LightCurveImageCLIP(pl.LightningModule):
             if "spectral" in self.combinations:
                 x.append(self.spectral_embeddings_with_projection(x_sp, t_sp, mask_sp))
 
-            if "meta" in self.combinations: 
+            if "meta" in self.combinations:
                 x.append(self.meta_embeddings_with_projection(classification, redshift))
-                
+
             return x
 
     def image_embeddings_with_projection(self, x_img):
@@ -285,11 +291,17 @@ class LightCurveImageCLIP(pl.LightningModule):
         x_lc = self.spectral_encoder(x_lc, t_lc, mask_lc)
         x_lc = self.spectral_projection(x_lc)
         return x_lc / x_lc.norm(dim=-1, keepdim=True)
-    
+
     def meta_embeddings_with_projection(self, classification, redshift):
-        x_meta = torch.concat([self.class_emb(classification), redshift.unsqueeze(1).repeat(1, self.len_meta_input//2)], dim=-1)
+        x_meta = torch.concat(
+            [
+                self.class_emb(classification),
+                redshift.unsqueeze(1).repeat(1, self.len_meta_input // 2),
+            ],
+            dim=-1,
+        )
         x_meta = self.meta_encoder(x_meta)
-        return x_meta / x_meta.norm(dim=-1, keepdim=True) 
+        return x_meta / x_meta.norm(dim=-1, keepdim=True)
 
     def configure_optimizers(self):
         optimizer = torch.optim.RAdam(
@@ -309,7 +321,9 @@ class LightCurveImageCLIP(pl.LightningModule):
             redshift,
             classification,
         ) = batch
-        x = self(x_img, x_lc, t_lc, mask_lc, x_sp, t_sp, mask_sp, redshift, classification)
+        x = self(
+            x_img, x_lc, t_lc, mask_lc, x_sp, t_sp, mask_sp, redshift, classification
+        )
 
         if self.regression:
             loss = nn.MSELoss()(x.squeeze(), redshift)
@@ -420,7 +434,9 @@ class LightCurveImageCLIP(pl.LightningModule):
             redshift,
             classification,
         ) = batch
-        x = self(x_img, x_lc, t_lc, mask_lc, x_sp, t_sp, mask_sp, redshift, classification)
+        x = self(
+            x_img, x_lc, t_lc, mask_lc, x_sp, t_sp, mask_sp, redshift, classification
+        )
         print("validation", flush=True)
 
         if self.regression:
@@ -628,6 +644,14 @@ def initialize_model(
         "n_out": cfg["n_out"],
         "dropout_prob": cfg["dropout"],
     }
+
+    meta_kwargs = {
+        "input_dim": cfg.get("meta_input_dim", 128),
+        "hidden_dim": cfg.get("meta_hidden_dim", 128),
+        "num_layers": cfg.get("meta_num_layers", 2),
+        "dropout": cfg["dropout"],
+    }
+
     # Create the model instance
     model = LightCurveImageCLIP(
         logit_scale=cfg["logit_scale"],
@@ -637,6 +661,7 @@ def initialize_model(
         transformer_kwargs=transformer_kwargs,
         transformer_spectral_kwargs=transformer_spectral_kwargs,
         conv_kwargs=conv_kwargs,
+        meta_kwargs=meta_kwargs,
         optimizer_kwargs=optimizer_kwargs,
         combinations=combinations,
         regression=regression,
@@ -704,7 +729,6 @@ def load_model(
     )
 
     config_dir = os.path.dirname(path_ckpt)
-    print(config_dir)
 
     # Load the CSV file as a NumPy array
     train_filenames = np.loadtxt(
