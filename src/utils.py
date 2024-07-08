@@ -690,7 +690,9 @@ def process_data_loader(
     return y_true, y_true_val_label, y_pred_val, lc_data
 
 
-def print_metrics_in_latex(metrics_list: List[Dict[str, float]]) -> None:
+def print_metrics_in_latex(
+    metrics_list: List[Dict[str, float]], drop=None, sort=None
+) -> None:
     """
     Generates LaTeX code from a list of metric dictionaries and prints it.
 
@@ -702,6 +704,9 @@ def print_metrics_in_latex(metrics_list: List[Dict[str, float]]) -> None:
     Args:
         metrics_list (List[Dict[str, float]]): A list of dictionaries with keys as metric names
                                                and values as their respective numerical values.
+        drop: List of columns to drop from the table
+        sort: string of column to sort from the table
+
 
     Output:
         None: This function directly prints the LaTeX formatted table to the console.
@@ -753,6 +758,11 @@ def print_metrics_in_latex(metrics_list: List[Dict[str, float]]) -> None:
         # Reset the index and drop 'id'
         summary_df.reset_index(inplace=True)
         summary_df.drop(columns="id", inplace=True)
+        if drop is not None:
+            summary_df.drop(columns=drop, inplace=True)
+        if sort is not None:
+            if sort in summary_df.columns:
+                summary_df.sort_values(by=sort, inplace=True, ascending=False)
 
         # Generate LaTeX table for the current subset of columns
         latex_table = summary_df.to_latex(
@@ -1338,3 +1348,36 @@ def filter_classes(
         remapped_y[filtered_y == class_val] = i
 
     return filtered_X_list, remapped_y, filtered_lc_data
+
+
+def assert_sorted_lc(loader: Any, bands: List[Any]) -> None:
+    """
+    Check if the time sequences in each batch of the loader are sorted within each band.
+
+    Parameters:
+    loader (Any): A data loader that provides batches of data. Each batch is expected to be a tuple containing at least the following elements:
+                  - mag_test: A list or array of magnitudes.
+                  - time_test: A list or array of time sequences.
+                  - padding_mask: A mask indicating padded elements.
+                  - spec: Spectrum data.
+                  - freq: Frequency data.
+                  - maskspec: Masked spectrum data.
+                  - redshift: Redshift data.
+    bands (List[Any]): A list representing the bands for which the time sequences need to be checked.
+
+    Raises:
+    AssertionError: If any time sequence within a band is found to be unsorted.
+    """
+    nbands = len(bands)
+    for batch in loader:
+        _, mag_test, time_test, padding_mask, spec, freq, maskspec, redshift, _ = batch
+        check = True
+        for i in range(len(mag_test)):
+            N = len(time_test[i])
+            for k in range(nbands):
+                test = (
+                    time_test[i][(N // nbands) * k : (N // nbands) * (k + 1)]
+                ).numpy()
+                test = test[test != 0]
+                check = check and (sorted(test) == test).all()
+        assert check
