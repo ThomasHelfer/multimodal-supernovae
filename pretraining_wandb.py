@@ -15,11 +15,9 @@ from torch.utils.data import TensorDataset, DataLoader, random_split
 from src.models_multimodal import LightCurveImageCLIP
 from src.utils import (
     set_seed,
-    get_valid_dir,
     LossTrackingCallback,
-    plot_ROC_curves,
     plot_loss_history,
-    get_embs,
+    assert_sorted_lc,
 )
 from src.dataloader import (
     load_data,
@@ -30,7 +28,6 @@ from src.dataloader import (
 
 from src.models_pretraining import (
     MaskedLightCurveEncoder,
-    plot_masked_pretraining_model,
 )
 
 from src.wandb_utils import continue_sweep, schedule_sweep
@@ -49,7 +46,7 @@ def train_sweep(config=None):
         bands = ["r", "g"]
         nband = len(bands)
         n_max_obs = 80
-        mask_ratio = 0.15
+      
 
         # dataset = SimulationLightcurveDataset(
         #    "./sim_data/scotch_z3.hdf5",
@@ -101,6 +98,9 @@ def train_sweep(config=None):
             shuffle=False,
         )
 
+        assert_sorted_lc(train_loader, bands)
+        assert_sorted_lc(val_loader, bands)
+
         transformer_kwargs = {
             "n_out": cfg.n_out,
             "emb": cfg.emb,
@@ -114,7 +114,7 @@ def train_sweep(config=None):
         lr_scheduler_kwargs = {"step_size": cfg.step_size, "gamma": cfg.gamma}
 
         model = MaskedLightCurveEncoder(
-            f_mask=mask_ratio,
+            f_mask=cfg.f_mask,
             lr=cfg.lr,
             transformer_kwargs=transformer_kwargs,
             optimizer_kwargs=optimizer_kwargs,

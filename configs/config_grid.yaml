@@ -68,6 +68,9 @@ parameters:
     values: [2]
   gamma:
     values: [0.1]
+  # for masked pretraining, masking ration
+  f_mask:
+    values: [0.15]
 # Options are 'lightcurve' 'spectral' and 'host_galaxy' -- order does not matter 
 extra_args:
   combinations: ['lightcurve']

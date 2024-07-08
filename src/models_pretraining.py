@@ -1,3 +1,5 @@
+import random
+
 import torch
 import torch.nn as nn
 from torch.nn import Module
@@ -9,7 +11,7 @@ from torch import Tensor
 from matplotlib import pyplot as plt
 from src.transformer_utils import TransformerWithTimeEmbeddings, Transformer
 
-from typing import Dict, Tuple
+from typing import Tuple, List, Dict, Any
 
 
 def get_random_mask(
@@ -53,6 +55,49 @@ def get_random_mask(
     return mask, mask_pred
 
 
+def get_continous_random_mask(
+    padding_mask: Tensor, nbands: int, f_mask: float = 0.15
+) -> Tuple[Tensor, Tensor]:
+    """
+    Generates random contiguous masks for the input sequence.
+
+    Args:
+        padding_mask (Tensor): Padding mask of shape (B, T), where B is the batch size and T is the sequence length.
+        bands (List[Any]): A list representing the bands for which the time sequences need to be checked.
+        f_mask (float): Fraction of the sequence to mask out. The value should be between 0 and 1.
+
+    Returns:
+        Tuple[Tensor, Tensor]: A tuple of two tensors:
+            - mask: The modified mask after applying the mask fraction.
+            - mask_pred: A tensor indicating which parts of the input were masked out.
+    """
+
+    mask = padding_mask.clone()
+    mask_pred = padding_mask.clone()
+    N = len(mask_pred[0])
+    bandsize = N // nbands
+
+    # Process each sample in the batch
+    for i in range(padding_mask.shape[0]):
+        for k in range(nbands):
+            # Count the number of observations (non-padded values) in the current sample
+            # print(padding_mask[i][bandsize*k:bandsize*(k+1)])
+            n_obs = (padding_mask[i][bandsize * k : bandsize * (k + 1)]).sum().item()
+
+            # Calculate how many observations to mask based on the fraction
+            n_obs_to_mask = int(n_obs * f_mask)
+
+            n_lower = random.randint(bandsize * k, bandsize * k + n_obs - n_obs_to_mask)
+            n_upper = n_lower + n_obs_to_mask
+
+            # Update the masks based on selected indices
+            mask_pred[i, bandsize * k : n_lower] = False  # Mark to keep
+            mask_pred[i, n_upper : bandsize * (k + 1)] = False  # Mark to keep
+            mask[i, n_lower:n_upper] = False  # Mark for prediction
+
+    return mask, mask_pred
+
+
 class MaskedLightCurveEncoder(pl.LightningModule):
     """
     A PyTorch Lightning module for training and evaluating a Transformer-based model for masked light curve encoding.
@@ -87,6 +132,7 @@ class MaskedLightCurveEncoder(pl.LightningModule):
         """
         super().__init__()
 
+        self.nband = nband
         self.optimizer_kwargs = optimizer_kwargs
         self.lr_scheduler_kwargs = lr_scheduler_kwargs
         # nbands are concatenated, so we need to adapt nout
@@ -157,7 +203,9 @@ class MaskedLightCurveEncoder(pl.LightningModule):
         Returns:
             Tuple[Tensor, Tensor]: A tuple containing the original and predicted values of the unmasked parts.
         """
-        mask_in, mask_pred = get_random_mask(padding_mask, f_mask=f_mask)
+        mask_in, mask_pred = get_continous_random_mask(
+            padding_mask, self.nband, f_mask=f_mask
+        )
         x_masked = x.clone()
         x_masked[~mask_in] = 0  # Mask out the selected parts of the input
         x_pred = self(x_masked, t, mask=padding_mask)
