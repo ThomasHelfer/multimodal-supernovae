@@ -41,7 +41,9 @@ def train_sweep(config=None):
         n_samples_val = int(val_fraction * number_of_samples)
 
         dataset_train, dataset_val = random_split(
-            dataset, [number_of_samples - n_samples_val, n_samples_val], generator=torch.Generator().manual_seed(cfg.seed)
+            dataset,
+            [number_of_samples - n_samples_val, n_samples_val],
+            generator=torch.Generator().manual_seed(cfg.seed),
         )
 
         # dump config
@@ -71,7 +73,6 @@ def train_sweep(config=None):
             shuffle=False,
         )
 
-
         transformer_kwargs = {
             "n_out": cfg.n_out,
             "emb": cfg.emb,
@@ -91,11 +92,11 @@ def train_sweep(config=None):
             "agg": cfg.agg_spectral,
         }
         conv_kwargs = {
-            "dim": cfg.cnn_dim, 
+            "dim": cfg.cnn_dim,
             "depth": cfg.cnn_depth,
             "channels": cfg.cnn_channels,
-            "kernel_size": cfg.cnn_kernel_size, 
-            "patch_size": cfg.cnn_patch_size, 
+            "kernel_size": cfg.cnn_kernel_size,
+            "patch_size": cfg.cnn_patch_size,
             "n_out": cfg.n_out,
             "dropout_prob": cfg.dropout,
         }
@@ -154,10 +155,7 @@ def train_sweep(config=None):
             model=clip_model, train_dataloaders=train_loader, val_dataloaders=val_loader
         )
 
-        
-        wandb.run.summary["best_auc"] = np.max(
-            loss_tracking_callback.auc_val_history
-        )
+        wandb.run.summary["best_auc"] = np.max(loss_tracking_callback.auc_val_history)
         wandb.run.summary["best_val_loss"] = np.min(
             loss_tracking_callback.val_loss_history
         )
@@ -217,11 +215,11 @@ if __name__ == "__main__":
         "max_spectral_data_len"
     ]  # Spectral data is cut to this length
     dataset = SimulationDataset(
-        data_dir + 'ZTF_Pretrain_5Class.hdf5',
-        bands=['r', 'g'], 
+        data_dir + "ZTF_Pretrain_5Class.hdf5",
+        bands=["r", "g"],
         n_max_obs_spec=max_spectral_data_len,
-        combinations=combinations, 
-        noise=cfg['extra_args']['noise'],
+        combinations=combinations,
+        noise=cfg["extra_args"]["noise"],
     )
 
     wandb.agent(

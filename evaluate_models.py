@@ -83,7 +83,7 @@ print("finished loading models")
 # Data preprocessing
 
 data_dirs = [
-    "/home/thelfer1/scr4_tedwar42/thelfer1/ZTFBTS/",
+    # "/home/thelfer1/scr4_tedwar42/thelfer1/ZTFBTS/",
     "ZTFBTS/",
     "/ocean/projects/phy230064p/shared/ZTFBTS/",
     "data/ZTFBTS/",

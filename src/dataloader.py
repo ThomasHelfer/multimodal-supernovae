@@ -57,7 +57,7 @@ class NoisyDataLoader(DataLoader):
         self.noise_level_mag = noise_level_mag
         self.combinations = set(combinations)
 
-        if "meta" in self.combinations: # Remove meta from combinations
+        if "meta" in self.combinations:  # Remove meta from combinations
             self.combinations.remove("meta")
 
         # Checking if we get the right output
@@ -498,7 +498,7 @@ def load_lightcurves(
             snName = Path(filename).stem  # Get the filename without the extension
             if snName not in df["ZTFID"].values:
                 continue
-            
+
             light_curve_df = open_light_curve_csv(filename)
 
             # Correct for milky way extinction using the Cardelli, Clayton & Mathis (1989) law.

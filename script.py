@@ -90,7 +90,7 @@ if __name__ == "__main__":
         max_data_len_spec=max_spectral_data_len,
         combinations=combinations,
         n_classes=n_classes,
-        spectral_rescalefactor = cfg['spectral_rescalefactor'],
+        spectral_rescalefactor=cfg["spectral_rescalefactor"],
     )
 
     number_of_samples = len(dataset)
@@ -102,7 +102,9 @@ if __name__ == "__main__":
     n_samples_val = int(val_fraction * number_of_samples)
 
     dataset_train, dataset_val = random_split(
-        dataset, [number_of_samples - n_samples_val, n_samples_val], generator=torch.Generator().manual_seed(cfg['seed'])
+        dataset,
+        [number_of_samples - n_samples_val, n_samples_val],
+        generator=torch.Generator().manual_seed(cfg["seed"]),
     )
 
     train_loader_no_aug = NoisyDataLoader(
@@ -169,11 +171,11 @@ if __name__ == "__main__":
     }
 
     conv_kwargs = {
-        "dim": cfg["cnn_dim"], 
+        "dim": cfg["cnn_dim"],
         "depth": cfg["cnn_depth"],
         "channels": cfg["cnn_channels"],
-        "kernel_size": cfg["cnn_kernel_size"], 
-        "patch_size": cfg["cnn_patch_size"], 
+        "kernel_size": cfg["cnn_kernel_size"],
+        "patch_size": cfg["cnn_patch_size"],
         "n_out": cfg["n_out"],
         "dropout_prob": cfg["dropout"],
     }

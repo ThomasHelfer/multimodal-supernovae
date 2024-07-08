@@ -25,7 +25,7 @@ setup(
     keywords="Machine learning, Supernovea, Multimodal",
     author="Thomas Helfer, Gemma Zhang",
     author_email="thomashelfer@live.de",
-    license="MIT",  
+    license="MIT",
     packages=find_packages(exclude=["tests"]),
     install_requires=read_requirements(),
     python_requires=">=3.8",
