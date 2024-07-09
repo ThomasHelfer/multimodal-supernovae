@@ -215,8 +215,8 @@ if __name__ == "__main__":
         "max_spectral_data_len"
     ]  # Spectral data is cut to this length
     dataset = SimulationDataset(
-        data_dir + "ZTF_Pretrain_5Class.hdf5",
-        bands=["r", "g"],
+        data_dir + cfg["extra_args"]['filename_trainset'],
+        bands=['r', 'g'],
         n_max_obs_spec=max_spectral_data_len,
         combinations=combinations,
         noise=cfg["extra_args"]["noise"],
