@@ -1,0 +1,46 @@
+method: grid
+metric:
+  goal: minimize
+  name: best_val_loss
+entity: multimodal-supernovae
+project: multimodal
+parameters:
+  hidden_dim:
+    values: [32]
+  num_layers:
+    values: [2]
+  dropout:
+    values: [0.007220089091583901]
+  foldnumber:
+    values: [0, 1, 2, 3, 4]
+  # Optimiser 
+  lr:
+    values: [0.00002302953465676189]
+  batchsize:
+    values: [32]
+  epochs:
+    values: [1000]
+  weight_decay:
+    values: [0.00007263111811110595]
+  seed:
+    values: [0]
+  patience:    # Parameter for early stopping 
+    values: [50]
+sweep:
+  id: 7tufx26s
+# Options are 'lightcurve' 'spectral' and 'host_galaxy' -- order does not matter 
+extra_args:
+  #pretrain_path: '/n/home02/gemzhang/repos/Multimodal-hackathon-2024/analysis/5mogfhxc/scarlet-sweep-1/epoch=337-step=5016934.ckpt'
+  #pretrain_path: '/n/home02/gemzhang/repos/Multimodal-hackathon-2024/analysis/ps45beex/sage-sweep-1/epoch=276-step=4111511.ckpt' #noisy
+  #pretrain_path: '/n/home02/gemzhang/repos/Multimodal-hackathon-2024/analysis/n2f6pf8z/drawn-sweep-1/epoch=763-step=353732.ckpt' #noiseless flat z 
+  pretrain_path: 
+    /n/home02/gemzhang/repos/Multimodal-hackathon-2024/analysis/s7ox5dcn/polar-sweep-1/epoch=758-step=351417.ckpt                #noisy flat z
+  freeze_backbone: true
+  kfolds: 5
+  combinations: [lightcurve, spectral]
+  regression: false
+  nruns: 5
+  max_spectral_data_len: 220
+  val_fraction: 0.2  # train test split
+  classification: false
+  spectral_rescalefactor: 1 # rescaling spectral values by a fixed amout to avoid floating point issues
