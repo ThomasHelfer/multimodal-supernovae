@@ -13,7 +13,12 @@ import pytorch_lightning as pl
 from torch.utils.data import TensorDataset, DataLoader, random_split, Subset
 from sklearn.model_selection import train_test_split
 
-from src.models_multimodal import LightCurveImageCLIP, load_pretrain_clip_model, initialize_model, ClipMLP
+from src.models_multimodal import (
+    LightCurveImageCLIP,
+    load_pretrain_clip_model,
+    initialize_model,
+    ClipMLP,
+)
 from src.utils import (
     set_seed,
     get_valid_dir,
@@ -53,10 +58,17 @@ def train_sweep(config=None):
         dataset_train = Subset(dataset, inds_train)
         dataset_val = Subset(dataset, inds_val)
 
-        # save val file names 
-        np.savetxt(os.path.join(path_run, "val_filenames.txt"), np.array(filenames)[inds_val], fmt="%s")
-        np.savetxt(os.path.join(path_run, "train_filenames.txt"), np.array(filenames)[inds_train], fmt="%s")
-
+        # save val file names
+        np.savetxt(
+            os.path.join(path_run, "val_filenames.txt"),
+            np.array(filenames)[inds_val],
+            fmt="%s",
+        )
+        np.savetxt(
+            os.path.join(path_run, "train_filenames.txt"),
+            np.array(filenames)[inds_train],
+            fmt="%s",
+        )
 
         # Default to 1 if the environment variable is not set
         cpus_per_task = int(os.getenv("SLURM_CPUS_PER_TASK", 1))
@@ -109,14 +121,16 @@ def train_sweep(config=None):
         )
 
         optimizer_kwargs = {"weight_decay": cfg.weight_decay}
-        mlp_kwargs = {"hidden_dim": cfg.hidden_dim, 
-                      "output_dim": 1,
-                      "num_layers": cfg.num_layers,
-                      "dropout": cfg.dropout}
-        
-        clip_model,_,_,_,_,cfg_pre,_  = initialize_model(pretrain_path, 
-                                                optimizer_kwargs=optimizer_kwargs, 
-                                                combinations=combinations)
+        mlp_kwargs = {
+            "hidden_dim": cfg.hidden_dim,
+            "output_dim": 1,
+            "num_layers": cfg.num_layers,
+            "dropout": cfg.dropout,
+        }
+
+        clip_model, _, _, _, _, cfg_pre, _ = initialize_model(
+            pretrain_path, optimizer_kwargs=optimizer_kwargs, combinations=combinations
+        )
 
         # dump config
         config_dict = {k: v for k, v in cfg.items()}
@@ -127,17 +141,19 @@ def train_sweep(config=None):
         # Loading up pretrained models
         load_pretrain_clip_model(pretrain_path, clip_model, freeze_backbone)
 
-        if regression: 
-            model = ClipMLP(clip_model, 
-                            mlp_kwargs, 
-                            optimizer_kwargs,
-                            cfg.lr, 
-                            combinations, 
-                            regression=regression, 
-                            classification=classification, 
-                            n_classes=n_classes)
-        else: 
-            model = clip_model 
+        if regression:
+            model = ClipMLP(
+                clip_model,
+                mlp_kwargs,
+                optimizer_kwargs,
+                cfg.lr,
+                combinations,
+                regression=regression,
+                classification=classification,
+                n_classes=n_classes,
+            )
+        else:
+            model = clip_model
 
         # Custom call back for tracking loss
         loss_tracking_callback = LossTrackingCallback()
@@ -171,10 +187,10 @@ def train_sweep(config=None):
             logger=wandb_logger,
             enable_progress_bar=False,
         )
-        
+
         if len(combinations) == 2:
             wandb.define_metric("AUC_val", summary="max")
-            
+
         trainer.fit(
             model=model, train_dataloaders=train_loader, val_dataloaders=val_loader
         )
@@ -202,7 +218,6 @@ def train_sweep(config=None):
                 combinations,
                 path_base=path_run,
             )
-
 
         wandb.finish()
 

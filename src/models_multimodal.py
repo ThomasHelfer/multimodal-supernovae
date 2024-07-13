@@ -437,7 +437,7 @@ class LightCurveImageCLIP(pl.LightningModule):
         x = self(
             x_img, x_lc, t_lc, mask_lc, x_sp, t_sp, mask_sp, redshift, classification
         )
-        print("validation", flush=True)
+        #print("validation", flush=True)
 
         if self.regression:
             loss = nn.MSELoss()(x.squeeze(), redshift)
@@ -814,7 +814,7 @@ def load_pretrain_clip_model(
     # Loading up pretrained models
     if pretrain_path:
         pre = torch.load(pretrain_path)
-        clip_model.load_state_dict(pre["state_dict"])
+        clip_model.load_state_dict(pre["state_dict"],strict = False)
 
         # Freezing pretrained backbone if required
         if freeze_backbone:

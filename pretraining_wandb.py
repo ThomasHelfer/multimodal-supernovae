@@ -45,7 +45,7 @@ def train_sweep(config=None):
         # For the moment hardcoded to a single band
         bands = ["r", "g"]
         nband = len(bands)
-        n_max_obs = 80
+        n_max_obs = 100
       
 
         # dataset = SimulationLightcurveDataset(
