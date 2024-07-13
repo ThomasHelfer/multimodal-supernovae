@@ -58,20 +58,19 @@ parameters:
   seed:
     values: [0]
   patience:    # Parameter for early stopping 
-    values: [1000]
+    values: [100]
 sweep:
-  id: i19mz6de
-# Options are 'lightcurve' 'spectral' and 'host_galaxy' -- order does not matter 
+  id: o5vniahw
 extra_args:
   combinations: [lightcurve]
-  regression: false
+  regression: true
   nruns: 5
   max_spectral_data_len: 1024
   val_fraction: 0.2  # train test split
   kfolds: 5
-  classification: true
+  classification: false
   spectral_rescalefactor: 1 # rescaling spectral values by a fixed amout to avoid floating point issues
-  n_classes: 5
   pretrain_lc_path: 
-    /home/thelfer1/data_tedwar42/thelfer1/Multimodal-hackathon-2024/models/newest_models/masked_pretraining_noiseless_f25/glad-sweep-1/epoch=44-step=10440.ckpt
+    /home/thelfer1/data_tedwar42/thelfer1/Multimodal-hackathon-2024/models/newest_models/masked_pretraining_noiseless_f15/robust-sweep-1/epoch=67-step=15776.ckpt
   freeze_backbone_lc: true
+  n_classes: 5

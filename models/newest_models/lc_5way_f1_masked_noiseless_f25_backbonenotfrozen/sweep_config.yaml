@@ -58,9 +58,9 @@ parameters:
   seed:
     values: [0]
   patience:    # Parameter for early stopping 
-    values: [100]
+    values: [1000]
 sweep:
-  id: wvbl5oaz
+  id: oxtet26c
 # Options are 'lightcurve' 'spectral' and 'host_galaxy' -- order does not matter 
 extra_args:
   combinations: [lightcurve]
