@@ -32,33 +32,85 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 # Load models
 set_seed(0)
 
+KNNparameters = [1,2,3,5,7,8,9]
+
 directories = [
-    "models/newest_models/clip_real_lc_meta/",
-    "models/newest_models/clip_real_lc_spectral_meta/",
-    # "models/newest_models/masked_pretraining_noiseless_backbonefrozen",
-    # "models/newest_models/masked_pretraining_noiseless_backbonenotfrozen",
+    "models/newest_models/clip_finetune",
+    "models/newest_models/clip_noiselesssimpretrain_clipreal",
     "models/newest_models/clip_noiselesssimpretrain_clipreal_flatz",
+    "models/newest_models/clip_noiselesssimpretrain_clipreal_lc_meta_flatz",
+    "models/newest_models/clip_noisysimpretrain_clipreal",
     "models/newest_models/clip_noisysimpretrain_clipreal_flatz",
+    "models/newest_models/clip_pretrain_noiseless",
+    "models/newest_models/clip_pretrain_noiseless_flatz",
+    "models/newest_models/clip_pretrain_noiseless_lc_spectral_meta_flatz",
+    "models/newest_models/clip_pretrain_noisy",
+    "models/newest_models/clip_pretrain_noisy_flatz",
     "models/newest_models/clip_real",
+    "models/newest_models/clip_real_lc_meta",
+    "models/newest_models/clip_real_lc_spectral_meta",
     "models/newest_models/lc_3way_f1",
+    "models/newest_models/lc_3way_f1_masked_noiseless_f15_backbonefrozen",
+    "models/newest_models/lc_3way_f1_masked_noiseless_f15_backbonenotfrozen",
+    "models/newest_models/lc_3way_f1_masked_noiseless_f25_backbonefrozen",
+    "models/newest_models/lc_3way_f1_masked_noiseless_f25_backbonenotfrozen",
     "models/newest_models/lc_5way_f1",
+    "models/newest_models/lc_5way_f1_masked_noiseless_f15_backbonefrozen",
+    "models/newest_models/lc_5way_f1_masked_noiseless_f15_backbonenotfrozen",
+    "models/newest_models/lc_5way_f1_masked_noiseless_f25_backbonefrozen",
+    "models/newest_models/lc_5way_f1_masked_noiseless_f25_backbonenotfrozen",
     "models/newest_models/lc_reg",
+    "models/newest_models/lc_reg_masked_noiseless_f15_backbonefrozen",
+    "models/newest_models/lc_reg_masked_noiseless_f15_backbonenotfrozen",
+    "models/newest_models/lc_reg_masked_noiseless_f25_backbonefrozen",
+    "models/newest_models/lc_reg_masked_noiseless_f25_backbonenotfrozen",
+    "models/newest_models/masked_pretraining_noiseless_backbonefrozen",
+    "models/newest_models/masked_pretraining_noiseless_backbonenotfrozen",
+    "models/newest_models/masked_pretraining_noiseless_f15",
+    "models/newest_models/masked_pretraining_noiseless_f25",
+    "models/newest_models/masked_pretraining_noiseless_f45",
     "models/newest_models/sp_3way_f1",
     "models/newest_models/sp_5way_f1",
+    "models/newest_models/sp_reg",
 ]  # "ENDtoEND",
 names = [
-    "clip-lc-meta",
-    "clip-lc-spectral-meta",
-    # "masked_pretrain_noiseless_cliprealbackbonefrozen",
-    # "masked_pretrain_noiseless_cliprealbackbonenotfrozen",
+    "clip-finetune",
     "clip-noiselesssimpretrain-clipreal",
+    "clip-noiselesssimpretrain-clipreal-flatz",
+    "clip-noiselesssimpretrain-clipreal-lc-meta-flatz",
     "clip-noisysimpretrain-clipreal",
+    "clip-noisysimpretrain-clipreal-flatz",
+    "clip-pretrain-noiseless",
+    "clip-pretrain-noiseless-flatz",
+    "clip-pretrain-noiseless-lc-spectral-meta-flatz",
+    "clip-pretrain-noisy",
+    "clip-pretrain-noisy-flatz",
     "clip-real",
+    "clip-real-lc-meta",
+    "clip-real-lc-spectral-meta",
     "lc-3way-f1",
+    "lc-3way-f1-masked-noiseless-f15-backbonefrozen",
+    "lc-3way-f1-masked-noiseless-f15-backbonenotfrozen",
+    "lc-3way-f1-masked-noiseless-f25-backbonefrozen",
+    "lc-3way-f1-masked-noiseless-f25-backbonenotfrozen",
     "lc-5way-f1",
+    "lc-5way-f1-masked-noiseless-f15-backbonefrozen",
+    "lc-5way-f1-masked-noiseless-f15-backbonenotfrozen",
+    "lc-5way-f1-masked-noiseless-f25-backbonefrozen",
+    "lc-5way-f1-masked-noiseless-f25-backbonenotfrozen",
     "lc-reg",
+    "lc-reg-masked-noiseless-f15-backbonefrozen",
+    "lc-reg-masked-noiseless-f15-backbonenotfrozen",
+    "lc-reg-masked-noiseless-f25-backbonefrozen",
+    "lc-reg-masked-noiseless-f25-backbonenotfrozen",
+    "masked-pretraining-noiseless-backbonefrozen",
+    "masked-pretraining-noiseless-backbonenotfrozen",
+    "masked-pretraining-noiseless-f15",
+    "masked-pretraining-noiseless-f25",
+    "masked-pretraining-noiseless-f45",
     "sp-3way-f1",
     "sp-5way-f1",
+    "sp-reg",
 ]
 models = []
 
@@ -273,13 +325,7 @@ for output, label, id in zip(models, labels, ids):
                             y_true,
                             task=task,
                         )
-                        y_pred_knn = get_knn_predictions(
-                            embs_list_train[i],
-                            y_true_train,
-                            embs_list[i],
-                            y_true,
-                            task=task,
-                        )
+
                         metrics, results = calculate_metrics(
                             y_true,
                             y_true_label,
@@ -293,28 +339,31 @@ for output, label, id in zip(models, labels, ids):
                         regression_metrics_list.append(metrics)
                         collect_regression_results.append(results)
 
-                        metrics, results = calculate_metrics(
-                            y_true,
-                            y_true_label,
-                            y_pred_knn,
-                            lc_data,
-                            label + "+KNN",
-                            combs[i],
-                            id=id,
-                            task=task,
-                        )
-                        regression_metrics_list.append(metrics)
-                        collect_regression_results.append(results)
+                        for kneighbours in KNNparameters:
+                            y_pred_knn = get_knn_predictions(
+                                embs_list_train[i],
+                                y_true_train,
+                                embs_list[i],
+                                y_true,
+                                task=task,
+                                k = kneighbours,
+                            )
+
+                            metrics, results = calculate_metrics(
+                                y_true,
+                                y_true_label,
+                                y_pred_knn,
+                                lc_data,
+                                label + f"+KNN{kneighbours}",
+                                combs[i],
+                                id=id,
+                                task=task,
+                            )
+                            regression_metrics_list.append(metrics)
+                            collect_regression_results.append(results)
 
                     elif task == "classification":
                         y_pred_linear = get_linear_predictions(
-                            embs_list_train[i],
-                            y_true_train_label,
-                            embs_list[i],
-                            y_true_label,
-                            task=task,
-                        )
-                        y_pred_knn = get_knn_predictions(
                             embs_list_train[i],
                             y_true_train_label,
                             embs_list[i],
@@ -333,19 +382,28 @@ for output, label, id in zip(models, labels, ids):
                         )
                         classification_metrics_list.append(metrics)
                         collect_classification_results.append(results)
-
-                        metrics, results = calculate_metrics(
-                            y_true,
-                            y_true_label,
-                            y_pred_knn,
-                            lc_data,
-                            label + f"+KNN+{n_classes}",
-                            combs[i],
-                            id=id,
-                            task=task,
-                        )
-                        collect_classification_results.append(results)
-                        classification_metrics_list.append(metrics)
+                        
+                        for kneighbours in KNNparameters:
+                            y_pred_knn = get_knn_predictions(
+                                embs_list_train[i],
+                                y_true_train_label,
+                                embs_list[i],
+                                y_true_label,
+                                task=task,
+                                k = kneighbours,
+                            )
+                            metrics, results = calculate_metrics(
+                                y_true,
+                                y_true_label,
+                                y_pred_knn,
+                                lc_data,
+                                label + f"+KNN{kneighbours}+{n_classes}",
+                                combs[i],
+                                id=id,
+                                task=task,
+                            )
+                            collect_classification_results.append(results)
+                            classification_metrics_list.append(metrics)
 
             # for concatenated pairs of modalities
             for i in range(len(embs_list)):
@@ -365,13 +423,7 @@ for output, label, id in zip(models, labels, ids):
                                 y_true,
                                 task=task,
                             )
-                            y_pred_knn = get_knn_predictions(
-                                emb_train,
-                                y_true_train,
-                                emb_concat,
-                                y_true,
-                                task=task,
-                            )
+
                             metrics, results = calculate_metrics(
                                 y_true,
                                 y_true_label,
@@ -385,18 +437,28 @@ for output, label, id in zip(models, labels, ids):
                             regression_metrics_list.append(metrics)
                             collect_regression_results.append(results)
 
-                            metrics, results = calculate_metrics(
-                                y_true,
-                                y_true_label,
-                                y_pred_knn,
-                                lc_data,
-                                label + "+KNN",
-                                combs[i] + " and " + combs[j],
-                                id=id,
-                                task=task,
-                            )
-                            collect_regression_results.append(results)
-                            regression_metrics_list.append(metrics)
+                            for kneighbours in KNNparameters:
+                                y_pred_knn = get_knn_predictions(
+                                    emb_train,
+                                    y_true_train,
+                                    emb_concat,
+                                    y_true,
+                                    task=task,
+                                    k = kneighbours,
+                                )
+                                
+                                metrics, results = calculate_metrics(
+                                    y_true,
+                                    y_true_label,
+                                    y_pred_knn,
+                                    lc_data,
+                                    label + f"+KNN{kneighbours}",
+                                    combs[i] + " and " + combs[j],
+                                    id=id,
+                                    task=task,
+                                )
+                                collect_regression_results.append(results)
+                                regression_metrics_list.append(metrics)
                         elif task == "classification":
                             y_pred_linear = get_linear_predictions(
                                 emb_train,
@@ -405,13 +467,7 @@ for output, label, id in zip(models, labels, ids):
                                 y_true_label,
                                 task=task,
                             )
-                            y_pred_knn = get_knn_predictions(
-                                emb_train,
-                                y_true_train_label,
-                                emb_concat,
-                                y_true_label,
-                                task=task,
-                            )
+
                             metrics, results = calculate_metrics(
                                 y_true,
                                 y_true_label,
@@ -424,19 +480,27 @@ for output, label, id in zip(models, labels, ids):
                             )
                             classification_metrics_list.append(metrics)
                             collect_classification_results.append(results)
-
-                            metrics, results = calculate_metrics(
-                                y_true,
-                                y_true_label,
-                                y_pred_knn,
-                                lc_data,
-                                label + f"+KNN+{n_classes}",
-                                combs[i] + " and " + combs[j],
-                                id=id,
-                                task=task,
-                            )
-                            collect_classification_results.append(results)
-                            classification_metrics_list.append(metrics)
+                            for kneighbours in KNNparameters:
+                                y_pred_knn = get_knn_predictions(
+                                    emb_train,
+                                    y_true_train_label,
+                                    emb_concat,
+                                    y_true_label,
+                                    task=task,
+                                    k = kneighbours,
+                                )
+                                metrics, results = calculate_metrics(
+                                    y_true,
+                                    y_true_label,
+                                    y_pred_knn,
+                                    lc_data,
+                                    label + f"+KNN{kneighbours}+{n_classes}",
+                                    combs[i] + " and " + combs[j],
+                                    id=id,
+                                    task=task,
+                                )
+                                collect_classification_results.append(results)
+                                classification_metrics_list.append(metrics)
     print("===============================")
 
 class_names = {
