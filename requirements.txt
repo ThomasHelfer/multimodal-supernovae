@@ -20,4 +20,3 @@ astropy
 pzflow
 scikit-learn
 extinction
-seaborn
