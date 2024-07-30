@@ -12,6 +12,7 @@ This codebase is dedicated to exploring different self-supervised pretraining me
 
 An overview over the the CLIP method and loss [link](https://lilianweng.github.io/posts/2021-05-31-contrastive/) 
 
+All data used in this work is available here: [link](https://huggingface.co/datasets/thelfer/multimodal_supernovae)
 
 ## Installation
 
