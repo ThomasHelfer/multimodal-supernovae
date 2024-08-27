@@ -47,18 +47,6 @@ Before installing, ensure you have the following prerequisites:
    ```bash
    pip install -r requirements.txt 
    ```
-
-5. #### Run the Script
-   Execute the main script to start your analysis:
-   ```bash
-   python script.py --config_path configs/config.yaml
-   ```
-6. #### Restart script
-   To start off from a checkpoint use 
-   ```bash
-   python script.py --ckpt_path analysis/batch_sweep/worldly-sweep-4/model.ckpt
-   ```
-   where there should be a config.yaml corresponing to this run in the same folder
    
 ### Setting Up a Hyperparameter Scan with Weights & Biases
 
@@ -95,10 +83,6 @@ Before installing, ensure you have the following prerequisites:
    Resume a sweep with the following command:
    ```bash
    python script_wandb.py [sweep_id]
-   ```
-   or for pretraining the lightcurve encoder please use:
-   ```bash
-   python pretraining_wandb.py configs/config_grid.yaml
    ```
 6. #### API Key Configuration
    The first execution will prompt you for your Weights & Biases API key, which can be found [here]([https://wandb.ai](https://wandb.ai/authorize)https://wandb.ai/authorize). 
