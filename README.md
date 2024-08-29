@@ -51,9 +51,18 @@ Before installing, ensure you have the following prerequisites:
 5. #### Pretrain on simulated data
    Run the pretrain script
    ```bash
-   python pretraining_clip_wandb.py pretrain_config/sweep_config.yaml
+   python pretraining_clip_wandb.py pretrain_config/maven_pretrain_config.yaml 
    ```
-   
+6. #### Finetune maven on real data
+   Clip finetuning the pretrained model 
+   ```bash
+   python finetune_clip.py configs/maven_finetune.yaml
+   ```
+7. #### Train maven-lite
+   Run the script
+   ```bash
+   python script_wandb.py configs/maven-lite.yaml
+   ```
 ### Setting Up a Hyperparameter Scan with Weights & Biases
 
 1. #### Create a Weights & Biases Account
