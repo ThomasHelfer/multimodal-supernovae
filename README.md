@@ -32,14 +32,8 @@ Before installing, ensure you have the following prerequisites:
 2. #### Get data
    Unpack the dataset containing supernovae spectra, light curves and host galaxy images:
    ```bash
-   unzip data/ZTFBTS.zip
-   unzip data/ZTFBTS_spectra.zip   
-   ```
-   for larger simulation-based data download using wget 
-   ```bash
-   mkdir sim_data
-   cd sim_data
-   wget https://zenodo.org/records/6601211/files/scotch_z3.hdf5
+   git clone https://huggingface.co/datasets/thelfer/multimodal_supernovae
+   mv multimodal_supernovae/ZTFBTS* multimodal_supernovae/sim_data/ .
    ```
   
 4. #### Install Required Python Packages
