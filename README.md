@@ -105,3 +105,10 @@ Before installing, ensure you have the following prerequisites:
         values: [1,2,3]
    ```
 
+### Calculate performance metrics from models
+   To calculate the performance of checkpoint files of models, change the folderpath in the file evaluate_models.py 
+   and corresponding name. Then simply calculate metrics by running 
+   ```bash
+   python evaluate_models.py
+   ```
+
