@@ -33,13 +33,25 @@ Before installing, ensure you have the following prerequisites:
    Unpack the dataset containing supernovae spectra, light curves and host galaxy images:
    ```bash
    git clone https://huggingface.co/datasets/thelfer/multimodal_supernovae
-   mv multimodal_supernovae/ZTFBTS* multimodal_supernovae/sim_data/ .
+   mv multimodal_supernovae/ZTFBTS* .
+   mkdir sim_data && cd sim_data 
+   wget https://huggingface.co/datasets/thelfer/multimodal_supernovae/resolve/main/sim_data/ZTF_Pretrain_5Class.hdf5
    ```
   
 4. #### Install Required Python Packages
+   We recommend to set up an virtual enviorment
+   ```bash
+   virtualenv dev
+   source dev/bin/activate
+   ```
    Install all dependencies listed in the requirements.txt file:
    ```bash
    pip install -r requirements.txt 
+   ```
+5. #### Pretrain on simulated data
+   Run the pretrain script
+   ```bash
+   python pretraining_clip_wandb.py pretrain_config/sweep_config.yaml
    ```
    
 ### Setting Up a Hyperparameter Scan with Weights & Biases
