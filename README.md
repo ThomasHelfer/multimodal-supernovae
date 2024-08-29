@@ -58,6 +58,7 @@ Before installing, ensure you have the following prerequisites:
    ```bash
    python finetune_clip.py configs/maven_finetune.yaml
    ```
+   the config file uses the path of our pre-trained model, to apply this to your model, please change the path 
 7. #### Train maven-lite
    Run the script
    ```bash
