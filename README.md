@@ -2,6 +2,8 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-red.svg)](https://opensource.org/licenses/MIT)
 ![Unittest](https://github.com/ThomasHelfer/multimodal-supernovae/actions/workflows/actions.yml/badge.svg)
+[![arXiv](https://img.shields.io/badge/arXiv-2408.16829-b31b1b.svg)](https://arxiv.org/pdf/2408.16829)
+
 
 <p align="center">
     <img src="https://github.com/ThomasHelfer/multimodal-supernovae/blob/main/imgs/logo_cropped.png" alt="no alignment" width="34%" height="auto"/>
@@ -13,6 +15,8 @@ This codebase is dedicated to exploring different self-supervised pretraining me
 An overview over the the CLIP method and loss [link](https://lilianweng.github.io/posts/2021-05-31-contrastive/) 
 
 All data used in this work is available here: [link](https://huggingface.co/datasets/thelfer/multimodal_supernovae)
+
+Paper associated with code [link](https://arxiv.org/pdf/2408.16829)
 
 ## Installation
 
