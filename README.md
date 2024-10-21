@@ -18,6 +18,8 @@ All data used in this work is available here: [link](https://huggingface.co/data
 
 Paper associated with code [link](https://arxiv.org/pdf/2408.16829)
 
+Our transformer-based model [Maven](models/clip_noiselesssimpretrain_clipreal) is pretrained on simulated data and finetuned on observations. We compare it with [Maven-lite](models/clip_real) which is directly trained on observations, and a transformer-based supervised [classifcation model](models/lc_3way_f1) and [regression model](models/lc_reg). 
+
 ## Installation
 
 ### Prerequisites
