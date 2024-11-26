@@ -1,13 +1,16 @@
 # Multimodality with supernovae 
-
-[![License: MIT](https://img.shields.io/badge/License-MIT-red.svg)](https://opensource.org/licenses/MIT)
-![Unittest](https://github.com/ThomasHelfer/multimodal-supernovae/actions/workflows/actions.yml/badge.svg)
-[![arXiv](https://img.shields.io/badge/arXiv-2408.16829-b31b1b.svg)](https://arxiv.org/pdf/2408.16829)
-
-
 <p align="center">
     <img src="https://github.com/ThomasHelfer/multimodal-supernovae/blob/main/imgs/logo_cropped.png" alt="no alignment" width="34%" height="auto"/>
 </p>
+
+<div align="center">
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-red.svg)](https://opensource.org/licenses/MIT)
+![Unittest](https://github.com/ThomasHelfer/multimodal-supernovae/actions/workflows/actions.yml/badge.svg)
+[![arXiv: 2408.16829](https://img.shields.io/badge/arXiv-2408.16829-b31b1b.svg)](https://arxiv.org/pdf/2408.16829)
+[![Hugging Face Dataset: multimodal_supernovae](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Dataset%3A%20multimodal_supernovae-FFD21E)](https://huggingface.co/datasets/thelfer/multimodal_supernovae)
+
+</div>
 
 ## Overview
 This codebase is dedicated to exploring different self-supervised pretraining methods. We integrate multimodal data from supernovae light curves with images of their host galaxies. Our goal is to leverage diverse data types to improve the prediction and understanding of astronomical phenomena. 
