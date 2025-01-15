@@ -78,7 +78,7 @@ Before installing, ensure you have the following prerequisites:
 1. #### Create a Weights & Biases Account
    Sign up for an account at [Weights & Biases]((https://wandb.ai)) if you haven't already.
 2. #### Configure Your Project
-   Edit the configuration file to specify your project name. Ensure the name matches the project you create on [wandb.ai](https://wandb.a). You can define sweep parameters within the [config file](https://github.com/ThomasHelfer/Multimodal-hackathon-2024/blob/main/configs/config_grid.yaml) .
+   Edit the configuration file to specify your project name. Ensure the name matches the project you create on [wandb.ai](https://wandb.ai). You can define sweep parameters within the [config file](https://github.com/ThomasHelfer/Multimodal-hackathon-2024/blob/main/configs/config_grid.yaml) .
 3. #### Choose important parameters
    In the config file you can choose
    ```yaml
